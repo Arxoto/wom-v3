@@ -1,0 +1,106 @@
+.head-box {
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    overflow: hidden;
+
+    font-size: 1.5rem;
+}
+
+.head-static {
+    flex-shrink: 0;
+    height: 100%;
+}
+
+.head-elastic {
+    flex-grow: 1;
+    height: 100%;
+}
+
+.head-space {
+    flex-shrink: 0;
+    height: 100%;
+    width: 0;
+    margin: 0 .4em;
+}
+
+/* 输入框 */
+
+/* 指定等距字体 防止连字 */
+.input-container {
+    position: relative;
+    font-family: ui-monospace, monospace;
+    font-variant-ligatures: none;
+    margin: 0;
+}
+
+/* font 保证字体一致 line-height 保证垂直对齐 letter-spacing 保证字符额外间距默认 */
+.input-base {
+    font: inherit;
+    line-height: 1.5;
+    letter-spacing: normal;
+
+    margin: 0;
+    padding: .4em 0;
+    width: 100%;
+}
+
+/* pointer-events 禁止点击 user-select 禁止选中 white-space 空格不合并 */
+.suggestion-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: transparent;
+    z-index: 1;
+
+    pointer-events: none;
+    user-select: none;
+    white-space: pre;
+    overflow: hidden;
+}
+
+/* border 无边框 outline 激活时无边框 */
+.real-input {
+    position: relative;
+    background-color: transparent;
+    z-index: 2;
+    color: var(--color-diff);
+
+    border: none;
+    outline: none;
+}
+
+.suggestion-layer>.typed-text {
+    color: transparent;
+}
+
+.suggestion-layer>.ghost-text {
+    color: var(--color-diff-general);
+    font-style: italic;
+}
+
+/* 图标 */
+
+.input-tag {
+    margin: 0;
+    padding: 0 .4em;
+    font-weight: bold;
+}
+
+.wom-icon {
+    width: 1.6em;
+    margin: 0 .4em 0 0;
+    content: url(/wom.png);
+}
+
+@media (prefers-color-scheme: dark) {
+    .wom-icon {
+        content: url(/wow.png);
+    }
+}
+
+.chaos-icon {
+    content: url(/chaos.png);
+}

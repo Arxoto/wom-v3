@@ -1,0 +1,34 @@
+/* 注意高度必须一路 100% 中间不能有无高度的元素 */
+.layout-box {
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* 高度固定， flex-shrink 防止被压缩 */
+.layout-box>.static {
+    flex-shrink: 0;
+    max-height: 40%;
+    width: 100%;
+    overflow: auto;
+}
+
+/* 高度自适应， flex-grow 拉伸填满 */
+.layout-box>.elastic {
+    flex-grow: 1;
+    width: 100%;
+    overflow: auto;
+}
+
+/* 分割线 */
+.layout-box>.divider {
+    flex-shrink: 0;
+    height: 1px;
+    width: 100%;
+    margin: 3px 0 4px 0;
+    background-color: var(--color-comm-magical);
+}
