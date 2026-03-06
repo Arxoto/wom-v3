@@ -1,10 +1,12 @@
 import { Box, Static, Elastic, Divider } from "./main/Layout";
 import { Head } from "./main/Head";
 import { Body } from "./main/Body";
+import { near_native_setting } from "./AppSetter";
 
 import "./core.css";
 
 function App() {
+  near_native_setting();
   return (
     <Box>
       <Static>
@@ -96,18 +98,3 @@ todo list
 //     </div>
 //   );
 // };
-
-
-// 默认样式增加
-// body {
-//   /* 解决 Mac 下字体发胖问题 */
-//   -webkit-font-smoothing: antialiased;
-//   -moz-osx-font-smoothing: grayscale;
-
-//   /* 解决跨平台字距和排版美化问题 */
-//   text-rendering: optimizeLegibility;
-
-//   /* 额外建议：防止用户意外选中文本（FlowLauncher 类工具必备） */
-//   user-select: none;
-//   -webkit-user-select: none;
-// }

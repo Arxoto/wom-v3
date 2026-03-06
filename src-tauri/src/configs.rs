@@ -1,20 +1,51 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
+use arc_swap::ArcSwap;
 use serde::{Deserialize, Serialize};
 
 pub const CONFIG_FILE_NAME: &str = "config.json";
 
+pub static CONFIG: OnceLock<ArcSwap<ConfigData>> = OnceLock::new();
+
+pub fn load_data(app: &tauri::AppHandle) {
+    let config_settings = ConfigSettings::load(app).expect("load config failed");
+    let config_data = ConfigData::from(config_settings);
+
+    CONFIG
+        .set(ArcSwap::from(Arc::new(config_data)))
+        .expect("staticize config failed");
+}
+
+pub fn reload_data(app: &tauri::AppHandle) {
+    let config_settings = ConfigSettings::load(app).expect("load config failed");
+    let config_data = ConfigData::from(config_settings);
+
+    CONFIG
+        .get()
+        .expect("config must be initialized before use")
+        .store(Arc::new(config_data));
+}
+
+pub fn get_data() -> Arc<ConfigData> {
+    CONFIG
+        .get()
+        .expect("config must be initialized before use")
+        .load_full()
+}
+
 /// 配置数据（编码用）
 #[derive(Debug, Default, Clone)]
-pub struct ConfigInner {
-    /// 主窗口丢失焦点时隐藏
-    pub hide_when_lost_focused: bool,
-    /// 主窗口丢失焦点时关闭
-    pub close_when_lost_focused: bool,
+pub struct ConfigData {
     // /// 创建主窗口时位于鼠标所在的屏幕 todo
-    // pub create_on_current_screen: bool,
+    // pub show_on_current_screen: bool,
     /// 应用打开时自动显示主窗口
     pub show_main_auto: bool,
+    /// 失去焦点时隐藏
+    pub hide_main_unfocused: bool,
     /// 使用自定义窗口阴影，在默认窗口非圆角的情况下使用
     pub custom_shadow: bool,
     /// 是否使用系统原生框架
@@ -27,50 +58,21 @@ pub struct ConfigInner {
     pub main_height: f64,
 }
 
-impl From<ConfigSettings> for ConfigInner {
+impl From<ConfigSettings> for ConfigData {
     fn from(value: ConfigSettings) -> Self {
         Self {
-            hide_when_lost_focused: match value.main_window_mode {
-                MainWindowMode::Always => false,
-                MainWindowMode::HideAndShow => true,
-                MainWindowMode::CloseAndOpen => false,
-                MainWindowMode::OnCurrentScreen => false,
-            },
-            close_when_lost_focused: match value.main_window_mode {
-                MainWindowMode::Always => false,
-                MainWindowMode::HideAndShow => false,
-                MainWindowMode::CloseAndOpen => true,
-                MainWindowMode::OnCurrentScreen => true,
-            },
-            // create_on_current_screen: matches!(
+            // show_on_current_screen: matches!(
             //     value.main_window_mode,
             //     MainWindowMode::OnCurrentScreen
             // ),
             show_main_auto: matches!(value.main_window_mode, MainWindowMode::Always),
+            hide_main_unfocused: !matches!(value.main_window_mode, MainWindowMode::Always),
             custom_shadow: value.custom_shadow,
             window_frame: value.window_frame,
             always_on_top: value.always_on_top,
             main_width: value.main_width,
             main_height: value.main_height,
         }
-    }
-}
-
-/// 适配 Tauri 状态管理
-///
-/// 注意使用了 [`std::sync::RwLock`] 而不是 [`tauri::async_runtime::RwLock`] ，读性能较好、编码时需注意内部不能做其他异步操作
-#[derive(Debug, Default)]
-pub struct ConfigOuter(pub std::sync::RwLock<ConfigInner>);
-
-impl From<ConfigInner> for ConfigOuter {
-    fn from(value: ConfigInner) -> Self {
-        Self(std::sync::RwLock::new(value))
-    }
-}
-
-impl From<ConfigSettings> for ConfigOuter {
-    fn from(value: ConfigSettings) -> Self {
-        Self(std::sync::RwLock::new(ConfigInner::from(value)))
     }
 }
 
@@ -142,6 +144,5 @@ impl ConfigSettings {
 pub enum MainWindowMode {
     Always,
     HideAndShow,
-    CloseAndOpen,
-    OnCurrentScreen,
+    // OnCurrentScreen,
 }

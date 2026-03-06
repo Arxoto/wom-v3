@@ -8,6 +8,20 @@ use tauri_plugin_log::log::debug;
 mod configs;
 mod constants;
 
+mod app_stat {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static RUNNING_STAT: AtomicBool = AtomicBool::new(true);
+
+    pub(super) fn is_running() -> bool {
+        RUNNING_STAT.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn stop_running() {
+        RUNNING_STAT.store(false, Ordering::SeqCst);
+    }
+}
+
 fn destory_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         w.close()?;
@@ -21,7 +35,7 @@ fn show_main_window(app: &AppHandle) -> Result<()> {
         w.show()?;
         w.set_focus()?;
     } else {
-        create_main_window(app)?;
+        create_main_window(app, true)?;
     }
     Ok(())
 }
@@ -38,12 +52,8 @@ fn show_config_window(app: &AppHandle) -> Result<()> {
 }
 
 // todo use window-vibrancy 毛玻璃效果（然后 css 中手动加上 1px 的边框） https://github.com/tauri-apps/window-vibrancy
-fn create_main_window(app: &AppHandle) -> Result<()> {
-    let conf = {
-        let config = app.state::<configs::ConfigOuter>();
-        let conf = config.0.read().expect("get config reader failed");
-        conf.clone()
-    };
+fn create_main_window(app: &AppHandle, shown: bool) -> Result<()> {
+    let conf = configs::get_data();
     let url_name = if conf.custom_shadow {
         "index_main_frame.html"
     } else {
@@ -53,17 +63,17 @@ fn create_main_window(app: &AppHandle) -> Result<()> {
 
     let the_builder = WebviewWindow::builder(app, constants::LABEL_MAIN, WebviewUrl::App(url_name.into()))
         .title("wom")
+        .transparent(!conf.window_frame) // 窗口透明
         .decorations(conf.window_frame) // 原生框架
-        .transparent(!conf.window_frame) // 透明
-        .fullscreen(false) // 全屏
         .resizable(conf.window_frame) // 大小可变
         .inner_size(conf.main_width, conf.main_height)
+        .fullscreen(false) // 全屏
         .center() // 居中
         .always_on_top(conf.always_on_top) // 置顶
-        .visible(true) // 可见
-        .focused(true) // 获取焦点
+        .visible(shown) // 初始可见
+        .focused(shown) // 获取焦点
         ;
-    // Platform
+    // Platform 跨平台特性
     let the_builder = the_builder
         .shadow(!conf.custom_shadow) // 系统原生阴影
         .skip_taskbar(true) // 在任务栏隐藏图标
@@ -72,18 +82,21 @@ fn create_main_window(app: &AppHandle) -> Result<()> {
     let the_builder = the_builder
         .devtools(cfg!(debug_assertions)) // 禁用开发工具
         .zoom_hotkeys_enabled(false) // 禁用页面缩放
-        .accept_first_mouse(true) // 激活窗口时触发点击到 webview
         // 禁用右键菜单 ContextMenu 在前端实现
-        // 禁用快捷键 F5 刷新/返回/组合快捷键 在前端实现
-        // 禁用文本选择 在前端实现
+        // 禁用快捷键（没有优雅实现，放开限制）
+        // 禁用文本选择 css 实现
         ;
-    let _w = the_builder.build()?;
-    // _w.on_window_event(|event| match event {
-    //     tauri::WindowEvent::Focused(_focused) => {
-    //         // todo config 换成 static
-    //     },
-    //     _ => {},
-    // });
+    let w = the_builder.build()?;
+    let w_handle = w.clone();
+    w.on_window_event(move |event| match event {
+        tauri::WindowEvent::Focused(focused) => {
+            let conf = configs::get_data();
+            if conf.hide_main_unfocused && !focused {
+                let _ = w_handle.hide();
+            }
+        }
+        _ => {}
+    });
     Ok(())
 }
 
@@ -145,18 +158,12 @@ fn create_tray(app: &App) -> Result<()> {
                 todo!()
             }
             "reload" => {
-                let conf: configs::ConfigInner = configs::ConfigSettings::load(app)
-                    .expect("load config failed")
-                    .into();
-                {
-                    let config = app.state::<configs::ConfigOuter>();
-                    let mut conf_ref = config.0.write().expect("get config writer failed");
-                    *conf_ref = conf;
-                }
+                configs::reload_data(app);
             }
             "quit" => {
-                app.exit(0);
                 debug!("try exit");
+                app_stat::stop_running();
+                app.exit(0);
             }
             _ => {}
         })
@@ -185,47 +192,24 @@ pub fn run() {
                 .build()
         })
         .setup(|app| {
-            let config_settings: configs::ConfigSettings =
-                configs::ConfigSettings::load(app.handle())?;
-            let conf_inner: configs::ConfigInner = config_settings.into();
-            let should_open_main = conf_inner.show_main_auto;
-            let conf: configs::ConfigOuter = conf_inner.into();
-            app.manage(conf);
+            configs::load_data(app.handle());
+            let conf = configs::get_data();
 
             create_tray(app)?;
-
-            if should_open_main {
-                create_main_window(app.handle())?;
-            }
+            create_main_window(app.handle(), conf.show_main_auto)?;
 
             Ok(())
-        })
-        .on_window_event(|w, event| match event {
-            tauri::WindowEvent::Focused(focused) => {
-                if !focused && w.label() == constants::LABEL_MAIN {
-                    let (should_hide, should_close) = {
-                        let config = w.state::<configs::ConfigOuter>();
-                        let conf = config.0.read().expect("get config reader failed");
-                        (conf.hide_when_lost_focused, conf.close_when_lost_focused)
-                    };
-
-                    if should_hide {
-                        debug!("will hide by lost_focused");
-                        let _ = w.hide();
-                    } else if should_close {
-                        debug!("will close by lost_focused");
-                        let _ = w.close();
-                    }
-                }
-            }
-            _ => {}
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|_app, event| match event {
             tauri::RunEvent::ExitRequested { api, .. } => {
-                // 阻止所有窗口关闭时退出应用
-                api.prevent_exit();
+                if app_stat::is_running() {
+                    debug!("will not close");
+                    api.prevent_exit(); // 阻止所有窗口关闭时退出应用
+                } else {
+                    debug!("will close");
+                }
             }
             _ => {}
         });
