@@ -4,19 +4,19 @@ interface ReactDomWithChildren {
     children: any
 }
 
-function Box({ children }: ReactDomWithChildren) {
+const Box = ({ children }: ReactDomWithChildren) => {
     return <div className="layout-box">{children}</div>
 }
 
-function Static({ children }: ReactDomWithChildren) {
+const Static = ({ children }: ReactDomWithChildren) => {
     return <div className="static">{children}</div>
 }
 
-function Elastic({ children }: ReactDomWithChildren) {
+const Elastic = ({ children }: ReactDomWithChildren) => {
     return <div className="elastic">{children}</div>
 }
 
-function Divider() {
+const Divider = () => {
     return <div className="divider"></div>
 }
 

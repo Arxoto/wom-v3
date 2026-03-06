@@ -1,6 +1,6 @@
 import "./Body.css";
 
-function Body() {
+const Body = () => {
     return (
         <div className="body-box">
             <div className="body-box-board">

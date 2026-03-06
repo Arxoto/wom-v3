@@ -1,12 +1,13 @@
 import { Box, Static, Elastic, Divider } from "./main/Layout";
 import { Head } from "./main/Head";
 import { Body } from "./main/Body";
-import { near_native_setting } from "./AppSetter";
+import { Tail } from "./main/Tail";
+import { set_page_main } from "./app_setter";
 
 import "./core.css";
 
-function App() {
-  near_native_setting();
+const App = () => {
+  set_page_main();
   return (
     <Box>
       <Static>
@@ -16,6 +17,10 @@ function App() {
       <Elastic>
         <Body></Body>
       </Elastic>
+      <Divider></Divider>
+      <Static>
+        <Tail></Tail>
+      </Static>
     </Box>
   );
 }
@@ -51,7 +56,7 @@ todo list
 //   transform: translateY(0);
 //   opacity: 1;
 //   /* 回弹阶段的动画：缓动函数决定了“弹力感” */
-//   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+//   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
 //               opacity 0.2s ease;
 // }
 // /* 瞬间触发态 */

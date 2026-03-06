@@ -1,8 +1,8 @@
 import "./core.css";
-import { near_native_setting } from "./AppSetter";
+import { set_page_config } from "./app_setter";
 
-function App() {
-  near_native_setting();
+const App = () => {
+  set_page_config();
   return (
     <main>
       <h1>Welcome to Tauri + React</h1>
