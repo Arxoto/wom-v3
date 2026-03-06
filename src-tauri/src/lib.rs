@@ -37,6 +37,7 @@ fn show_config_window(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+// todo use window-vibrancy 毛玻璃效果（然后 css 中手动加上 1px 的边框） https://github.com/tauri-apps/window-vibrancy
 fn create_main_window(app: &AppHandle) -> Result<()> {
     let conf = {
         let config = app.state::<configs::ConfigOuter>();
@@ -50,7 +51,7 @@ fn create_main_window(app: &AppHandle) -> Result<()> {
     };
     debug!("create window {:}", url_name);
 
-    let _ = WebviewWindow::builder(app, constants::LABEL_MAIN, WebviewUrl::App(url_name.into()))
+    let the_builder = WebviewWindow::builder(app, constants::LABEL_MAIN, WebviewUrl::App(url_name.into()))
         .title("wom")
         .decorations(conf.window_frame) // 原生框架
         .transparent(!conf.window_frame) // 透明
@@ -60,8 +61,29 @@ fn create_main_window(app: &AppHandle) -> Result<()> {
         .center() // 居中
         .always_on_top(conf.always_on_top) // 置顶
         .visible(true) // 可见
-        .shadow(!conf.custom_shadow)  // 尝试解决不能拖拽问题
-        .build()?;
+        .focused(true) // 获取焦点
+        ;
+    // Platform
+    let the_builder = the_builder
+        .shadow(!conf.custom_shadow) // 系统原生阴影
+        .skip_taskbar(true) // 在任务栏隐藏图标
+        ;
+    // 类原生应用
+    let the_builder = the_builder
+        .devtools(cfg!(debug_assertions)) // 禁用开发工具
+        .zoom_hotkeys_enabled(false) // 禁用页面缩放
+        .accept_first_mouse(true) // 激活窗口时触发点击到 webview
+        // 禁用右键菜单 ContextMenu 在前端实现
+        // 禁用快捷键 F5 刷新/返回/组合快捷键 在前端实现
+        // 禁用文本选择 在前端实现
+        ;
+    let _w = the_builder.build()?;
+    // _w.on_window_event(|event| match event {
+    //     tauri::WindowEvent::Focused(_focused) => {
+    //         // todo config 换成 static
+    //     },
+    //     _ => {},
+    // });
     Ok(())
 }
 
