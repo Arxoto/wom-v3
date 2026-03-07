@@ -4,4 +4,4 @@ const Tail = () => {
     );
 }
 
-export { Tail };
+export default Tail;

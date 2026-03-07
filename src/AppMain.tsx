@@ -1,8 +1,8 @@
-import { Box, Static, Elastic, Divider } from "./main/Layout";
-import { Head } from "./main/Head";
-import { Body } from "./main/Body";
-import { Tail } from "./main/Tail";
-import { set_page_main } from "./app_setter";
+import { Box, Static, Elastic, DividerTop, DividerBottom } from "./main/Layout";
+import Head from "./main/Head";
+import Body from "./main/Body";
+import Tail from "./main/Tail";
+import { set_page_main } from "./core";
 
 import "./core.css";
 
@@ -13,11 +13,11 @@ const App = () => {
       <Static>
         <Head></Head>
       </Static>
-      <Divider></Divider>
+      <DividerTop></DividerTop>
       <Elastic>
         <Body></Body>
       </Elastic>
-      <Divider></Divider>
+      <DividerBottom></DividerBottom>
       <Static>
         <Tail></Tail>
       </Static>
@@ -35,7 +35,6 @@ todo list
 - 列表项高亮时左侧一个 2-4px 的 Accent Color 条、可延迟动画，（右侧显示常用图标，悬停才显示）
   - 动画用 absolute 定位的元素去实现
 - 交互动作符号化语言
-- 使用像素单位进行样式重构
 - 高亮优化：选中时增加 .is-selected css 类效果，复杂实现使用 Data Attributes
   - HTML <div className="list-item" data-selected={isSelected} data-action-type={item.type} />
   - CSS .list-item[data-selected="true"][data-action-type="copy"] { }

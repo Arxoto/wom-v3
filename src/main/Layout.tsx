@@ -1,23 +1,29 @@
 import "./Layout.css";
 
-interface ReactDomWithChildren {
-    children: any
+interface Props {
+    children: React.ReactNode
 }
 
-const Box = ({ children }: ReactDomWithChildren) => {
+export const Box = ({ children }: Props) => {
     return <div className="layout-box">{children}</div>
 }
 
-const Static = ({ children }: ReactDomWithChildren) => {
+export const Static = ({ children }: Props) => {
     return <div className="static">{children}</div>
 }
 
-const Elastic = ({ children }: ReactDomWithChildren) => {
+export const Elastic = ({ children }: Props) => {
     return <div className="elastic">{children}</div>
 }
 
-const Divider = () => {
+export const Divider = () => {
     return <div className="divider"></div>
 }
 
-export { Box, Static, Elastic, Divider };
+export const DividerTop = () => {
+    return <div className="divider-top"></div>
+}
+
+export const DividerBottom = () => {
+    return <div className="divider-bottom"></div>
+}

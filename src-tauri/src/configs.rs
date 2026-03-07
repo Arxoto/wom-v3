@@ -56,10 +56,29 @@ pub struct ConfigData {
     pub main_width: f64,
     /// 主窗口高
     pub main_height: f64,
+    // ========= 界面布局 =========
+    /// head 高度
+    pub main_head_h: f64,
+    /// tail 高度
+    pub main_tail_h: f64,
+    /// item 高度
+    pub main_item_h: f64,
+    /// item 数量
+    pub main_item_n: i64,
 }
 
 impl From<ConfigSettings> for ConfigData {
     fn from(value: ConfigSettings) -> Self {
+        // 无需考虑是否使用原生的窗口框架（创建窗口时使用 inner_size 则前端不感知）
+        // 若使用自定义阴影则需要增加边框
+        let ex_width = if value.custom_shadow {
+            layout_coupling::FRAME_VALUE
+        } else {
+            0.0
+        };
+        // 将分割线高度加到额外高度上
+        let ex_height = ex_width + layout_coupling::DIVIDER_H * (layout_coupling::DIVIDER_N as f64);
+
         Self {
             // show_on_current_screen: matches!(
             //     value.main_window_mode,
@@ -70,8 +89,16 @@ impl From<ConfigSettings> for ConfigData {
             custom_shadow: value.custom_shadow,
             window_frame: value.window_frame,
             always_on_top: value.always_on_top,
-            main_width: value.main_width,
-            main_height: value.main_height,
+            main_width: ex_width + value.main_width,
+            // main_height: ex_width + value.main_height,
+            main_height: ex_height
+                + value.main_head_h
+                + value.main_tail_h
+                + value.main_item_h * (value.main_item_n as f64),
+            main_head_h: value.main_head_h,
+            main_tail_h: value.main_tail_h,
+            main_item_h: value.main_item_h,
+            main_item_n: value.main_item_n,
         }
     }
 }
@@ -85,7 +112,18 @@ pub struct ConfigSettings {
     pub window_frame: bool,
     pub always_on_top: bool,
     pub main_width: f64,
-    pub main_height: f64,
+    // pub main_height: f64,
+    pub main_head_h: f64,
+    pub main_tail_h: f64,
+    pub main_item_h: f64,
+    pub main_item_n: i64,
+}
+
+/// 与前端布局耦合的数据，需要同步修改
+mod layout_coupling {
+    pub(super) const FRAME_VALUE: f64 = 48.0;
+    pub(super) const DIVIDER_H: f64 = 8.0;
+    pub(super) const DIVIDER_N: i64 = 2;
 }
 
 impl Default for ConfigSettings {
@@ -96,7 +134,11 @@ impl Default for ConfigSettings {
             window_frame: false,
             always_on_top: true,
             main_width: 800.0,
-            main_height: 500.0,
+            // main_height: 500.0,
+            main_head_h: 60.0,
+            main_tail_h: 24.0,
+            main_item_h: 40.0,
+            main_item_n: 10,
         }
     }
 }
@@ -145,4 +187,26 @@ pub enum MainWindowMode {
     Always,
     HideAndShow,
     // OnCurrentScreen,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayoutConfig {
+    pub head_h: f64,
+    pub tail_h: f64,
+    pub item_h: f64,
+    pub item_n: i64,
+}
+
+#[tauri::command]
+pub async fn fetch_layout_config() -> LayoutConfig {
+    let conf = CONFIG
+        .get()
+        .expect("config must be initialized before use")
+        .load();
+    LayoutConfig {
+        head_h: conf.main_head_h,
+        tail_h: conf.main_tail_h,
+        item_h: conf.main_item_h,
+        item_n: conf.main_item_n,
+    }
 }

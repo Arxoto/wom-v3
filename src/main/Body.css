@@ -1,74 +1,66 @@
+/* 让 flex 把容器宽度减去 padding 当作内容宽度 */
 .body-box {
-    position: relative;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
     height: 100%;
+    margin: 0;
+    padding: 0 calc(var(--head-h) * 0.3);
+    box-sizing: border-box;
 }
 
-.body-box-board {
-    position: absolute;
-    top: 1em;
-    left: 1em;
-    width: calc(100% - 2em);
-    height: calc(100% - 2em);
+/* 
+flex: flex-grow flex-shrink flex-basis
+flex-grow    空间剩余时，相对于剩余空间，额外增加的权重
+flex-shrink  空间不足时，相对于不足空间和基础值（防止小元素直接消失），需要减少的权重
+flex-basis   基础值，单位同 width/height
+ */
+.body-divider {
+    flex: 0 0 auto;
+    width: 1px;
+    height: calc(100% - 32px);
+    margin: 0 16px 0 15px;
+    background-color: var(--color-comm-magical);
 }
 
 .body-items {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 50%;
-    height: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-}
-
-.body-preview {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 50%;
-    height: 100%;
+    flex: 1 1 0;
     overflow: hidden;
 }
 
-.body-divider {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 1px;
+.body-preview {
+    flex: 1 1 0;
+    overflow: hidden;
+
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
     height: 100%;
-    background-color: var(--color-comm-magical);
 }
 
-.body-preview-board {
-    position: absolute;
-    top: 1em;
-    left: 1em;
-    width: calc(100% - 2em);
-    height: calc(100% - 2em);
+.body-preview-divider {
+    width: 100%;
+    height: 1px;
+    margin: 7px 0 8px 0;
+    background-color: var(--color-comm-magical);
 }
 
 .body-preview-icon {
-
-    /* background-color: rgba(255, 228, 196, 0.322); */
+    flex: 7 7 0;
+    text-align: center;
+    background-color: aquamarine;
 }
 
-.body-preview-title {}
-
-.body-preview-divider {
-    position: absolute;
-    top: 60%;
-    left: 0;
-    width: 100%;
-    height: 1px;
-    background-color: var(--color-comm-magical);
+.body-preview-title {
+    flex: 4 4 0;
+    background-color: blueviolet;
 }
 
 .body-preview-details {
-    
-    position: absolute;
-    top: 60%;
-    left: 0;
-    width: 100%;
-    height: 40%;
+    flex: 6 6 0;
+    background-color: burlywood;
 }

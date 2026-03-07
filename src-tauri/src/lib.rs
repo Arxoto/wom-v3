@@ -205,6 +205,7 @@ pub fn run() {
                 .level(tauri_plugin_log::log::LevelFilter::Info)
                 .build()
         })
+        .invoke_handler(tauri::generate_handler![configs::fetch_layout_config])
         .setup(|app| {
             configs::load_data(app.handle());
             let conf = configs::get_data();

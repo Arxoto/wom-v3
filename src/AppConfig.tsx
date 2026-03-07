@@ -1,5 +1,5 @@
 import "./core.css";
-import { set_page_config } from "./app_setter";
+import { set_page_config } from "./core";
 
 const App = () => {
   set_page_config();

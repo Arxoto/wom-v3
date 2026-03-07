@@ -1,7 +1,7 @@
 import "./Head.css";
 
 const Head = () => {
-    let typed_value = "hello-aaaaaaaaaaaaaaaa-000000000000000000000000";
+    let typed_value = "hello-aaaaaaaaaaaaaaaa-000000000000000";
     let ghost_value = "_world-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy";
     return (
         <div className="head-box">
@@ -19,5 +19,4 @@ const Head = () => {
     );
 }
 
-export { Head };
-
+export default Head;

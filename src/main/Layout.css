@@ -12,16 +12,15 @@
 /* 高度固定， flex-shrink 防止被压缩 */
 .layout-box>.static {
     flex-shrink: 0;
-    max-height: 40%;
     width: 100%;
-    overflow: auto;
+    overflow: hidden;
 }
 
 /* 高度自适应， flex-grow 拉伸填满 */
 .layout-box>.elastic {
     flex-grow: 1;
     width: 100%;
-    overflow: auto;
+    overflow: hidden;
 }
 
 /* 分割线 */
@@ -30,5 +29,21 @@
     height: 1px;
     width: 100%;
     margin: 3px 0 4px 0;
+    background-color: var(--color-comm-magical);
+}
+
+.layout-box>.divider-top {
+    flex-shrink: 0;
+    height: 1px;
+    width: 100%;
+    margin: 0 0 7px 0;
+    background-color: var(--color-comm-magical);
+}
+
+.layout-box>.divider-bottom {
+    flex-shrink: 0;
+    height: 1px;
+    width: 100%;
+    margin: 7px 0 0 0;
     background-color: var(--color-comm-magical);
 }
