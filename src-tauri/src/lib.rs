@@ -75,9 +75,9 @@ mod window {
     pub(super) fn create_main_window(app: &AppHandle, shown: bool) -> Result<()> {
         let conf = configs::get_data();
         let url_name = if conf.custom_shadow {
-            "index_main_frame.html"
+            "index_frame.html"
         } else {
-            "index_main.html"
+            "index.html"
         };
         debug!("create window {:}", url_name);
 
