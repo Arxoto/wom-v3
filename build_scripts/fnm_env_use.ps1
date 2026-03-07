@@ -1,3 +1,5 @@
+#requires -Version 7.0
+
 function Reset-Fnm {
     # 注入 fnm 环境变量
     fnm env | Out-String | Invoke-Expression
