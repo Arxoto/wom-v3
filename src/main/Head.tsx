@@ -1,7 +1,6 @@
 import "./Head.css";
 
 const Head = () => {
-    // todo tauri2允许 data-tauri-drag-region
     let typed_value = "hello-aaaaaaaaaaaaaaaa-000000000000000000000000";
     let ghost_value = "_world-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy";
     return (
