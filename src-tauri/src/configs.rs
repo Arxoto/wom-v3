@@ -40,6 +40,7 @@ pub fn get_data() -> Arc<ConfigData> {
 /// 配置数据（编码用）
 #[derive(Debug, Default, Clone)]
 pub struct ConfigData {
+    // ========= 界面基础设置 =========
     // /// 创建主窗口时位于鼠标所在的屏幕 todo
     // pub show_on_current_screen: bool,
     /// 应用打开时自动显示主窗口
@@ -65,6 +66,12 @@ pub struct ConfigData {
     pub main_item_h: f64,
     /// item 数量
     pub main_item_n: i64,
+    // ========= 全局快捷键 =========
+    pub hot_key_alt: bool,
+    pub hot_key_ctrl: bool,
+    pub hot_key_meta: bool,
+    pub hot_key_shift: bool,
+    pub hot_key_char: String,
 }
 
 impl From<ConfigSettings> for ConfigData {
@@ -99,6 +106,11 @@ impl From<ConfigSettings> for ConfigData {
             main_tail_h: value.main_tail_h,
             main_item_h: value.main_item_h,
             main_item_n: value.main_item_n,
+            hot_key_alt: value.hot_key_alt,
+            hot_key_ctrl: value.hot_key_ctrl,
+            hot_key_meta: value.hot_key_meta,
+            hot_key_shift: value.hot_key_shift,
+            hot_key_char: value.hot_key_char,
         }
     }
 }
@@ -117,6 +129,11 @@ pub struct ConfigSettings {
     pub main_tail_h: f64,
     pub main_item_h: f64,
     pub main_item_n: i64,
+    pub hot_key_alt: bool,
+    pub hot_key_ctrl: bool,
+    pub hot_key_meta: bool,
+    pub hot_key_shift: bool,
+    pub hot_key_char: String,
 }
 
 /// 与前端布局耦合的数据，需要同步修改
@@ -139,6 +156,11 @@ impl Default for ConfigSettings {
             main_tail_h: 24.0,
             main_item_h: 40.0,
             main_item_n: 10,
+            hot_key_alt: true,
+            hot_key_ctrl: false,
+            hot_key_meta: false,
+            hot_key_shift: false,
+            hot_key_char: crate::global_shortcut::ShortcutChar::Space.to_string(),
         }
     }
 }

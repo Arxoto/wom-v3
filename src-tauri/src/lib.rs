@@ -1,7 +1,10 @@
-use tauri_plugin_log::log::debug;
+use tauri_plugin_log::log::{debug, info};
 
 mod configs;
 mod constants;
+
+#[cfg(desktop)]
+mod global_shortcut;
 
 mod app_stat {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -27,6 +30,21 @@ mod window {
     pub(super) fn destory_main_window(app: &AppHandle) -> Result<()> {
         if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
             w.close()?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn show_hide_main_window(app: &AppHandle) -> Result<()> {
+        if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
+            if w.is_visible()? {
+                w.hide()?
+            } else {
+                w.unminimize()?;
+                w.show()?;
+                w.set_focus()?;
+            }
+        } else {
+            create_main_window(app, true)?;
         }
         Ok(())
     }
@@ -120,9 +138,9 @@ mod tray {
         tray::TrayIconBuilder,
         App, Result,
     };
-    use tauri_plugin_log::log::debug;
+    use tauri_plugin_log::log::{debug, info, warn};
 
-    use crate::{app_stat, configs, window};
+    use crate::{app_stat, configs, global_shortcut, window};
 
     pub(super) fn create_tray(app: &App) -> Result<()> {
         let show_main_desc = "Show Main Window";
@@ -165,12 +183,25 @@ mod tray {
                     let _ = window::show_config_window(app);
                 }
                 "register" => {
-                    todo!()
+                    info!("try register_global_shortcut");
+                    let r = global_shortcut::register_global_shortcut(app);
+                    if let Err(e) = r {
+                        warn!("Failed to register_global_shortcut: {}", e);
+                        #[cfg(debug_assertions)]
+                        debug!("Registration error details: {:?}", e);
+                    }
                 }
                 "unregister" => {
-                    todo!()
+                    info!("try unregister_global_shortcut");
+                    let r = global_shortcut::unregister_global_shortcut(app);
+                    if let Err(e) = r {
+                        warn!("Failed to unregister_global_shortcut: {}", e);
+                        #[cfg(debug_assertions)]
+                        debug!("Unregistration error details: {:?}", e);
+                    }
                 }
                 "reload" => {
+                    info!("try reload config data");
                     configs::reload_data(app);
                 }
                 "quit" => {
@@ -188,6 +219,11 @@ mod tray {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(global_shortcut::handler_global_shortcut)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(if cfg!(debug_assertions) {
             tauri_plugin_log::Builder::new()
@@ -203,7 +239,9 @@ pub fn run() {
                 .targets([tauri_plugin_log::Target::new(
                     tauri_plugin_log::TargetKind::LogDir { file_name: None },
                 )])
-                .level(tauri_plugin_log::log::LevelFilter::Info)
+                .level(tauri_plugin_log::log::LevelFilter::Warn)
+                .max_file_size(1024 * 1024)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
                 .build()
         })
         .invoke_handler(tauri::generate_handler![configs::fetch_layout_config])
@@ -213,6 +251,8 @@ pub fn run() {
 
             tray::create_tray(app)?;
             window::create_main_window(app.handle(), conf.show_main_auto)?;
+
+            global_shortcut::register_global_shortcut(app.handle())?;
 
             Ok(())
         })
@@ -224,7 +264,7 @@ pub fn run() {
                     debug!("will not close");
                     api.prevent_exit(); // 阻止所有窗口关闭时退出应用
                 } else {
-                    debug!("will close");
+                    info!("will close");
                 }
             }
             _ => {}
