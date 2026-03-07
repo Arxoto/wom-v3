@@ -12,7 +12,7 @@ use [pnpm tauri build (注意 node 和 pnpm 版本)](./build_scripts/run_build.p
 
 ### v1.x
 
-注意分支换到对应依赖的版本
+源码位置，注意分支换到对应依赖的版本
 
 - [wix_path](https://github.com/tauri-apps/tauri/blob/tauri-build-v1.5.0/tooling/bundler/src/bundle/windows/msi.rs#L30)
   - [WIX_URL](https://github.com/tauri-apps/tauri/blob/tauri-build-v1.5.0/tooling/bundler/src/bundle/windows/msi/wix.rs#L35)
@@ -25,6 +25,8 @@ use [pnpm tauri build (注意 node 和 pnpm 版本)](./build_scripts/run_build.p
 
 P.S.部分版本可能没有 `NSIS_APPLICATIONID_URL` ，具体看对应版本的源码，如果没有则跳过
 
+手动解压
+
 1. 下载 `WIX_URL` `NSIS_URL` `NSIS_APPLICATIONID_URL` `NSIS_TAURI_UTILS_URL`
 1. 资源管理器进入 `%LocalAppData%`
 1. 创建目录 `mkdir .\tauri\WixTools .\tauri\NSIS`
@@ -35,7 +37,7 @@ P.S.部分版本可能没有 `NSIS_APPLICATIONID_URL` ，具体看对应版本�
 
 ### v2.x
 
-注意分支换到对应依赖的版本
+源码位置，注意分支换到对应依赖的版本
 
 - [wix_path](https://github.com/tauri-apps/tauri/blob/tauri-v2.10.3/crates/tauri-bundler/src/bundle/windows/msi/mod.rs#L64)
   - [WIX_URL](https://github.com/tauri-apps/tauri/blob/tauri-v2.10.3/crates/tauri-bundler/src/bundle/windows/msi/mod.rs#L39)
@@ -53,9 +55,11 @@ P.S.部分版本可能没有 `NSIS_APPLICATIONID_URL` ，具体看对应版本�
 - [NSIS_TAURI_UTILS_URL](https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.5.3/nsis_tauri_utils.dll)
   - NSIS_TAURI_UTILS_SHA1 `75197FEE3C6A814FE035788D1C34EAD39349B860`
 
+手动解压
+
 1. 下载 `WIX_URL` `NSIS_URL` `NSIS_TAURI_UTILS_URL`
 1. 资源管理器进入 `%LocalAppData%`
 1. 创建目录 `mkdir .\tauri\WixTools314 .\tauri\NSIS`
 1. `%LocalAppData%\tauri\WixTools314` <- 解压 `wix314-binaries.zip`
 1. `%LocalAppData%\tauri\NSIS` <- 解压 `nsis-3.11.zip`
-1. `%LocalAppData%\tauri\NSIS\Plugins/x86-unicode/additional/` <- 复制 `nsis_tauri_utils.dll`
+1. `%LocalAppData%\tauri\NSIS\Plugins\x86-unicode\additional` <- 复制 `nsis_tauri_utils.dll`
