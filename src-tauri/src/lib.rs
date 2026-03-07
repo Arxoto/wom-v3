@@ -196,6 +196,7 @@ pub fn run() {
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                 ])
                 .level(tauri_plugin_log::log::LevelFilter::Debug)
+                .level_for("tao", tauri_plugin_log::log::LevelFilter::Info) // 去除不必要的事件循环通知
                 .build()
         } else {
             tauri_plugin_log::Builder::new()
