@@ -3,6 +3,8 @@ use tauri_plugin_log::log::{debug, info};
 mod configs;
 mod constants;
 
+mod inner_plugins;
+
 #[cfg(desktop)]
 mod global_shortcut;
 
