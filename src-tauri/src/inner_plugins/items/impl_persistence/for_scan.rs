@@ -1,4 +1,10 @@
-use super::*;
+use crate::inner_plugins::{
+    common::ItemType,
+    items::{
+        impl_persistence::core::{ItemParseErr, ItemParsed},
+        Item,
+    },
+};
 
 pub const IS_RECURSIVE: &str = "r";
 
@@ -13,9 +19,9 @@ pub struct ItemParsedScan {
 
 impl Item {
     /// - 第一个固定为 [`ItemType`]
-    /// - 第二个表示匹配的文件类型，以 [`SPLIT_KEY`] 分割
-    /// - 第三个表示匹配的文件后缀，以 [`SPLIT_KEY`] 分割
-    /// - 第四个表示黑名单关键字，以 [`SPLIT_KEY`] 分割
+    /// - 第二个表示匹配的文件类型，以 [`crate::inner_plugins::items::impl_persistence::core::SPLIT_KEY`] 分割
+    /// - 第三个表示匹配的文件后缀，以 [`crate::inner_plugins::items::impl_persistence::core::SPLIT_KEY`] 分割
+    /// - 第四个表示黑名单关键字，以 [`crate::inner_plugins::items::impl_persistence::core::SPLIT_KEY`] 分割
     /// - 第五个表示是否递归子目录，仅 [`IS_RECURSIVE`] 表示递归
     /// - 第六个表示根路径，可以为空
     /// - 第七个表示相对路径，当根路径为空时应该为绝对路径

@@ -143,7 +143,7 @@ mod tray {
     };
     use tauri_plugin_log::log::{debug, info, warn};
 
-    use crate::{app_stat, configs, global_shortcut, window};
+    use crate::{app_stat, configs, global_shortcut, inner_plugins, window};
 
     pub(super) fn create_tray(app: &App) -> Result<()> {
         let show_main_desc = "Show Main Window";
@@ -151,7 +151,8 @@ mod tray {
         let open_config_desc = "Open Config Window";
         let register_desc = "register Global-Shortcut";
         let unregister_desc = "unregister Global-Shortcut";
-        let reload_desc = "Reload";
+        let re_plugin_desc = "Reload Inner-Plugin Settings";
+        let reload_desc = "Reload Global Config";
         let quit_desc = "Quit";
 
         let _tray = TrayIconBuilder::new()
@@ -166,6 +167,8 @@ mod tray {
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItem::with_id(app, "register", register_desc, true, None::<&str>)?,
                     &MenuItem::with_id(app, "unregister", unregister_desc, true, None::<&str>)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItem::with_id(app, "re_plugin", re_plugin_desc, true, None::<&str>)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItem::with_id(app, "reload", reload_desc, true, None::<&str>)?,
                     &MenuItem::with_id(app, "quit", quit_desc, true, None::<&str>)?,
@@ -202,6 +205,9 @@ mod tray {
                         #[cfg(debug_assertions)]
                         debug!("Unregistration error details: {:?}", e);
                     }
+                }
+                "re_plugin" => {
+                    inner_plugins::reload_setting(app);
                 }
                 "reload" => {
                     info!("try reload config data");

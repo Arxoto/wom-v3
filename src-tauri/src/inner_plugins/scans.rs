@@ -8,7 +8,7 @@ use crate::inner_plugins::{
     base::KeyWord,
     common::ItemType,
     items::{
-        impl_persistence::{impl_scan::ItemParsedScan, ItemParseErr},
+        impl_persistence::{for_scan::ItemParsedScan, ItemParseErr},
         Item,
     },
 };
