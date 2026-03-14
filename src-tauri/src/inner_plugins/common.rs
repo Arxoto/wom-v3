@@ -128,8 +128,8 @@ impl TryFrom<&String> for ItemType {
     }
 }
 
-impl From<&ItemType> for &str {
-    fn from(value: &ItemType) -> Self {
+impl From<ItemType> for &str {
+    fn from(value: ItemType) -> Self {
         match value {
             ItemType::System => "System",
             ItemType::Cmd => "Cmd",
@@ -142,9 +142,15 @@ impl From<&ItemType> for &str {
     }
 }
 
+impl From<ItemType> for String {
+    fn from(value: ItemType) -> Self {
+        Into::<&str>::into(value).to_string()
+    }
+}
+
 impl Display for ItemType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let type_name = Into::<&str>::into(self);
+        let type_name = Into::<&str>::into(*self);
         write!(f, "{}", type_name)
     }
 }
@@ -170,5 +176,14 @@ impl From<&str> for ItemDesc {
 impl From<PathBuf> for ItemDesc {
     fn from(value: PathBuf) -> Self {
         Self::Path(value)
+    }
+}
+
+impl From<&ItemDesc> for String {
+    fn from(value: &ItemDesc) -> Self {
+        match value {
+            ItemDesc::Str(s) => s.clone(),
+            ItemDesc::Path(path_buf) => path_buf.to_string_lossy().into_owned(),
+        }
     }
 }

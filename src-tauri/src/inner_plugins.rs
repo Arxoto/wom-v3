@@ -7,6 +7,8 @@ pub mod generator;
 
 pub mod scans;
 
+pub mod search;
+
 pub mod commands;
 
 pub mod plugins;

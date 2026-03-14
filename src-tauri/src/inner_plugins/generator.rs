@@ -22,6 +22,7 @@ use crate::inner_plugins::{
 pub const INNER_PLUGIN_NAME: &str = "inner-plugin";
 pub const SETTING_FILE_NAME: &str = "inner_plugins.txt";
 
+/// 纯内存计算，直接使用 [`std::sync::Mutex`]
 pub struct ItemsStat(pub Mutex<ItemCollection>);
 
 impl ItemsStat {

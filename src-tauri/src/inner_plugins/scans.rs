@@ -73,8 +73,8 @@ pub enum FileType {
     Symlink,
 }
 
-impl From<&FileType> for &str {
-    fn from(value: &FileType) -> Self {
+impl From<FileType> for &str {
+    fn from(value: FileType) -> Self {
         match value {
             FileType::File => "File",
             FileType::Dir => "Dir",

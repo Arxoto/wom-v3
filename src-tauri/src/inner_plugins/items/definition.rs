@@ -1,6 +1,6 @@
 use crate::inner_plugins::{base::KeyWord, common::{ItemDesc, ItemType}};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Item {
     pub the_type: ItemType,
     pub key_word: KeyWord,

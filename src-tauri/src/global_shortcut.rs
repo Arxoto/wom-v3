@@ -2,6 +2,7 @@ use tauri_plugin_global_shortcut::{
     Code, Error, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent,
 };
 
+#[derive(Debug, Clone, Copy)]
 pub enum ShortcutChar {
     Space,
     A,
@@ -33,7 +34,7 @@ pub enum ShortcutChar {
 }
 
 impl ShortcutChar {
-    pub fn to_string(&self) -> String {
+    pub fn to_string(self) -> String {
         String::from(self)
     }
 }
@@ -79,8 +80,8 @@ impl From<&str> for ShortcutChar {
     }
 }
 
-impl From<&ShortcutChar> for String {
-    fn from(value: &ShortcutChar) -> Self {
+impl From<ShortcutChar> for String {
+    fn from(value: ShortcutChar) -> Self {
         match value {
             ShortcutChar::Space => "Space".to_string(),
             ShortcutChar::A => "A".to_string(),
