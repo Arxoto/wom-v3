@@ -1,4 +1,4 @@
-pub struct ItemExt {}
+use std::{fmt::Display, path::PathBuf};
 
 /// todo
 /// - Clipboard 剪贴板增强，纯文本复制、预览，不做历史管理，太重了，历史管理和增强有
@@ -7,6 +7,7 @@ pub struct ItemExt {}
 ///   - CopyQ(Win/Mac/Linux) https://github.com/hluk/CopyQ
 ///   - Maccy(macOS) https://github.com/p0deje/Maccy
 ///   - FlowLauncher/Raycast 等启动软件集成
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ItemType {
     /// 系统命令
     System,
@@ -31,8 +32,10 @@ pub enum ItemType {
     /// - 可以自建数据库索引
     /// - 配合文件变更通知实时更新索引
     /// - 支持排除规则
-    Files,
+    Scan,
 }
+
+// todo Item 显示
 
 // import { useMemo } from 'react';
 // import { convertFileSrc } from '@tauri-apps/api/core';
@@ -45,14 +48,14 @@ pub enum ItemType {
 
 //     // 2. 精准查找所有 img 标签
 //     const imgs = doc.querySelectorAll('img');
-    
+
 //     imgs.forEach(img => {
 //       const src = img.getAttribute('src');
 //       // 3. 只有当它看起来像本地路径时才转换
 //       if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('asset:')) {
 //         img.setAttribute('src', convertFileSrc(src));
 //       }
-      
+
 //       // 顺便可以在这里做一些“非暴力”的预处理
 //       img.setAttribute('loading', 'lazy'); // 自动开启延迟加载
 //       img.setAttribute('draggable', 'false'); // 禁止拖拽
@@ -97,3 +100,75 @@ pub enum ItemType {
 //     />
 //   );
 // };
+
+pub struct ItemTypeParsedFailed;
+
+impl TryFrom<&str> for ItemType {
+    type Error = ItemTypeParsedFailed;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "System" => Ok(Self::System),
+            "Cmd" => Ok(Self::Cmd),
+            "Snippets" => Ok(Self::Snippets),
+            "Note" => Ok(Self::Note),
+            "Web" => Ok(Self::Web),
+            "File" => Ok(Self::File),
+            "Scan" => Ok(Self::Scan),
+            _ => Err(ItemTypeParsedFailed),
+        }
+    }
+}
+
+impl TryFrom<&String> for ItemType {
+    type Error = ItemTypeParsedFailed;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        ItemType::try_from(value.as_str())
+    }
+}
+
+impl From<&ItemType> for &str {
+    fn from(value: &ItemType) -> Self {
+        match value {
+            ItemType::System => "System",
+            ItemType::Cmd => "Cmd",
+            ItemType::Snippets => "Snippets",
+            ItemType::Note => "Note",
+            ItemType::Web => "Web",
+            ItemType::File => "File",
+            ItemType::Scan => "Scan",
+        }
+    }
+}
+
+impl Display for ItemType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let type_name = Into::<&str>::into(self);
+        write!(f, "{}", type_name)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ItemDesc {
+    Str(String),
+    Path(PathBuf),
+}
+
+impl From<String> for ItemDesc {
+    fn from(value: String) -> Self {
+        Self::Str(value)
+    }
+}
+
+impl From<&str> for ItemDesc {
+    fn from(value: &str) -> Self {
+        Self::Str(value.to_string())
+    }
+}
+
+impl From<PathBuf> for ItemDesc {
+    fn from(value: PathBuf) -> Self {
+        Self::Path(value)
+    }
+}

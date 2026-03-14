@@ -83,31 +83,32 @@ mod window {
         };
         debug!("create window {:}", url_name);
 
-        let the_builder = WebviewWindow::builder(app, constants::LABEL_MAIN, WebviewUrl::App(url_name.into()))
-        .title("wom")
-        .transparent(!conf.window_frame) // 窗口透明
-        .decorations(conf.window_frame) // 原生框架
-        .resizable(conf.window_frame) // 大小可变
-        .inner_size(conf.main_width, conf.main_height)
-        .fullscreen(false) // 全屏
-        .center() // 居中
-        .always_on_top(conf.always_on_top) // 置顶
-        .visible(shown) // 初始可见
-        .focused(shown) // 获取焦点
-        ;
+        let the_builder =
+            WebviewWindow::builder(app, constants::LABEL_MAIN, WebviewUrl::App(url_name.into()))
+                .title("wom")
+                .transparent(!conf.window_frame) // 窗口透明
+                .decorations(conf.window_frame) // 原生框架
+                .resizable(conf.window_frame) // 大小可变
+                .inner_size(conf.main_width, conf.main_height)
+                .fullscreen(false) // 全屏
+                .center() // 居中
+                .always_on_top(conf.always_on_top) // 置顶
+                .visible(shown) // 初始可见
+                .focused(shown); // 获取焦点
+
         // Platform 跨平台特性
         let the_builder = the_builder
-        .shadow(!conf.custom_shadow) // 系统原生阴影
-        .skip_taskbar(!conf.window_frame) // 在任务栏隐藏图标
-        ;
+            .shadow(!conf.custom_shadow) // 系统原生阴影
+            .skip_taskbar(!conf.window_frame); // 在任务栏隐藏图标
+
         // 类原生应用
-        let the_builder = the_builder
-        .devtools(cfg!(debug_assertions)) // 禁用开发工具
-        .zoom_hotkeys_enabled(false) // 禁用页面缩放
         // 禁用右键菜单 ContextMenu 在前端实现
         // 禁用快捷键（没有优雅实现，放开限制）
         // 禁用文本选择 css 实现
-        ;
+        let the_builder = the_builder
+            .devtools(cfg!(debug_assertions)) // 禁用开发工具
+            .zoom_hotkeys_enabled(false); // 禁用页面缩放
+
         let w = the_builder.build()?;
         let w_handle = w.clone();
         w.on_window_event(move |event| match event {
@@ -246,6 +247,7 @@ pub fn run() {
                 .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
                 .build()
         })
+        .plugin(inner_plugins::init()) // 自定义插件
         .invoke_handler(tauri::generate_handler![configs::fetch_layout_config])
         .setup(|app| {
             configs::load_data(app.handle());

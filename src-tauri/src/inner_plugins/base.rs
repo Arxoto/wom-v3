@@ -1,27 +1,24 @@
-pub struct Item {
-    pub key: String,
-    pub name: String,
-    pub desc: String,
-}
+#[derive(Debug, PartialEq, Eq)]
+pub struct KeyWord(pub String);
 
-impl Item {
+impl KeyWord {
     #[inline]
     pub fn find_eq(&self, k: &str) -> bool {
-        self.key == k
+        self.0 == k
     }
 
     #[inline]
     pub fn find_starts_with(&self, k: &str) -> bool {
-        self.key.starts_with(k)
+        self.0.starts_with(k)
     }
 
     #[inline]
     pub fn find_contains(&self, k: &str) -> bool {
-        self.key.contains(k)
+        self.0.contains(k)
     }
 
     pub fn find_match(&self, k: &str) -> bool {
-        let key_bytes = self.key.as_bytes();
+        let key_bytes = self.0.as_bytes();
         let k_bytes = k.as_bytes();
 
         if k_bytes.len() > key_bytes.len() {
