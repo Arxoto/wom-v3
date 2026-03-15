@@ -1,16 +1,17 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use tauri::{path::BaseDirectory, AppHandle, Manager, Runtime};
 
 use walkdir::{DirEntry, WalkDir};
 
 use crate::inner_plugins::{
-    base::KeyWord,
-    common::ItemType,
-    items::{
-        impl_persistence::{for_scan::ItemParsedScan, ItemParseErr},
-        Item,
-    },
+    base::{ItemType, KeyWord},
+    common::Item,
+    persistence::{parse_core::ItemParseErr, parse_impl_scan::ItemParsedScan},
 };
 
 pub(super) fn scan_files<R: Runtime>(
@@ -26,7 +27,8 @@ pub(super) fn scan_files<R: Runtime>(
         path,
     } = parsed;
 
-    let base_dir = BaseDirectory::from_variable(&base);
+    // BaseDirectory::from_variable
+    let base_dir = BasePath::from_variable(&base).map(|b| BaseDirectory::from(b));
 
     let real_path = match base_dir {
         Some(base_dir) => app.path().resolve(path, base_dir).map_err(|_| {
@@ -37,7 +39,7 @@ pub(super) fn scan_files<R: Runtime>(
 
     let target_types: Vec<FileType> = file_types
         .iter()
-        .map(|s| FileType::try_from(s))
+        .map(|s| FileType::from_str(s))
         .filter_map(|r| r.ok())
         .collect();
 
@@ -66,6 +68,72 @@ pub(super) fn scan_files<R: Runtime>(
     Ok(r)
 }
 
+const BASE_PATH_HOME: &str = "home";
+const BASE_PATH_DESKTOP: &str = "desktop";
+const BASE_PATH_DOWNLOAD: &str = "download";
+const BASE_PATH_DOCUMENT: &str = "document";
+const BASE_PATH_PICTURE: &str = "picture";
+const BASE_PATH_AUDIO: &str = "audio";
+const BASE_PATH_VIDEO: &str = "video";
+
+#[derive(Debug, Clone, Copy)]
+pub enum BasePath {
+    /// 用户目录
+    Home,
+    /// 桌面
+    Desktop,
+    /// 下载目录
+    Download,
+    /// 文档目录
+    Document,
+    /// 图片目录
+    Picture,
+    /// 音频目录
+    Audio,
+    /// 视频目录
+    Video,
+    // todo 确认具体目录和用户级还是全局
+    // Public,
+    // Resource,
+    // Config,
+    // AppConfig,
+    // Data,
+    // LocalData,
+    // AppData,
+    // AppLocalData,
+    // Cache,
+    // AppCache,
+}
+
+impl BasePath {
+    pub fn from_variable(s: &str) -> Option<Self> {
+        match s {
+            BASE_PATH_HOME => Some(Self::Home),
+            BASE_PATH_DESKTOP => Some(Self::Desktop),
+            BASE_PATH_DOWNLOAD => Some(Self::Download),
+            BASE_PATH_DOCUMENT => Some(Self::Document),
+            BASE_PATH_PICTURE => Some(Self::Picture),
+            BASE_PATH_AUDIO => Some(Self::Audio),
+            BASE_PATH_VIDEO => Some(Self::Video),
+            _ => None,
+        }
+    }
+}
+
+impl From<BasePath> for tauri::path::BaseDirectory {
+    fn from(value: BasePath) -> Self {
+        match value {
+            BasePath::Home => Self::Home,
+            BasePath::Desktop => Self::Desktop,
+            BasePath::Download => Self::Download,
+            BasePath::Document => Self::Document,
+            BasePath::Picture => Self::Picture,
+            BasePath::Audio => Self::Audio,
+            BasePath::Video => Self::Video,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum FileType {
     File,
@@ -73,9 +141,9 @@ pub enum FileType {
     Symlink,
 }
 
-impl From<FileType> for &str {
-    fn from(value: FileType) -> Self {
-        match value {
+impl FileType {
+    pub fn as_str(&self) -> &str {
+        match self {
             FileType::File => "File",
             FileType::Dir => "Dir",
             FileType::Symlink => "Symlink",
@@ -83,24 +151,24 @@ impl From<FileType> for &str {
     }
 }
 
-impl TryFrom<&str> for FileType {
-    type Error = ();
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "File" => Ok(Self::File),
-            "Dir" => Ok(Self::Dir),
-            "Symlink" => Ok(Self::Symlink),
-            _ => Err(()),
-        }
+impl Display for FileType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 
-impl TryFrom<&String> for FileType {
-    type Error = ();
+pub struct FileTypeParseFailed;
 
-    fn try_from(value: &String) -> Result<Self, Self::Error> {
-        FileType::try_from(value.as_str())
+impl FromStr for FileType {
+    type Err = FileTypeParseFailed;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "File" => Ok(Self::File),
+            "Dir" => Ok(Self::Dir),
+            "Symlink" => Ok(Self::Symlink),
+            _ => Err(FileTypeParseFailed),
+        }
     }
 }
 

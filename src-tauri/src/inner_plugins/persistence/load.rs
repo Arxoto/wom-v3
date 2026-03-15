@@ -10,16 +10,14 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_log::log;
 
 use crate::inner_plugins::{
-    base::KeyWord,
-    common::ItemType,
-    items::{
-        impl_persistence::{ItemParseErr, ItemParsed},
-        Item,
+    base::{ItemType, KeyWord},
+    common::Item,
+    persistence::{
+        parse_core::{ItemParseErr, ItemParsed},
+        scans_helper,
     },
-    scans,
 };
 
-pub const INNER_PLUGIN_NAME: &str = "inner-plugin";
 pub const SETTING_FILE_NAME: &str = "inner_plugins.txt";
 
 /// 纯内存计算，直接使用 [`std::sync::Mutex`]
@@ -35,7 +33,7 @@ pub struct ItemCollection {
     pub item_list: Vec<Item>,
 }
 
-pub(super) fn load_settings<R: Runtime>(app: &AppHandle<R>) -> io::Result<ItemCollection> {
+pub fn load_settings<R: Runtime>(app: &AppHandle<R>) -> io::Result<ItemCollection> {
     log::info!("begin to load settings");
 
     let setting_path = tauri::Manager::path(app)
@@ -135,7 +133,7 @@ fn add_items<R: Runtime>(
             Ok(())
         }
         ItemParsed::Scan(item_parsed_scan) => {
-            let mut ll = scans::scan_files(app, item_parsed_scan)?;
+            let mut ll = scans_helper::scan_files(app, item_parsed_scan)?;
 
             item_list.append(&mut ll);
             Ok(())

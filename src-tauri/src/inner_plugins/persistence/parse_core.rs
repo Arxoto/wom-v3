@@ -1,9 +1,11 @@
+use std::str::FromStr;
+
 use crate::inner_plugins::{
-    common::{ItemType, ItemTypeParsedFailed},
-    items::{
-        Item, impl_persistence::{
-            for_common::ItemParsedCommon, for_scan::ItemParsedScan, for_system::ItemParsedSystem,
-        }
+    base::{ItemType, ItemTypeParseFailed},
+    common::Item,
+    persistence::{
+        parse_impl_common::ItemParsedCommon, parse_impl_scan::ItemParsedScan,
+        parse_impl_system::ItemParsedSystem,
     },
 };
 
@@ -18,8 +20,8 @@ pub enum ItemParseErr {
     ItemValueParsedFailed(String),
 }
 
-impl From<ItemTypeParsedFailed> for ItemParseErr {
-    fn from(_value: ItemTypeParsedFailed) -> Self {
+impl From<ItemTypeParseFailed> for ItemParseErr {
+    fn from(_value: ItemTypeParseFailed) -> Self {
         Self::ItemTypeParsedFailed
     }
 }
@@ -74,7 +76,7 @@ impl Item {
         }
 
         let item_type_str = &item_parsed_values[0];
-        let item_type = ItemType::try_from(item_type_str)?;
+        let item_type = ItemType::from_str(item_type_str)?;
 
         match item_type {
             ItemType::System => Self::parse_str_system(item_parsed_values),
@@ -85,5 +87,27 @@ impl Item {
             | ItemType::File => Self::parse_str_common(item_type, item_parsed_values),
             ItemType::Scan => Self::parse_str_scan(item_parsed_values),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parsed_must_trim() {
+        let s = " Cmd <-> a   s d <->  asdasd aasd <-> asdsdada  ";
+        let ll = Item::parse_str(s).unwrap();
+
+        let item_parsed = match ll {
+            ItemParsed::Common(item_parsed_common) => item_parsed_common,
+            ItemParsed::System(_) => panic!("not this"),
+            ItemParsed::Scan(_) => panic!("not this"),
+        };
+
+        assert_eq!(item_parsed.the_type, ItemType::Cmd);
+        assert_eq!(item_parsed.key_words, vec!["a", "s", "d"]);
+        assert_eq!(item_parsed.name, "asdasd aasd");
+        assert_eq!(item_parsed.desc, "asdsdada");
     }
 }

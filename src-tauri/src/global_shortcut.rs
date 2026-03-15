@@ -1,6 +1,9 @@
+use std::{fmt::Display, str::FromStr};
+
 use tauri_plugin_global_shortcut::{
     Code, Error, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent,
 };
+use tauri_plugin_log::log::warn;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ShortcutChar {
@@ -33,56 +36,15 @@ pub enum ShortcutChar {
     Z,
 }
 
+impl Default for ShortcutChar {
+    fn default() -> Self {
+        Self::Space
+    }
+}
+
 impl ShortcutChar {
-    pub fn to_string(&self) -> String {
-        String::from(self)
-    }
-}
-
-impl From<&String> for ShortcutChar {
-    fn from(value: &String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-
-impl From<&str> for ShortcutChar {
-    fn from(value: &str) -> Self {
-        match value {
-            "Space" => Self::Space,
-            "A" => Self::A,
-            "B" => Self::B,
-            "C" => Self::C,
-            "D" => Self::D,
-            "E" => Self::E,
-            "F" => Self::F,
-            "G" => Self::G,
-            "H" => Self::H,
-            "I" => Self::I,
-            "J" => Self::J,
-            "K" => Self::K,
-            "L" => Self::L,
-            "M" => Self::M,
-            "N" => Self::N,
-            "O" => Self::O,
-            "P" => Self::P,
-            "Q" => Self::Q,
-            "R" => Self::R,
-            "S" => Self::S,
-            "T" => Self::T,
-            "U" => Self::U,
-            "V" => Self::V,
-            "W" => Self::W,
-            "X" => Self::X,
-            "Y" => Self::Y,
-            "Z" => Self::Z,
-            _ => Self::Space,
-        }
-    }
-}
-
-impl From<&ShortcutChar> for &str {
-    fn from(value: &ShortcutChar) -> Self {
-        match value {
+    pub fn as_str(&self) -> &str {
+        match self {
             ShortcutChar::Space => "Space",
             ShortcutChar::A => "A",
             ShortcutChar::B => "B",
@@ -114,22 +76,48 @@ impl From<&ShortcutChar> for &str {
     }
 }
 
-impl From<&ShortcutChar> for String {
-    fn from(value: &ShortcutChar) -> Self {
-        let s: &str = value.into();
-        s.to_string()
+impl Display for ShortcutChar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 
-impl From<ShortcutChar> for &str {
-    fn from(value: ShortcutChar) -> Self {
-        Self::from(&value)
-    }
-}
+pub struct ShortcutParseFailed;
 
-impl From<ShortcutChar> for String {
-    fn from(value: ShortcutChar) -> Self {
-        Self::from(&value)
+impl FromStr for ShortcutChar {
+    type Err = ShortcutParseFailed;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Space" => Ok(Self::Space),
+            "A" => Ok(Self::A),
+            "B" => Ok(Self::B),
+            "C" => Ok(Self::C),
+            "D" => Ok(Self::D),
+            "E" => Ok(Self::E),
+            "F" => Ok(Self::F),
+            "G" => Ok(Self::G),
+            "H" => Ok(Self::H),
+            "I" => Ok(Self::I),
+            "J" => Ok(Self::J),
+            "K" => Ok(Self::K),
+            "L" => Ok(Self::L),
+            "M" => Ok(Self::M),
+            "N" => Ok(Self::N),
+            "O" => Ok(Self::O),
+            "P" => Ok(Self::P),
+            "Q" => Ok(Self::Q),
+            "R" => Ok(Self::R),
+            "S" => Ok(Self::S),
+            "T" => Ok(Self::T),
+            "U" => Ok(Self::U),
+            "V" => Ok(Self::V),
+            "W" => Ok(Self::W),
+            "X" => Ok(Self::X),
+            "Y" => Ok(Self::Y),
+            "Z" => Ok(Self::Z),
+            _ => Err(ShortcutParseFailed),
+        }
     }
 }
 
@@ -209,8 +197,16 @@ fn get_shortcut() -> Shortcut {
         }
     };
 
-    let hot_key_char = Code::from(ShortcutChar::from(&conf.hot_key_char));
-
+    let shortcut_char = ShortcutChar::from_str(&conf.hot_key_char);
+    let shortcut_char = match shortcut_char {
+        Ok(sc) => sc,
+        Err(_) => {
+            warn!("parse shortcut_char failed, use default");
+            ShortcutChar::default()
+        }
+    };
+    
+    let hot_key_char = Code::from(shortcut_char);
     Shortcut::new(mods, hot_key_char)
 }
 

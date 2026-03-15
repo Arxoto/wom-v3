@@ -1,9 +1,7 @@
 use crate::inner_plugins::{
-    common::ItemType,
-    items::{
-        impl_persistence::core::{ItemParseErr, ItemParsed},
-        Item,
-    },
+    base::ItemType,
+    common::Item,
+    persistence::parse_core::{ItemParseErr, ItemParsed},
 };
 
 pub struct ItemParsedSystem {
@@ -13,7 +11,7 @@ pub struct ItemParsedSystem {
 
 impl Item {
     /// - 第一个固定为 [`ItemType`]
-    /// - 第二个为 [`crate::inner_plugins::base::KeyWord`] 的复数形式，以 [`crate::inner_plugins::items::impl_persistence::core::SPLIT_KEY`] 分割
+    /// - 第二个为 [`crate::inner_plugins::base::KeyWord`] 的复数形式，以 [`super::parse_core::SPLIT_KEY`] 分割
     /// - 第三个为 item_name
     pub(super) fn parse_str_system(
         mut item_parsed_values: Vec<String>,
