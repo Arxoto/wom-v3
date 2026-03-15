@@ -36,8 +36,6 @@ pub enum ItemType {
 }
 
 impl ItemType {
-    // todo rename from_string to from_str
-    // todo rename to_string to to_str
     pub fn as_str(&self) -> &str {
         match self {
             ItemType::System => "System",

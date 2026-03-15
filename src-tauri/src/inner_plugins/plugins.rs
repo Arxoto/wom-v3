@@ -5,7 +5,10 @@ use tauri::{
 
 use tauri_plugin_log::log;
 
-use crate::inner_plugins::persistence::load::{self, ItemsStat};
+use crate::inner_plugins::{
+    persistence::load::{self, ItemsStat},
+    search::{ItemSearchResult, ItemSearchStat},
+};
 
 pub const INNER_PLUGIN_NAME: &str = "inner-plugin";
 
@@ -13,8 +16,13 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new(INNER_PLUGIN_NAME)
         .invoke_handler(tauri::generate_handler![cmds::search, cmds::search_page])
         .setup(|app, _api| {
+            // load
             let items = load::load_settings(app)?;
             app.manage(ItemsStat::new(items));
+
+            // cache
+            app.manage(ItemSearchStat::new());
+
             Ok(())
         })
         .build()
@@ -26,14 +34,24 @@ pub fn reload_setting(app: &AppHandle) {
         return;
     };
 
-    let state = app
-        .try_state::<ItemsStat>()
-        .expect("ItemsStat not be managed");
+    // first to clear cache
+    {
+        let state = app
+            .try_state::<ItemSearchStat>()
+            .expect("ItemSearchStat not be managed");
 
-    let mut item_collection = state.0.lock().unwrap();
-    *item_collection = items;
+        let mut items = state.0.lock().unwrap();
+        *items = ItemSearchResult::default();
+    }
 
-    // todo 清理搜索缓存
+    {
+        let state = app
+            .try_state::<ItemsStat>()
+            .expect("ItemsStat not be managed");
+
+        let mut item_collection = state.0.lock().unwrap();
+        *item_collection = items;
+    }
 }
 
 mod cmds {

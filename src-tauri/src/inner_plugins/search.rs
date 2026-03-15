@@ -8,8 +8,14 @@ use crate::inner_plugins::common::Item;
 /// 纯内存计算，直接使用 [`std::sync::Mutex`]
 pub struct ItemSearchStat(pub Mutex<ItemSearchResult>);
 
+impl ItemSearchStat {
+    pub fn new() -> Self {
+        Self(Mutex::new(ItemSearchResult::default()))
+    }
+}
+
 /// 搜索结果（后端）
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ItemSearchResult {
     pub key_word: String,
     pub item_list: Vec<Item>,
