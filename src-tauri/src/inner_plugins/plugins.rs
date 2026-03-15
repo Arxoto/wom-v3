@@ -59,7 +59,7 @@ mod cmds {
 
     use crate::inner_plugins::{
         persistence::load::ItemsStat,
-        search::{ItemSearchPage, ItemSearchResult, ItemSearchStat},
+        search::{ItemSearchPage, ItemSearchStat},
     };
 
     #[tauri::command]
@@ -77,17 +77,14 @@ mod cmds {
         }
 
         // do search
-        let item_list = {
+        let new_search_result = {
             let item_collection = item_stat.0.lock().unwrap();
             item_collection.search(k)
         };
 
         // restore
         let mut item_search_result = item_search_stat.0.lock().unwrap();
-        *item_search_result = ItemSearchResult {
-            key_word: k.to_string(),
-            item_list: item_list,
-        };
+        *item_search_result = new_search_result;
 
         Ok(item_search_result.page(0))
     }

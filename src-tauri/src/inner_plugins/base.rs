@@ -84,6 +84,8 @@ impl TryFrom<String> for ItemType {
     }
 }
 
+pub type ItemId = u32;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyWord(pub String);
 

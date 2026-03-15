@@ -10,7 +10,7 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_log::log;
 
 use crate::inner_plugins::{
-    base::{ItemType, KeyWord},
+    base::{ItemId, ItemType, KeyWord},
     common::Item,
     persistence::{
         parse_core::{ItemParseErr, ItemParsed},
@@ -60,6 +60,7 @@ fn gen_item_list<R: Runtime>(app: &AppHandle<R>, setting_path: PathBuf) -> io::R
     let file = fs::File::open(setting_path)?;
     let mut reader = io::BufReader::new(file);
     let mut line = String::new();
+    let mut current_id: ItemId = 0;
     loop {
         let len = reader.read_line(&mut line)?;
         if len == 0 {
@@ -70,7 +71,7 @@ fn gen_item_list<R: Runtime>(app: &AppHandle<R>, setting_path: PathBuf) -> io::R
         let r = Item::parse_str(line_content);
         match r {
             Ok(parsed) => {
-                let r = add_items(app, parsed, &mut item_list);
+                let r = add_items(app, parsed, &mut current_id, &mut item_list);
                 let _ = r.map_err(|e| handle_parsed_error(e, line_content));
             }
             Err(e) => handle_parsed_error(e, line_content),
@@ -102,6 +103,7 @@ fn handle_parsed_error(e: ItemParseErr, line_content: &str) {
 fn add_items<R: Runtime>(
     app: &AppHandle<R>,
     parsed: ItemParsed,
+    current_id: &mut ItemId,
     item_list: &mut Vec<Item>,
 ) -> Result<(), ItemParseErr> {
     match parsed {
@@ -112,6 +114,7 @@ fn add_items<R: Runtime>(
                 .map(|k| KeyWord(k))
                 .map(|k| {
                     Item::new(
+                        current_id,
                         item_parsed_common.the_type,
                         k,
                         item_parsed_common.name.clone(),
@@ -127,13 +130,13 @@ fn add_items<R: Runtime>(
                 .key_words
                 .into_iter()
                 .map(|k| KeyWord(k))
-                .map(|k| Item::new(ItemType::System, k, item_parsed_system.name.clone(), ""))
+                .map(|k| Item::new(current_id, ItemType::System, k, item_parsed_system.name.clone(), ""))
                 .collect();
             item_list.append(&mut ll);
             Ok(())
         }
         ItemParsed::Scan(item_parsed_scan) => {
-            let mut ll = scans_helper::scan_files(app, item_parsed_scan)?;
+            let mut ll = scans_helper::scan_files(app, item_parsed_scan, current_id)?;
 
             item_list.append(&mut ll);
             Ok(())

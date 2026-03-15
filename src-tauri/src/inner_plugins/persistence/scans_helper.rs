@@ -9,7 +9,7 @@ use tauri::{path::BaseDirectory, AppHandle, Manager, Runtime};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::inner_plugins::{
-    base::{ItemType, KeyWord},
+    base::{ItemId, ItemType, KeyWord},
     common::Item,
     persistence::{parse_core::ItemParseErr, parse_impl_scan::ItemParsedScan},
 };
@@ -17,6 +17,7 @@ use crate::inner_plugins::{
 pub(super) fn scan_files<R: Runtime>(
     app: &AppHandle<R>,
     parsed: ItemParsedScan,
+    current_id: &mut ItemId,
 ) -> Result<Vec<Item>, ItemParseErr> {
     let ItemParsedScan {
         file_types,
@@ -57,6 +58,7 @@ pub(super) fn scan_files<R: Runtime>(
         .into_iter()
         .map(|(file_name, file_path)| {
             Item::new(
+                current_id,
                 ItemType::File,
                 KeyWord(file_name.clone()),
                 file_name,

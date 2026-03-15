@@ -5285,6 +5285,7 @@ name = "wom-v3"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "bitvec",
  "serde",
  "serde_json",
  "tauri",
