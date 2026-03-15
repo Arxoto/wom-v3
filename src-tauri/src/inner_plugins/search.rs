@@ -19,6 +19,7 @@ impl ItemSearchStat {
 pub struct ItemSearchResult {
     pub key_word: String,
     pub item_list: Vec<Item>,
+    // 不同匹配模式的分割索引
     pub index_eq: usize,
     pub index_starts_with: usize,
     pub index_contains: usize,
@@ -34,6 +35,11 @@ pub struct ItemSearchPage {
     pub total: usize,
     pub index: usize,
     pub item_list: Vec<ItemDisplay>,
+    // 不同匹配模式的分割索引
+    pub index_eq: usize,
+    pub index_starts_with: usize,
+    pub index_contains: usize,
+    pub index_match: usize,
 }
 
 impl ItemSearchResult {
@@ -54,6 +60,10 @@ impl ItemSearchResult {
             total: self.item_list.len(),
             index: start_index,
             item_list,
+            index_eq: self.index_eq,
+            index_starts_with: self.index_starts_with,
+            index_contains: self.index_contains,
+            index_match: self.index_match,
         }
     }
 }
