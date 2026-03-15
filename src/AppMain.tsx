@@ -49,6 +49,9 @@ todo list
   - 下翻时给予 list 一个向上的 transform&opacity transition
 */
 
+// =================================
+// todo Item 实现
+// =================================
 
 // 下翻 list 过渡动画，使用 rAF 绕过 React 渲染任务队列、不写明 will-change 让其自动优化
 // /* 基础槽位 */
@@ -101,5 +104,73 @@ todo list
 //     <div ref={domRef} className={`item-slot ${isActive ? 'active' : ''}`}>
 //       {/* 内容... */}
 //     </div>
+//   );
+// };
+
+// =================================
+// todo Note 实现
+// =================================
+
+// import { useMemo } from 'react';
+// import { convertFileSrc } from '@tauri-apps/api/core';
+
+// const useSafeHtml = (rawHtml: string) => {
+//   return useMemo(() => {
+//     // 1. 在内存中创建一个虚拟文档
+//     const parser = new DOMParser();
+//     const doc = parser.parseFromString(rawHtml, 'text/html');
+
+//     // 2. 精准查找所有 img 标签
+//     const imgs = doc.querySelectorAll('img');
+
+//     imgs.forEach(img => {
+//       const src = img.getAttribute('src');
+//       // 3. 只有当它看起来像本地路径时才转换
+//       if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('asset:')) {
+//         img.setAttribute('src', convertFileSrc(src));
+//       }
+
+//       // 顺便可以在这里做一些“非暴力”的预处理
+//       img.setAttribute('loading', 'lazy'); // 自动开启延迟加载
+//       img.setAttribute('draggable', 'false'); // 禁止拖拽
+//     });
+
+//     // 4. 返回处理后的 HTML 字符串
+//     return doc.body.innerHTML;
+//   }, [rawHtml]);
+// };
+
+// const StaticRichText = ({ htmlContent }: { htmlContent: string }) => {
+//   const containerRef = useRef<HTMLDivElement>(null);
+
+//   useEffect(() => {
+//     if (!containerRef.current) return;
+
+//     // 1. 强制对所有图片绑定事件
+//     const images = containerRef.current.querySelectorAll('img');
+//     const handleClick = (e: Event) => {
+//       const target = e.target as HTMLImageElement;
+//       console.log('图片被点击了:', target.src);
+//       // 这里可以调用 Tauri 的 API 弹出大图预览
+//     };
+
+//     images.forEach(img => {
+//       img.addEventListener('click', handleClick);
+//       // 顺手解决静态 HTML 的图片加载失败显示问题
+//       img.style.cursor = 'pointer';
+//     });
+
+//     // 2. 清理函数（防止 React 严格模式下重复绑定）
+//     return () => {
+//       images.forEach(img => img.removeEventListener('click', handleClick));
+//     };
+//   }, [htmlContent]); // 当内容更新时重新绑定
+
+//   return (
+//     <div
+//       ref={containerRef}
+//       className="prose max-w-none"
+//       dangerouslySetInnerHTML={{ __html: htmlContent }}
+//     />
 //   );
 // };

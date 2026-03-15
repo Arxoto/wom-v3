@@ -34,7 +34,7 @@ pub enum ShortcutChar {
 }
 
 impl ShortcutChar {
-    pub fn to_string(self) -> String {
+    pub fn to_string(&self) -> String {
         String::from(self)
     }
 }
@@ -80,37 +80,56 @@ impl From<&str> for ShortcutChar {
     }
 }
 
+impl From<&ShortcutChar> for &str {
+    fn from(value: &ShortcutChar) -> Self {
+        match value {
+            ShortcutChar::Space => "Space",
+            ShortcutChar::A => "A",
+            ShortcutChar::B => "B",
+            ShortcutChar::C => "C",
+            ShortcutChar::D => "D",
+            ShortcutChar::E => "E",
+            ShortcutChar::F => "F",
+            ShortcutChar::G => "G",
+            ShortcutChar::H => "H",
+            ShortcutChar::I => "I",
+            ShortcutChar::J => "J",
+            ShortcutChar::K => "K",
+            ShortcutChar::L => "L",
+            ShortcutChar::M => "M",
+            ShortcutChar::N => "N",
+            ShortcutChar::O => "O",
+            ShortcutChar::P => "P",
+            ShortcutChar::Q => "Q",
+            ShortcutChar::R => "R",
+            ShortcutChar::S => "S",
+            ShortcutChar::T => "T",
+            ShortcutChar::U => "U",
+            ShortcutChar::V => "V",
+            ShortcutChar::W => "W",
+            ShortcutChar::X => "X",
+            ShortcutChar::Y => "Y",
+            ShortcutChar::Z => "Z",
+        }
+    }
+}
+
+impl From<&ShortcutChar> for String {
+    fn from(value: &ShortcutChar) -> Self {
+        let s: &str = value.into();
+        s.to_string()
+    }
+}
+
+impl From<ShortcutChar> for &str {
+    fn from(value: ShortcutChar) -> Self {
+        Self::from(&value)
+    }
+}
+
 impl From<ShortcutChar> for String {
     fn from(value: ShortcutChar) -> Self {
-        match value {
-            ShortcutChar::Space => "Space".to_string(),
-            ShortcutChar::A => "A".to_string(),
-            ShortcutChar::B => "B".to_string(),
-            ShortcutChar::C => "C".to_string(),
-            ShortcutChar::D => "D".to_string(),
-            ShortcutChar::E => "E".to_string(),
-            ShortcutChar::F => "F".to_string(),
-            ShortcutChar::G => "G".to_string(),
-            ShortcutChar::H => "H".to_string(),
-            ShortcutChar::I => "I".to_string(),
-            ShortcutChar::J => "J".to_string(),
-            ShortcutChar::K => "K".to_string(),
-            ShortcutChar::L => "L".to_string(),
-            ShortcutChar::M => "M".to_string(),
-            ShortcutChar::N => "N".to_string(),
-            ShortcutChar::O => "O".to_string(),
-            ShortcutChar::P => "P".to_string(),
-            ShortcutChar::Q => "Q".to_string(),
-            ShortcutChar::R => "R".to_string(),
-            ShortcutChar::S => "S".to_string(),
-            ShortcutChar::T => "T".to_string(),
-            ShortcutChar::U => "U".to_string(),
-            ShortcutChar::V => "V".to_string(),
-            ShortcutChar::W => "W".to_string(),
-            ShortcutChar::X => "X".to_string(),
-            ShortcutChar::Y => "Y".to_string(),
-            ShortcutChar::Z => "Z".to_string(),
-        }
+        Self::from(&value)
     }
 }
 
