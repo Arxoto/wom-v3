@@ -108,30 +108,26 @@ fn add_items<R: Runtime>(
 ) -> Result<(), ItemParseErr> {
     match parsed {
         ItemParsed::Common(item_parsed_common) => {
-            let mut ll: Vec<Item> = item_parsed_common
-                .key_words
-                .into_iter()
-                .map(|k| KeyWord(k))
-                .map(|k| {
-                    Item::new(
-                        current_id,
-                        item_parsed_common.the_type,
-                        k,
-                        item_parsed_common.name.clone(),
-                        item_parsed_common.desc.clone(),
-                    )
-                })
-                .collect();
+            let key_words = item_parsed_common.key_words.into_iter().map(|k| KeyWord(k));
+            let mut ll = Item::new_list(
+                current_id,
+                item_parsed_common.the_type,
+                key_words,
+                item_parsed_common.name,
+                item_parsed_common.desc,
+            );
             item_list.append(&mut ll);
             Ok(())
         }
         ItemParsed::System(item_parsed_system) => {
-            let mut ll: Vec<Item> = item_parsed_system
-                .key_words
-                .into_iter()
-                .map(|k| KeyWord(k))
-                .map(|k| Item::new(current_id, ItemType::System, k, item_parsed_system.name.clone(), ""))
-                .collect();
+            let key_words = item_parsed_system.key_words.into_iter().map(|k| KeyWord(k));
+            let mut ll = Item::new_list(
+                current_id,
+                ItemType::System,
+                key_words,
+                item_parsed_system.name,
+                "",
+            );
             item_list.append(&mut ll);
             Ok(())
         }

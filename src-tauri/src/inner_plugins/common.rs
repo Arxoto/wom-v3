@@ -10,7 +10,7 @@ pub struct Item {
 }
 
 impl Item {
-    // 传入 id 自增
+    /// 传入 id 自增
     pub fn new<S: Into<ItemDesc>>(
         the_id: &mut ItemId,
         the_type: ItemType,
@@ -26,5 +26,25 @@ impl Item {
             name,
             desc: desc.into(),
         }
+    }
+
+    /// 传入 id 自增，生成多个不同 key_word 的副本
+    pub fn new_list<S: Into<ItemDesc> + Clone, K: Iterator<Item = KeyWord>>(
+        the_id: &mut ItemId,
+        the_type: ItemType,
+        key_words: K,
+        name: String,
+        desc: S,
+    ) -> Vec<Self> {
+        *the_id += 1;
+        key_words
+            .map(|key_word| Self {
+                the_id: *the_id,
+                the_type,
+                key_word,
+                name: name.clone(),
+                desc: desc.clone().into(),
+            })
+            .collect()
     }
 }
