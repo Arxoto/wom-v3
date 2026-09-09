@@ -20,12 +20,20 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-arc-swap = "1.8.2"
-bitvec = "1.0.1"
+arc-swap = "1.9.2"
+bitvec = "1.1.1"
 walkdir = "2.5.0"
 tauri = { version = "2", features = [ "tray-icon" ] }
 tauri-plugin-opener = "2"
 tauri-plugin-log = "2"
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"
