@@ -272,7 +272,6 @@ mod algorithm {
             assert_eq!(merged_list, vec![1, 3, 5, 7, 9, 2, 11, 13]);
         }
 
-        
         #[test]
         fn scale_up() {
             let mut seen_ids = bitvec![u64, Lsb0; 0; 1024];

@@ -205,7 +205,7 @@ fn get_shortcut() -> Shortcut {
             ShortcutChar::default()
         }
     };
-    
+
     let hot_key_char = Code::from(shortcut_char);
     Shortcut::new(mods, hot_key_char)
 }
@@ -215,5 +215,6 @@ pub fn register_global_shortcut(app: &tauri::AppHandle) -> std::result::Result<(
 }
 
 pub fn unregister_global_shortcut(app: &tauri::AppHandle) -> std::result::Result<(), Error> {
+    // todo 应该保存当前注册的快捷键
     app.global_shortcut().unregister(get_shortcut())
 }
