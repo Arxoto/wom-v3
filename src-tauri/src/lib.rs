@@ -228,6 +228,7 @@ mod tray {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // 日志
         .plugin(if cfg!(debug_assertions) {
             tauri_plugin_log::Builder::new()
                 .targets([
@@ -247,13 +248,18 @@ pub fn run() {
                 .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
                 .build()
         })
+        // 系统通知
+        .plugin(tauri_plugin_notification::init())
+        // 默认打开方式
         .plugin(tauri_plugin_opener::init())
+        // 全局快捷键
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(global_shortcut::handler_global_shortcut)
                 .build(),
         )
-        .plugin(inner_plugins::init()) // 自定义插件
+        // 自定义插件
+        .plugin(inner_plugins::init())
         .invoke_handler(tauri::generate_handler![configs::fetch_layout_config])
         .setup(|app| {
             configs::load_data(app.handle());

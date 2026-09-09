@@ -9,6 +9,7 @@
     "core:default",
     "core:window:allow-start-dragging",
     "opener:default",
-    "log:default"
+    "log:default",
+    "notification:default"
   ]
 }
