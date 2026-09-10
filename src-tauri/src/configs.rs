@@ -7,7 +7,7 @@ use std::{
 use arc_swap::ArcSwap;
 use serde::{Deserialize, Serialize};
 
-pub const CONFIG_FILE_NAME: &str = "config.json";
+use crate::{constants::CONFIG_FILE_NAME, shortcuts::ShortcutChar};
 
 pub static CONFIG: OnceLock<ArcSwap<ConfigData>> = OnceLock::new();
 
@@ -160,7 +160,7 @@ impl Default for ConfigSettings {
             hot_key_ctrl: false,
             hot_key_meta: false,
             hot_key_shift: false,
-            hot_key_char: crate::global_shortcut::ShortcutChar::Space.to_string(),
+            hot_key_char: ShortcutChar::default().to_string(),
         }
     }
 }
