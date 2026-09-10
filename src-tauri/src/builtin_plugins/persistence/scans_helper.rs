@@ -1,3 +1,5 @@
+//! 扫描插件的扫描逻辑实现
+
 use std::{
     fmt::Display,
     path::{Path, PathBuf},

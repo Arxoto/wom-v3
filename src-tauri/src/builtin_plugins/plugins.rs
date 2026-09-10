@@ -1,3 +1,5 @@
+//! 插件的可调用函数实现
+
 use tauri::{
     plugin::{Builder, TauriPlugin},
     AppHandle, Manager, Runtime,

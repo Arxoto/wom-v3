@@ -1,3 +1,5 @@
+//! 具体的 [`Item`] 实现
+
 use crate::builtin_plugins::base::{ItemDesc, ItemId, ItemType, KeyWord};
 
 #[derive(Debug, Clone)]

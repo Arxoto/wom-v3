@@ -1,6 +1,17 @@
-//! 内建插件的基础定义
+//! 内建插件的基础字段定义
+//!
+//! 包括 [`ItemId`] [`KeyWord`] [`ItemType`] [`ItemDesc`]
 
 use std::{fmt::Display, path::PathBuf, str::FromStr};
+
+pub type ItemId = u32;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyWord(pub String);
+
+pub struct ItemTypeParseFailed;
+
+// region: ItemType
 
 /// todo
 /// - Clipboard 剪贴板增强，纯文本复制、预览，不做历史管理，太重了，历史管理和增强有
@@ -59,8 +70,6 @@ impl Display for ItemType {
     }
 }
 
-pub struct ItemTypeParseFailed;
-
 impl FromStr for ItemType {
     type Err = ItemTypeParseFailed;
 
@@ -86,10 +95,9 @@ impl TryFrom<String> for ItemType {
     }
 }
 
-pub type ItemId = u32;
+// endregion
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct KeyWord(pub String);
+// region: ItemDesc
 
 #[derive(Debug, Clone)]
 pub enum ItemDesc {
@@ -125,3 +133,5 @@ impl Display for ItemDesc {
         f.write_str(s)
     }
 }
+
+// endregion

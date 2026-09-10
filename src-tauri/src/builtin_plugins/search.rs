@@ -1,3 +1,5 @@
+//! 检索逻辑
+
 use std::sync::Mutex;
 
 use serde::Serialize;
