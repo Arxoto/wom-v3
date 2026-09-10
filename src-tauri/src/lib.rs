@@ -1,3 +1,4 @@
+use tauri::{plugin::TauriPlugin, Runtime};
 use tauri_plugin_log::log::{debug, info};
 
 mod constants;
@@ -117,29 +118,34 @@ mod tray {
     }
 }
 
+/// 自定义日志打印和日志回滚
+fn log_setting_init<R: Runtime>() -> TauriPlugin<R> {
+    if cfg!(debug_assertions) {
+        tauri_plugin_log::Builder::new()
+            .targets([
+                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+            ])
+            .level(tauri_plugin_log::log::LevelFilter::Debug)
+            .level_for("tao", tauri_plugin_log::log::LevelFilter::Info) // 去除不必要的事件循环通知
+            .build()
+    } else {
+        tauri_plugin_log::Builder::new()
+            .targets([tauri_plugin_log::Target::new(
+                tauri_plugin_log::TargetKind::LogDir { file_name: None },
+            )])
+            .level(tauri_plugin_log::log::LevelFilter::Warn)
+            .max_file_size(1024 * 1024)
+            .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
+            .build()
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         // 日志
-        .plugin(if cfg!(debug_assertions) {
-            tauri_plugin_log::Builder::new()
-                .targets([
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
-                ])
-                .level(tauri_plugin_log::log::LevelFilter::Debug)
-                .level_for("tao", tauri_plugin_log::log::LevelFilter::Info) // 去除不必要的事件循环通知
-                .build()
-        } else {
-            tauri_plugin_log::Builder::new()
-                .targets([tauri_plugin_log::Target::new(
-                    tauri_plugin_log::TargetKind::LogDir { file_name: None },
-                )])
-                .level(tauri_plugin_log::log::LevelFilter::Warn)
-                .max_file_size(1024 * 1024)
-                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
-                .build()
-        })
+        .plugin(log_setting_init())
         // 系统通知
         .plugin(tauri_plugin_notification::init())
         // 默认打开方式
