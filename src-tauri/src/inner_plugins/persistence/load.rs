@@ -9,17 +9,20 @@ use tauri::{AppHandle, Runtime};
 
 use tauri_plugin_log::log;
 
-use crate::inner_plugins::{
-    base::{ItemId, ItemType, KeyWord},
-    common::Item,
-    persistence::{
-        parse_core::{ItemParseErr, ItemParsed},
-        scans_helper,
+use crate::{
+    constants::SETTING_FILE_NAME,
+    inner_plugins::{
+        base::{ItemId, ItemType, KeyWord},
+        common::Item,
+        persistence::{
+            parse_core::{ItemParseErr, ItemParsed},
+            scans_helper,
+        },
     },
 };
 
-pub const SETTING_FILE_NAME: &str = "inner_plugins.txt";
-
+/// 根据设置文件得到的全量的 items 状态
+///
 /// 纯内存计算，直接使用 [`std::sync::Mutex`]
 pub struct ItemsStat(pub Mutex<ItemCollection>);
 
@@ -29,6 +32,7 @@ impl ItemsStat {
     }
 }
 
+/// 根据设置文件得到的全量的 items
 pub struct ItemCollection {
     pub item_list: Vec<Item>,
 }
