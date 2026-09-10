@@ -1,3 +1,4 @@
+use tauri::Manager;
 use tauri_plugin_log::log::{debug, info};
 
 mod configs;
@@ -264,6 +265,8 @@ pub fn run() {
         .setup(|app| {
             configs::load_data(app.handle());
             let conf = configs::get_data();
+
+            app.manage(global_shortcut::GlobalShortcutStat::new());
 
             tray::create_tray(app)?;
             window::create_main_window(app.handle(), conf.show_main_auto)?;

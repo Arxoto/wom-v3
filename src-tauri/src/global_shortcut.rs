@@ -1,9 +1,39 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, str::FromStr, sync::Mutex};
 
+use tauri::Manager;
 use tauri_plugin_global_shortcut::{
     Code, Error, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent,
 };
 use tauri_plugin_log::log::warn;
+
+/// 当前已注册的全局快捷键状态
+///
+/// 注册 / 注销均由用户手动触发（托盘菜单），因此需要在内存中保存当前已注册的快捷键，
+/// 用于判断是否需要重新注册，以及注销时确定注销哪一个快捷键。
+pub struct GlobalShortcutStat(Mutex<Option<Shortcut>>);
+
+impl GlobalShortcutStat {
+    pub fn new() -> Self {
+        Self(Mutex::new(None))
+    }
+
+    /// 获取当前已注册的快捷键，未注册时为 [`None`]
+    pub fn get(&self) -> Option<Shortcut> {
+        // 该状态只保存一个可复制的值，即使锁中毒也可以安全地取回其中的数据
+        *self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// 保存当前已注册的快捷键，未注册时保存 [`None`]
+    pub fn set(&self, shortcut: Option<Shortcut>) {
+        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = shortcut;
+    }
+}
+
+impl Default for GlobalShortcutStat {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum ShortcutChar {
@@ -210,11 +240,50 @@ fn get_shortcut() -> Shortcut {
     Shortcut::new(mods, hot_key_char)
 }
 
+fn get_stat(app: &tauri::AppHandle) -> tauri::State<'_, GlobalShortcutStat> {
+    match app.try_state::<GlobalShortcutStat>() {
+        Some(stat) => stat,
+        // 兜底：正常情况下已在应用启动时注册，此处避免因未托管而 panic
+        None => {
+            app.manage(GlobalShortcutStat::new());
+            app.state::<GlobalShortcutStat>()
+        }
+    }
+}
+
 pub fn register_global_shortcut(app: &tauri::AppHandle) -> std::result::Result<(), Error> {
-    app.global_shortcut().register(get_shortcut())
+    let shortcut = get_shortcut();
+    let stat = get_stat(app);
+
+    if let Some(registered) = stat.get() {
+        // 已保存的快捷键与最新的快捷键一致，无需重新注册
+        if registered == shortcut {
+            return Ok(());
+        }
+
+        // 与最新的快捷键不一致，先注销旧的
+        // 注销失败不阻断注册（此时旧快捷键可能已不在注册状态）
+        if let Err(e) = app.global_shortcut().unregister(registered) {
+            warn!("Failed to unregister old global shortcut: {}", e);
+        }
+        stat.set(None);
+    }
+
+    // 注册并保存最新的快捷键
+    app.global_shortcut().register(shortcut)?;
+    stat.set(Some(shortcut));
+    Ok(())
 }
 
 pub fn unregister_global_shortcut(app: &tauri::AppHandle) -> std::result::Result<(), Error> {
-    // todo 应该保存当前注册的快捷键
-    app.global_shortcut().unregister(get_shortcut())
+    let stat = get_stat(app);
+
+    // 未保存任何快捷键，说明当前没有注册，无需注销
+    let Some(registered) = stat.get() else {
+        return Ok(());
+    };
+
+    app.global_shortcut().unregister(registered)?;
+    stat.set(None);
+    Ok(())
 }
