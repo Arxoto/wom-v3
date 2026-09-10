@@ -64,6 +64,7 @@ mod cmds {
         search::{ItemSearchPage, ItemSearchStat},
     };
 
+    /// 使用关键字进行检索
     #[tauri::command]
     pub async fn search(
         item_stat: State<'_, ItemsStat>,
@@ -91,6 +92,7 @@ mod cmds {
         Ok(item_search_result.page(0))
     }
 
+    /// 对检索结果进行翻页
     #[tauri::command]
     pub async fn search_page(
         item_search_stat: State<'_, ItemSearchStat>,
