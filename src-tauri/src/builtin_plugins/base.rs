@@ -1,3 +1,5 @@
+//! 内建插件的基础定义
+
 use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 /// todo

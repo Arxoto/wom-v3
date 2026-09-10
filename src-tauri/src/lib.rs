@@ -12,7 +12,7 @@ mod window_utils;
 #[cfg(desktop)]
 mod global_shortcut;
 
-mod inner_plugins;
+mod builtin_plugins;
 
 mod app_stat {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -36,7 +36,7 @@ mod tray {
     };
     use tauri_plugin_log::log::{debug, info, warn};
 
-    use crate::{app_stat, configs, global_shortcut, inner_plugins, window_utils};
+    use crate::{app_stat, builtin_plugins, configs, global_shortcut, window_utils};
 
     pub(super) fn create_tray(app: &App) -> Result<()> {
         let show_main_desc = "Show Main Window";
@@ -100,7 +100,7 @@ mod tray {
                     }
                 }
                 "re_plugin" => {
-                    inner_plugins::reload_setting(app);
+                    builtin_plugins::reload_setting(app);
                 }
                 "reload" => {
                     info!("try reload config data");
@@ -159,7 +159,7 @@ pub fn run() {
         // 全局快捷键：WOM 逻辑（托管状态 + 就绪时按配置注册）
         .plugin(global_shortcut::wom_global_shortcut_init())
         // 自定义插件
-        .plugin(inner_plugins::init())
+        .plugin(builtin_plugins::init())
         .invoke_handler(tauri::generate_handler![configs::fetch_layout_config])
         .setup(|app| {
             configs::load_data(app.handle());

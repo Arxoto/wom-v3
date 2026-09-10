@@ -1,4 +1,4 @@
-use crate::inner_plugins::base::{ItemDesc, ItemId, ItemType, KeyWord};
+use crate::builtin_plugins::base::{ItemDesc, ItemId, ItemType, KeyWord};
 
 #[derive(Debug, Clone)]
 pub struct Item {

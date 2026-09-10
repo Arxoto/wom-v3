@@ -10,8 +10,7 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_log::log;
 
 use crate::{
-    constants::SETTING_FILE_NAME,
-    inner_plugins::{
+    builtin_plugins::{
         base::{ItemId, ItemType, KeyWord},
         common::Item,
         persistence::{
@@ -19,6 +18,7 @@ use crate::{
             scans_helper,
         },
     },
+    constants::SETTING_FILE_NAME,
 };
 
 /// 根据设置文件得到的全量的 items 状态

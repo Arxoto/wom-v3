@@ -5,7 +5,7 @@ use tauri::{
 
 use tauri_plugin_log::log;
 
-use crate::inner_plugins::{
+use crate::builtin_plugins::{
     persistence::load::{self, ItemsStat},
     search::{ItemSearchResult, ItemSearchStat},
 };
@@ -57,7 +57,7 @@ pub fn reload_setting(app: &AppHandle) {
 mod cmds {
     use tauri::State;
 
-    use crate::inner_plugins::{
+    use crate::builtin_plugins::{
         persistence::load::ItemsStat,
         search::{ItemSearchPage, ItemSearchStat},
     };

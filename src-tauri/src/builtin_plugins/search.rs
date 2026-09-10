@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use serde::Serialize;
 
-use crate::inner_plugins::common::Item;
+use crate::builtin_plugins::common::Item;
 
 /// 缓存搜索结果
 /// 纯内存计算，直接使用 [`std::sync::Mutex`]
@@ -89,7 +89,7 @@ impl From<&Item> for ItemDisplay {
 mod algorithm {
     use bitvec::prelude::*;
 
-    use crate::inner_plugins::{
+    use crate::builtin_plugins::{
         base::KeyWord, common::Item, persistence::load::ItemCollection, search::ItemSearchResult,
     };
 

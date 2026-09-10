@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::inner_plugins::{
+use crate::builtin_plugins::{
     base::{ItemType, ItemTypeParseFailed},
     common::Item,
     persistence::{

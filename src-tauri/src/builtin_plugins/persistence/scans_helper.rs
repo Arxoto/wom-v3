@@ -8,7 +8,7 @@ use tauri::{path::BaseDirectory, AppHandle, Manager, Runtime};
 
 use walkdir::{DirEntry, WalkDir};
 
-use crate::inner_plugins::{
+use crate::builtin_plugins::{
     base::{ItemId, ItemType, KeyWord},
     common::Item,
     persistence::{parse_core::ItemParseErr, parse_impl_scan::ItemParsedScan},

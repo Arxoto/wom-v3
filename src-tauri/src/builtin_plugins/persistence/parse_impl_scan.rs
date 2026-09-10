@@ -1,4 +1,4 @@
-use crate::inner_plugins::{
+use crate::builtin_plugins::{
     base::ItemType,
     common::Item,
     persistence::parse_core::{ItemParseErr, ItemParsed},

@@ -1,4 +1,4 @@
-use crate::inner_plugins::{
+use crate::builtin_plugins::{
     base::ItemType,
     common::Item,
     persistence::parse_core::{ItemParseErr, ItemParsed},
@@ -13,7 +13,7 @@ pub struct ItemParsedCommon {
 
 impl Item {
     /// - 第一个固定为 [`ItemType`]
-    /// - 第二个为 [`crate::inner_plugins::base::KeyWord`] 的复数形式，以 [`super::parse_core::SPLIT_KEY`] 分割
+    /// - 第二个为 [`crate::builtin_plugins::base::KeyWord`] 的复数形式，以 [`super::parse_core::SPLIT_KEY`] 分割
     /// - 第三个为 item_name
     /// - 第四个为 item_desc
     pub(super) fn parse_str_common(
