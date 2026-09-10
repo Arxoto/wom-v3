@@ -42,7 +42,7 @@ impl Item {
     pub(super) fn split_key(key: &str) -> Vec<String> {
         key.split(SPLIT_KEY)
             .map(|k| k.trim())
-            .filter(|k| *k != "")
+            .filter(|k| !k.is_empty())
             .map(|v| v.to_string())
             .collect()
     }
@@ -70,9 +70,9 @@ impl Item {
 
         let item_parsed_values = Self::split_line(line);
         if item_parsed_values.len() <= 1 {
-            return Err(ItemParseErr::ValueNotEnough(format!(
-                "values must be at least 2 for Item parsing"
-            )));
+            return Err(ItemParseErr::ValueNotEnough(
+                "values must be at least 2 for Item parsing".to_string(),
+            ));
         }
 
         let item_type_str = &item_parsed_values[0];

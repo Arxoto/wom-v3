@@ -29,7 +29,7 @@ pub(super) fn scan_files<R: Runtime>(
     } = parsed;
 
     // BaseDirectory::from_variable
-    let base_dir = BasePath::from_variable(&base).map(|b| BaseDirectory::from(b));
+    let base_dir = BasePath::from_variable(&base).map(BaseDirectory::from);
 
     let real_path = match base_dir {
         Some(base_dir) => app.path().resolve(path, base_dir).map_err(|_| {
@@ -257,5 +257,5 @@ fn is_match(entry: &DirEntry, file_name: &str, opts: &ScanOptions) -> bool {
         .black_list
         .iter()
         .any(|black_key| file_name.contains(black_key));
-    return !has_black_key;
+    !has_black_key
 }

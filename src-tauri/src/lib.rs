@@ -1,4 +1,3 @@
-use tauri::Manager;
 use tauri_plugin_log::log::{debug, info};
 
 mod configs;
@@ -112,14 +111,13 @@ mod window {
 
         let w = the_builder.build()?;
         let w_handle = w.clone();
-        w.on_window_event(move |event| match event {
-            tauri::WindowEvent::Focused(focused) => {
+        w.on_window_event(move |event| {
+            if let tauri::WindowEvent::Focused(focused) = event {
                 let conf = configs::get_data();
                 if conf.hide_main_unfocused && !focused {
                     let _ = w_handle.hide();
                 }
             }
-            _ => {}
         });
         Ok(())
     }
@@ -253,12 +251,14 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         // 默认打开方式
         .plugin(tauri_plugin_opener::init())
-        // 全局快捷键
+        // 全局快捷键：系统级注册能力
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(global_shortcut::handler_global_shortcut)
                 .build(),
         )
+        // 全局快捷键：WOM 逻辑（托管状态 + 就绪时按配置注册）
+        .plugin(global_shortcut::wom_global_shortcut_init())
         // 自定义插件
         .plugin(inner_plugins::init())
         .invoke_handler(tauri::generate_handler![configs::fetch_layout_config])
@@ -266,19 +266,15 @@ pub fn run() {
             configs::load_data(app.handle());
             let conf = configs::get_data();
 
-            app.manage(global_shortcut::GlobalShortcutStat::new());
-
             tray::create_tray(app)?;
             window::create_main_window(app.handle(), conf.show_main_auto)?;
-
-            global_shortcut::register_global_shortcut(app.handle())?;
 
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app, event| match event {
-            tauri::RunEvent::ExitRequested { api, .. } => {
+        .run(|_app, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
                 if app_stat::is_running() {
                     debug!("will not close");
                     api.prevent_exit(); // 阻止所有窗口关闭时退出应用
@@ -286,6 +282,5 @@ pub fn run() {
                     info!("will close");
                 }
             }
-            _ => {}
         });
 }

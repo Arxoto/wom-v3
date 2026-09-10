@@ -53,7 +53,7 @@ impl ItemSearchResult {
 
         let item_list: Vec<ItemDisplay> = self.item_list[start_index..final_index]
             .iter()
-            .map(|item| ItemDisplay::from(item))
+            .map(ItemDisplay::from)
             .collect();
 
         ItemSearchPage {

@@ -29,7 +29,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 }
 
 pub fn reload_setting(app: &AppHandle) {
-    let Ok(items) = load::load_settings(&app) else {
+    let Ok(items) = load::load_settings(app) else {
         log::warn!("io error when load settings");
         return;
     };

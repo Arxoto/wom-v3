@@ -108,7 +108,7 @@ fn add_items<R: Runtime>(
 ) -> Result<(), ItemParseErr> {
     match parsed {
         ItemParsed::Common(item_parsed_common) => {
-            let key_words = item_parsed_common.key_words.into_iter().map(|k| KeyWord(k));
+            let key_words = item_parsed_common.key_words.into_iter().map(KeyWord);
             let mut ll = Item::new_list(
                 current_id,
                 item_parsed_common.the_type,
@@ -120,7 +120,7 @@ fn add_items<R: Runtime>(
             Ok(())
         }
         ItemParsed::System(item_parsed_system) => {
-            let key_words = item_parsed_system.key_words.into_iter().map(|k| KeyWord(k));
+            let key_words = item_parsed_system.key_words.into_iter().map(KeyWord);
             let mut ll = Item::new_list(
                 current_id,
                 ItemType::System,
