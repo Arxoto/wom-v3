@@ -1,13 +1,13 @@
 //! 内建插件的基础字段定义
 //!
-//! 包括 [`ItemId`] [`KeyWord`] [`ItemType`] [`ItemDesc`]
+//! 包括 [`KeyWords`] [`ItemType`] [`ItemDesc`]
 
 use std::{fmt::Display, path::PathBuf, str::FromStr};
 
-pub type ItemId = u32;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct KeyWord(pub String);
+/// 关键字列表
+///
+/// 检索时取所有关键字中优先级最高的匹配模式（见 [`crate::builtin_plugins::search`]）
+pub type KeyWords = Vec<String>;
 
 pub struct ItemTypeParseFailed;
 
