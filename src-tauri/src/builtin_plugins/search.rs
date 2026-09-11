@@ -111,17 +111,13 @@ mod algorithm {
             self.0.contains(k)
         }
 
+        /// 子序列匹配 两个迭代器依次步进
         pub fn find_match(&self, k: &str) -> bool {
-            let key_bytes = self.0.as_bytes();
-            let k_bytes = k.as_bytes();
-
-            if k_bytes.len() > key_bytes.len() {
+            if k.len() > self.0.len() {
                 return false;
             }
-
-            // 子序列匹配 两个迭代器依次步进
-            let mut key_iter = key_bytes.iter();
-            k_bytes.iter().all(|s| key_iter.any(|t| t == s))
+            let mut key_iter = self.0.bytes();
+            k.bytes().all(|s| key_iter.any(|t| t == s))
         }
     }
 
