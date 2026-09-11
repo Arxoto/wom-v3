@@ -55,6 +55,7 @@ pub fn load_settings<R: Runtime>(app: &AppHandle<R>) -> io::Result<ItemCollectio
     }
 
     let item_list: Vec<Item> = gen_item_list(app, setting_path)?;
+    log::debug!("get items: {:?}", item_list);
 
     log::info!("end to load settings");
     Ok(ItemCollection { item_list })
