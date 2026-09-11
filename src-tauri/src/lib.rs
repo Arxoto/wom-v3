@@ -150,14 +150,9 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         // 默认打开方式
         .plugin(tauri_plugin_opener::init())
-        // 全局快捷键：系统级注册能力
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(global_shortcut::handler_global_shortcut)
-                .build(),
-        )
-        // 全局快捷键：WOM 逻辑（托管状态 + 就绪时按配置注册）
-        .plugin(global_shortcut::wom_global_shortcut_init())
+        // 全局快捷键
+        .plugin(global_shortcut::global_shortcut_handler_init())
+        .plugin(global_shortcut::global_shortcut_startup_register())
         // 自定义插件
         .plugin(builtin_plugins::init())
         .invoke_handler(tauri::generate_handler![configs::fetch_layout_config])
