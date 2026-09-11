@@ -19,11 +19,11 @@ mod app_stat {
 
     static RUNNING_STAT: AtomicBool = AtomicBool::new(true);
 
-    pub(super) fn is_running() -> bool {
+    pub fn is_running() -> bool {
         RUNNING_STAT.load(Ordering::SeqCst)
     }
 
-    pub(super) fn stop_running() {
+    pub fn stop_running() {
         RUNNING_STAT.store(false, Ordering::SeqCst);
     }
 }
@@ -38,7 +38,7 @@ mod tray {
 
     use crate::{app_stat, builtin_plugins, configs, global_shortcut, window_utils};
 
-    pub(super) fn create_tray(app: &App) -> Result<()> {
+    pub fn create_tray(app: &App) -> Result<()> {
         let show_main_desc = "Show Main Window";
         let reset_main_desc = "Reset Main Window";
         let open_config_desc = "Open Config Window";

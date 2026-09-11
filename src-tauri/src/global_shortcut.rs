@@ -121,7 +121,8 @@ impl Default for GlobalShortcutStat {
     }
 }
 
-pub fn handler_global_shortcut(
+/// 快捷键触发行为控制
+fn handler_global_shortcut(
     app_handle: &tauri::AppHandle,
     _shortcut: &Shortcut,
     event: ShortcutEvent,

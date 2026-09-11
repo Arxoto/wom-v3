@@ -138,9 +138,9 @@ pub struct ConfigSettings {
 
 /// 与前端布局耦合的数据，需要同步修改
 mod layout_coupling {
-    pub(super) const FRAME_VALUE: f64 = 48.0;
-    pub(super) const DIVIDER_H: f64 = 8.0;
-    pub(super) const DIVIDER_N: i64 = 2;
+    pub const FRAME_VALUE: f64 = 48.0;
+    pub const DIVIDER_H: f64 = 8.0;
+    pub const DIVIDER_N: i64 = 2;
 }
 
 impl Default for ConfigSettings {

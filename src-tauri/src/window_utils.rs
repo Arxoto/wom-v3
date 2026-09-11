@@ -3,14 +3,14 @@ use tauri_plugin_log::log::debug;
 
 use crate::{configs, constants};
 
-pub(super) fn destory_main_window(app: &AppHandle) -> Result<()> {
+pub fn destory_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         w.close()?;
     }
     Ok(())
 }
 
-pub(super) fn show_hide_main_window(app: &AppHandle) -> Result<()> {
+pub fn show_hide_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         if w.is_visible()? {
             w.hide()?
@@ -25,7 +25,7 @@ pub(super) fn show_hide_main_window(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn show_main_window(app: &AppHandle) -> Result<()> {
+pub fn show_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         w.unminimize()?;
         w.show()?;
@@ -36,7 +36,7 @@ pub(super) fn show_main_window(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn show_config_window(app: &AppHandle) -> Result<()> {
+pub fn show_config_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_CONFIG) {
         w.unminimize()?;
         w.show()?;
@@ -48,7 +48,7 @@ pub(super) fn show_config_window(app: &AppHandle) -> Result<()> {
 }
 
 // todo use window-vibrancy 毛玻璃效果（然后 css 中手动加上 1px 的边框） https://github.com/tauri-apps/window-vibrancy
-pub(super) fn create_main_window(app: &AppHandle, shown: bool) -> Result<()> {
+pub fn create_main_window(app: &AppHandle, shown: bool) -> Result<()> {
     let conf = configs::get_data();
     let url_name = if conf.custom_shadow {
         "index_frame.html"
@@ -96,7 +96,7 @@ pub(super) fn create_main_window(app: &AppHandle, shown: bool) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn create_config_window(app: &AppHandle) -> Result<()> {
+pub fn create_config_window(app: &AppHandle) -> Result<()> {
     let _ = WebviewWindow::builder(
         app,
         constants::LABEL_CONFIG,
