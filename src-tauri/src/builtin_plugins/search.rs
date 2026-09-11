@@ -1,26 +1,22 @@
 //! 检索逻辑
 
-use std::sync::Mutex;
-
 use serde::Serialize;
 
-use crate::builtin_plugins::common::Item;
-
-/// 缓存搜索结果
-/// 纯内存计算，直接使用 [`std::sync::Mutex`]
-pub struct ItemSearchStat(pub Mutex<ItemSearchResult>);
-
-impl ItemSearchStat {
-    pub fn new() -> Self {
-        Self(Mutex::new(ItemSearchResult::default()))
-    }
-}
+use crate::builtin_plugins::{base::ItemId, common::Item, persistence::load::ItemCollection};
 
 /// 搜索结果（后端）
+///
+/// 只保存 [`ItemId`] ，渲染用的 [`Item`] 在翻页时再从 [`ItemCollection`] 取出，
+/// 避免为每条命中结果克隆一次 [`Item`]
+///
+/// 由 [`crate::builtin_plugins::plugins::PluginStat`] 持有
 #[derive(Debug, Default)]
 pub struct ItemSearchResult {
-    pub key_word: String,
-    pub item_list: Vec<Item>,
+    /// `None` 表示尚未进行过检索
+    ///
+    /// 使用 [`Option`] 而不是空串，避免“检索空串”和“未检索”互相混淆
+    pub key_word: Option<String>,
+    pub item_ids: Vec<ItemId>,
     // 不同匹配模式的分割索引
     pub index_eq: usize,
     pub index_starts_with: usize,
@@ -46,20 +42,21 @@ pub struct ItemSearchPage {
 
 impl ItemSearchResult {
     pub fn is_current_result(&self, k: &str) -> bool {
-        self.key_word == k
+        self.key_word.as_deref() == Some(k)
     }
 
-    pub fn page(&self, index: usize) -> ItemSearchPage {
-        let start_index = self.item_list.len().min(index);
-        let final_index = self.item_list.len().min(start_index + PAGE_SIZE);
+    pub fn page(&self, index: usize, item_collection: &ItemCollection) -> ItemSearchPage {
+        let start_index = self.item_ids.len().min(index);
+        let final_index = self.item_ids.len().min(start_index + PAGE_SIZE);
 
-        let item_list: Vec<ItemDisplay> = self.item_list[start_index..final_index]
+        let item_list: Vec<ItemDisplay> = self.item_ids[start_index..final_index]
             .iter()
+            .filter_map(|id| item_collection.get_by_id(*id))
             .map(ItemDisplay::from)
             .collect();
 
         ItemSearchPage {
-            total: self.item_list.len(),
+            total: self.item_ids.len(),
             index: start_index,
             item_list,
             index_eq: self.index_eq,
@@ -92,157 +89,107 @@ mod algorithm {
     use bitvec::prelude::*;
 
     use crate::builtin_plugins::{
-        base::KeyWord, common::Item, persistence::load::ItemCollection, search::ItemSearchResult,
+        base::ItemId, persistence::load::ItemCollection, search::ItemSearchResult,
     };
 
-    impl KeyWord {
-        #[inline]
-        pub fn find_eq(&self, k: &str) -> bool {
-            self.0 == k
-        }
+    /// 精确相等
+    #[inline]
+    fn find_eq(keyword: &str, k_input: &str) -> bool {
+        keyword == k_input
+    }
 
-        #[inline]
-        pub fn find_starts_with(&self, k: &str) -> bool {
-            self.0.starts_with(k)
-        }
+    /// 前缀
+    #[inline]
+    fn find_starts_with(keyword: &str, k_input: &str) -> bool {
+        keyword.starts_with(k_input)
+    }
 
-        #[inline]
-        pub fn find_contains(&self, k: &str) -> bool {
-            self.0.contains(k)
-        }
+    /// 包含
+    #[inline]
+    fn find_contains(keyword: &str, k_input: &str) -> bool {
+        keyword.contains(k_input)
+    }
 
-        /// 子序列匹配 两个迭代器依次步进
-        pub fn find_match(&self, k: &str) -> bool {
-            if k.len() > self.0.len() {
-                return false;
-            }
-            let mut key_iter = self.0.bytes();
-            k.bytes().all(|s| key_iter.any(|t| t == s))
+    /// 子序列匹配 两个迭代器依次步进
+    fn find_match(keyword: &str, k_input: &str) -> bool {
+        if k_input.len() > keyword.len() {
+            return false;
         }
+        let mut key_iter = keyword.bytes();
+        k_input.bytes().all(|s| key_iter.any(|t| t == s))
     }
 
     impl ItemCollection {
+        /// 依次按照 精确 > 前缀 > 包含 > 子序列 检索，同一个 item 只保留优先级最高的那次匹配
+        ///
+        /// 去重使用 `BitVec<u64, Lsb0>` 判断 id 是否已存在
+        /// - 相比 `HashSet` ，无需哈希计算，内存占用低、缓存友好
+        /// - 相比 `bit-set` ，`bitvec` 的维护活跃度更高
+        /// - 相比 `roaring` ，更成熟、工业级，但更适用于海量数据，低数据量下容器结构反而更重
+        ///
+        /// 为优化性能， id 必须是纯数字，且尽量密集
+        /// （见 [`crate::builtin_plugins::common::Item::new`] ）
         pub fn search(&self, k: &str) -> ItemSearchResult {
             let item_list = &self.item_list;
 
-            let mut list_eq: Vec<Item> = vec![];
-            let mut list_starts_with: Vec<Item> = vec![];
-            let mut list_contains: Vec<Item> = vec![];
-            let mut list_match: Vec<Item> = vec![];
+            // 预分配位图，id 最大为 max_id ，向上取整到 64 位便于内存对齐
+            // 空集合时取 64 ，保证位图非空
+            let max_id = item_list.iter().map(|item| item.the_id).max().unwrap_or(0);
+            let bits = ((max_id as usize) + 64) & !63;
+            let mut seen_ids = bitvec![u64, Lsb0; 0; bits];
+
+            // 四种匹配模式分别收集 id ，既保证输出分组，又避免收集时克隆 [`Item`]
+            let mut ids_eq: Vec<ItemId> = vec![];
+            let mut ids_starts_with: Vec<ItemId> = vec![];
+            let mut ids_contains: Vec<ItemId> = vec![];
+            let mut ids_match: Vec<ItemId> = vec![];
+
             for item in item_list {
-                let key_word = &item.key_word;
-                if key_word.find_eq(k) {
-                    list_eq.push(item.clone());
-                } else if key_word.find_starts_with(k) {
-                    list_starts_with.push(item.clone());
-                } else if key_word.find_contains(k) {
-                    list_contains.push(item.clone());
-                } else if key_word.find_match(k) {
-                    list_match.push(item.clone());
+                let keyword = item.key_word.0.as_str();
+
+                // 先分类，未命中的 item 不能占用 id
+                // 同一个 item 可能有多个 key_word
+                // （见 [`crate::builtin_plugins::common::Item::new_list`] ），
+                // 因此同一个 id 可能命中多次，只保留优先级最高的那次
+                let target = if find_eq(keyword, k) {
+                    &mut ids_eq
+                } else if find_starts_with(keyword, k) {
+                    &mut ids_starts_with
+                } else if find_contains(keyword, k) {
+                    &mut ids_contains
+                } else if find_match(keyword, k) {
+                    &mut ids_match
+                } else {
+                    continue;
+                };
+
+                // replace(index, value) 会将该位设为 true ，并返回该位原来的值
+                // 如果原来是 false ，说明是第一次遇见
+                if !seen_ids.replace(item.the_id as usize, true) {
+                    target.push(item.the_id);
                 }
             }
 
-            let MergedList {
-                merged_list,
-                index1,
-                index2,
-                index3,
-                index4,
-            } = do_merge_and_deduplicate(list_eq, list_starts_with, list_contains, list_match);
+            let index_eq = 0;
+            let index_starts_with = index_eq + ids_eq.len();
+            let index_contains = index_starts_with + ids_starts_with.len();
+            let index_match = index_contains + ids_contains.len();
+
+            // 按优先级顺序拼接
+            let mut item_ids = Vec::with_capacity(index_match + ids_match.len());
+            item_ids.extend(ids_eq);
+            item_ids.extend(ids_starts_with);
+            item_ids.extend(ids_contains);
+            item_ids.extend(ids_match);
 
             ItemSearchResult {
-                key_word: k.to_string(),
-                item_list: merged_list,
-                index_eq: index1,
-                index_starts_with: index2,
-                index_contains: index3,
-                index_match: index4,
+                key_word: Some(k.to_string()),
+                item_ids,
+                index_eq,
+                index_starts_with,
+                index_contains,
+                index_match,
             }
-        }
-    }
-
-    impl HasId for Item {
-        fn get_id(&self) -> usize {
-            self.the_id as usize
-        }
-    }
-
-    trait HasId {
-        fn get_id(&self) -> usize;
-    }
-
-    struct MergedList<E: HasId> {
-        pub merged_list: Vec<E>,
-        pub index1: usize,
-        pub index2: usize,
-        pub index3: usize,
-        pub index4: usize,
-    }
-
-    /// 消耗所有权进行合并，使用 BitVec<u64, Lsb0> 判断是否已存在
-    ///
-    /// 为优化性能， id 必须是纯数字
-    /// - 若 id 是离散的，则使用 nohash-hasher ，把数字本身当作哈希值
-    /// - 若 id 是连续的，则使用 bitvec ，内存占用低、缓存友好
-    ///   - 另有 bit-set ，相比 bitvec 更便捷（无需手动处理索引越界），但是版本号是 0.9 （虽然是维护状态），考虑到维护活跃度不选择
-    ///   - 另有 roaring ，更成熟、工业级的方案，更适用于海量数据的场景，低数据量没有优势
-    fn append_unique<E: HasId>(
-        source: Vec<E>,
-        seen: &mut BitVec<u64, Lsb0>,
-        target: &mut Vec<E>,
-    ) -> usize {
-        let origin_index = target.len();
-
-        // 预剪枝优化 扩容 bitvec
-        if let Some(max_id) = source.iter().map(|item| item.get_id()).max() {
-            if max_id >= seen.len() {
-                let aligned_len = (max_id + 64) & !63; // 64 取整，内存对齐
-                let new_len = seen.len().saturating_mul(2).max(aligned_len); // 防止溢出
-                seen.resize(new_len, false);
-            }
-        }
-
-        for item in source {
-            let id = item.get_id();
-
-            // replace(index, value) 会将该位设为 true ，并返回该位原来的值
-            // 如果原来是 false ，说明是第一次遇见
-            if !seen.replace(id, true) {
-                target.push(item);
-            }
-        }
-
-        origin_index
-    }
-
-    fn do_merge_and_deduplicate<E: HasId>(
-        l1: Vec<E>,
-        l2: Vec<E>,
-        l3: Vec<E>,
-        l4: Vec<E>,
-    ) -> MergedList<E> {
-        // 预分配容量
-        let total_potential_size = l1.len() + l2.len() + l3.len() + l4.len();
-        let mut merged_list = Vec::with_capacity(total_potential_size);
-
-        // 初始化 bitvec
-        // 使用 u64 作为存储单元，大部分终端现在都是 64 位机器，性能较好
-        // 初始值为 false
-        // 预设 1024 位，大部分情况足够
-        let mut seen_ids = bitvec![u64, Lsb0; 0; 1024];
-
-        // 执行合并
-        let index1 = append_unique(l1, &mut seen_ids, &mut merged_list);
-        let index2 = append_unique(l2, &mut seen_ids, &mut merged_list);
-        let index3 = append_unique(l3, &mut seen_ids, &mut merged_list);
-        let index4 = append_unique(l4, &mut seen_ids, &mut merged_list);
-
-        MergedList {
-            merged_list,
-            index1,
-            index2,
-            index3,
-            index4,
         }
     }
 
@@ -250,40 +197,119 @@ mod algorithm {
     mod tests {
         use super::*;
 
-        impl HasId for u32 {
-            fn get_id(&self) -> usize {
-                *self as usize
+        use crate::builtin_plugins::{
+            base::{ItemDesc, ItemType, KeyWord},
+            common::Item,
+        };
+
+        fn item(the_id: ItemId, key_word: &str) -> Item {
+            Item {
+                the_id,
+                the_type: ItemType::Snippets,
+                key_word: KeyWord(key_word.to_string()),
+                name: key_word.to_string(),
+                desc: ItemDesc::Str(String::new()),
             }
         }
 
         #[test]
-        fn merge_and_deduplicate() {
-            let mut seen_ids = bitvec![u64, Lsb0; 0; 1024];
-            let mut merged_list: Vec<u32> = Vec::new();
-
-            let index = append_unique(vec![1, 3, 5, 7, 9], &mut seen_ids, &mut merged_list);
-            assert_eq!(index, 0);
-            assert_eq!(merged_list, vec![1, 3, 5, 7, 9]);
-
-            let index = append_unique(vec![2, 3, 5, 7, 11, 13], &mut seen_ids, &mut merged_list);
-            assert_eq!(index, 5);
-            assert_eq!(merged_list, vec![1, 3, 5, 7, 9, 2, 11, 13]);
+        fn find_match_by_sub_sequence() {
+            assert!(find_match("hello world", "hwd"));
+            assert!(!find_match("hello world", "hdr"));
+            assert!(!find_match("abc", "abcd")); // 关键字比输入更短
+            assert!(find_match("中文测试", "中测"));
         }
 
         #[test]
-        fn scale_up() {
-            let mut seen_ids = bitvec![u64, Lsb0; 0; 1024];
-            let mut merged_list: Vec<u32> = Vec::new();
+        fn search_by_priority() {
+            let item_collection = ItemCollection {
+                item_list: vec![
+                    item(1, "abc"),   // eq
+                    item(2, "abcde"), // starts_with
+                    item(3, "xabc"),  // contains
+                    item(4, "axbxc"), // 子序列
+                    item(5, "zzz"),   // 不匹配
+                ],
+            };
 
-            let index = append_unique(vec![1, 3, 5, 7, 9], &mut seen_ids, &mut merged_list);
-            assert_eq!(index, 0);
-            assert_eq!(merged_list, vec![1, 3, 5, 7, 9]);
+            let result = item_collection.search("abc");
 
-            let index = append_unique(vec![2, 2048], &mut seen_ids, &mut merged_list);
-            assert_eq!(index, 5);
-            assert_eq!(merged_list, vec![1, 3, 5, 7, 9, 2, 2048]);
+            assert_eq!(result.item_ids, vec![1, 2, 3, 4]);
+            assert_eq!(result.index_eq, 0);
+            assert_eq!(result.index_starts_with, 1);
+            assert_eq!(result.index_contains, 2);
+            assert_eq!(result.index_match, 3);
+            assert_eq!(result.key_word.as_deref(), Some("abc"));
+        }
 
-            assert_eq!(seen_ids.capacity(), 2048 + 64);
+        /// 同一个 item 的多个 key_word 命中不同模式时，只保留优先级最高的那次
+        #[test]
+        fn duplicate_id_keeps_the_first_match() {
+            let item_collection = ItemCollection {
+                item_list: vec![
+                    item(1, "xabc"), // contains
+                    item(1, "abc"),  // eq 同 id ，优先级更高，但排在后面
+                    item(2, "zzz"),  // 不匹配，不能占用 id
+                    item(2, "zabc"), // contains
+                ],
+            };
+
+            let result = item_collection.search("abc");
+
+            assert_eq!(result.item_ids, vec![1, 2]);
+            assert_eq!(result.index_contains, 0);
+            assert_eq!(result.index_match, 2);
+        }
+
+        #[test]
+        fn empty_key_word_matches_all() {
+            let item_collection = ItemCollection {
+                item_list: vec![item(1, "a"), item(2, "b")],
+            };
+
+            let result = item_collection.search("");
+
+            assert_eq!(result.item_ids, vec![1, 2]);
+            assert_eq!(result.index_eq, 0);
+            assert_eq!(result.index_starts_with, 0);
+            assert_eq!(result.index_contains, 2);
+            assert_eq!(result.index_match, 2);
+        }
+
+        /// 空串关键字与“未检索”不能混淆
+        #[test]
+        fn empty_key_word_is_not_cached() {
+            let result = ItemSearchResult::default();
+            assert!(!result.is_current_result(""));
+            assert!(!result.is_current_result("abc"));
+
+            let result = ItemCollection {
+                item_list: vec![item(1, "a")],
+            }
+            .search("");
+            assert!(result.is_current_result(""));
+            assert!(!result.is_current_result("a"));
+        }
+
+        #[test]
+        fn page_resolve_item_id() {
+            let item_collection = ItemCollection {
+                item_list: vec![item(1, "abc"), item(2, "abcd"), item(3, "xabc")],
+            };
+            let result = item_collection.search("abc");
+
+            let page = result.page(0, &item_collection);
+            assert_eq!(page.total, 3);
+            assert_eq!(page.index, 0);
+            assert_eq!(page.item_list.len(), 3);
+            assert_eq!(page.item_list[0].name, "abc");
+            assert_eq!(page.item_list[2].name, "xabc");
+            assert_eq!(page.index_contains, 2);
+
+            // 越界时返回空页
+            let page = result.page(100, &item_collection);
+            assert_eq!(page.index, 3);
+            assert!(page.item_list.is_empty());
         }
     }
 }

@@ -4,7 +4,6 @@ use std::{
     fs,
     io::{self, BufRead},
     path::PathBuf,
-    sync::Mutex,
 };
 
 use tauri::{AppHandle, Runtime};
@@ -23,20 +22,25 @@ use crate::{
     constants::SETTING_FILE_NAME,
 };
 
-/// 根据设置文件得到的全量的 items 状态
-///
-/// 纯内存计算，直接使用 [`std::sync::Mutex`]
-pub struct ItemsStat(pub Mutex<ItemCollection>);
-
-impl ItemsStat {
-    pub fn new(items: ItemCollection) -> Self {
-        Self(Mutex::new(items))
-    }
-}
-
 /// 根据设置文件得到的全量的 items
+///
+/// 由 [`crate::builtin_plugins::plugins::PluginStat`] 持有
 pub struct ItemCollection {
     pub item_list: Vec<Item>,
+}
+
+impl ItemCollection {
+    /// 通过 [`ItemId`] 获取 [`Item`]
+    ///
+    /// [`ItemCollection::item_list`] 中 [`Item::the_id`] 按加载顺序非递减分配
+    /// （见 [`Item::new`] [`Item::new_list`] 以及 `scans_helper::scan_files` ），
+    /// 因此可以二分查找
+    pub fn get_by_id(&self, the_id: ItemId) -> Option<&Item> {
+        let index = self.item_list.partition_point(|item| item.the_id < the_id);
+        self.item_list
+            .get(index)
+            .filter(|item| item.the_id == the_id)
+    }
 }
 
 pub fn load_settings<R: Runtime>(app: &AppHandle<R>) -> io::Result<ItemCollection> {

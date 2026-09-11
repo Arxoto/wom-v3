@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn parsed_must_trim() {
-        let s = " Cmd <-> a   s d <->  asdasd aasd <-> asdsdada  ";
+        let s = " cmd <-> a   s d <->  asdasd aasd <-> asdsdada  ";
         let ll = Item::parse_str(s).unwrap();
 
         let item_parsed = match ll {
