@@ -22,14 +22,10 @@ pub struct ItemTypeParseFailed;
 ///   - FlowLauncher/Raycast 等启动软件集成
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ItemType {
-    /// 系统命令
-    System,
-    /// 命令 可复制并自动打开终端、后台执行
-    /// - 更自动化一点 AutoHotkey(Windows) / AppleScript(macOS)
-    /// - 更集成一点的方案 enigo （仅控制输入无法识别聚焦的窗口），注意必须 app_handle.run_on_main_thread 主线程执行
-    Cmd,
     /// 片段 仅允许复制
     Snippets,
+    /// 内置实现的系统命令
+    System,
     /// 笔记 MarkDownLite 自定义简化语法，窗口渲染
     /// - 使用 React 组件属性 dangerouslySetInnerHTML 实现注入 html 语法
     /// - 使用 React useEffect 对渲染的内容增加事件监听（如最下面的实现）
@@ -37,6 +33,10 @@ pub enum ItemType {
     /// - 文件变更通知
     /// - 默认样式限制图片显示
     Note,
+    /// 命令 可复制并自动打开终端、后台执行
+    /// - 更自动化一点 AutoHotkey(Windows) / AppleScript(macOS)
+    /// - 更集成一点的方案 enigo （仅控制输入无法识别聚焦的窗口），注意必须 app_handle.run_on_main_thread 主线程执行
+    Cmd,
     /// 网页 支持使用默认浏览器打开、复制连接
     Web,
     /// 文件/文件夹/应用 支持默认方式打开、在文件夹中选中、复制完整路径 行为一样所以合并了
@@ -48,16 +48,24 @@ pub enum ItemType {
     Scan,
 }
 
+const ITEM_SNIPPETS: &str = "snip";
+const ITEM_SYSTEM: &str = "sys";
+const ITEM_NOTE: &str = "note";
+const ITEM_CMD: &str = "cmd";
+const ITEM_WEB: &str = "web";
+const ITEM_FILE: &str = "file";
+const ITEM_SCAN: &str = "scan";
+
 impl ItemType {
     pub fn as_str(&self) -> &str {
         match self {
-            ItemType::System => "System",
-            ItemType::Cmd => "Cmd",
-            ItemType::Snippets => "Snippets",
-            ItemType::Note => "Note",
-            ItemType::Web => "Web",
-            ItemType::File => "File",
-            ItemType::Scan => "Scan",
+            ItemType::Snippets => ITEM_SNIPPETS,
+            ItemType::System => ITEM_SYSTEM,
+            ItemType::Note => ITEM_NOTE,
+            ItemType::Cmd => ITEM_CMD,
+            ItemType::Web => ITEM_WEB,
+            ItemType::File => ITEM_FILE,
+            ItemType::Scan => ITEM_SCAN,
         }
     }
 }
@@ -75,13 +83,13 @@ impl FromStr for ItemType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "System" => Ok(Self::System),
-            "Cmd" => Ok(Self::Cmd),
-            "Snippets" => Ok(Self::Snippets),
-            "Note" => Ok(Self::Note),
-            "Web" => Ok(Self::Web),
-            "File" => Ok(Self::File),
-            "Scan" => Ok(Self::Scan),
+            ITEM_SNIPPETS => Ok(Self::Snippets),
+            ITEM_SYSTEM => Ok(Self::System),
+            ITEM_NOTE => Ok(Self::Note),
+            ITEM_CMD => Ok(Self::Cmd),
+            ITEM_WEB => Ok(Self::Web),
+            ITEM_FILE => Ok(Self::File),
+            ITEM_SCAN => Ok(Self::Scan),
             _ => Err(ItemTypeParseFailed),
         }
     }

@@ -80,9 +80,9 @@ impl Item {
 
         match item_type {
             ItemType::System => Self::parse_str_system(item_parsed_values),
-            ItemType::Cmd
-            | ItemType::Snippets
+            ItemType::Snippets
             | ItemType::Note
+            | ItemType::Cmd
             | ItemType::Web
             | ItemType::File => Self::parse_str_common(item_type, item_parsed_values),
             ItemType::Scan => Self::parse_str_scan(item_parsed_values),
