@@ -7,6 +7,10 @@ use tauri_plugin_log::log::{debug, warn};
 /// 原生效果与经典外观（Solid Panel）是互斥的两条路：用原生效果时窗口必须透明、无原生框架，
 /// 所以"是否使用系统原生框架"只体现在经典外观的两种形态上。
 /// 窗口阴影一律用系统原生阴影，不做自绘。
+/// 
+/// todo Liquid Glass (macOS 26+) 目前 API 不够稳定，
+/// 且 Tauri 下必须用 with_webview 把 WKWebView 交给 NSGlassEffectView 的 contentView 。
+/// 待稳定再加回来：恢复 macOS 的 objc2-app-kit 依赖。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WindowEffect {
     /// 不使用原生效果、不使用原生框架：无边框的经典面板
@@ -20,10 +24,6 @@ pub enum WindowEffect {
     Acrylic,
     /// macOS：NSVisualEffectView 毛玻璃
     Vibrancy,
-    // todo Liquid Glass（macOS 26+）：window-vibrancy 0.7 引入、0.8 就换掉了 API（LiquidGlassOptions），
-    //      而且 Tauri 下必须用 with_webview 把 WKWebView 交给 NSGlassEffectView 的 contentView，
-    //      失败只能异步回传。等它在 macOS 26 真机上验证稳定再加回来：恢复 macOS 的 objc2-app-kit 依赖，
-    //      并在此补变体 + candidates() / is_available() / alpha() / apply_one() 各一条。
 }
 
 impl WindowEffect {
