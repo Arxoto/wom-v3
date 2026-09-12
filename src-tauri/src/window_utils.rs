@@ -3,13 +3,6 @@ use tauri_plugin_log::log::{debug, warn};
 
 use crate::{configs, constants, window_effect};
 
-pub fn destory_main_window(app: &AppHandle) -> Result<()> {
-    if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
-        w.close()?;
-    }
-    Ok(())
-}
-
 pub fn show_hide_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         if w.is_visible()? {
@@ -104,13 +97,29 @@ pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result
 /// 该回调在主线程执行，正好满足窗口效果 `apply` 的主线程要求。
 /// 主窗口不存在时什么都不做——它下次被创建时本来就会读到最新配置。
 pub fn recreate_main_window(app: &AppHandle) -> Result<()> {
+    rebuild_main_window(app, true)
+}
+
+/// 重置主窗口：按最新配置重建，位置回到配置里的居中位置，不沿用旧位置
+///
+/// 同一个菜单项也可能用于把跑到屏幕外的窗口救回来，所以这里不抄旧位置。
+pub fn reset_main_window(app: &AppHandle) -> Result<()> {
+    rebuild_main_window(app, false)
+}
+
+/// 销毁并重建主窗口；`keep_position` 为 true 时把旧窗口的位置抄给新窗口
+fn rebuild_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     let Some(window) = app.get_webview_window(constants::LABEL_MAIN) else {
         return Ok(());
     };
 
     // 取不到可见性就按隐藏处理：宁可少弹一次，也不要凭空出现在屏幕上
     let shown = window.is_visible().unwrap_or(false);
-    let position = window.outer_position().ok();
+    let position = if keep_position {
+        window.outer_position().ok()
+    } else {
+        None
+    };
     let app_handle = app.clone();
 
     window.on_window_event(move |event| {
@@ -118,14 +127,14 @@ pub fn recreate_main_window(app: &AppHandle) -> Result<()> {
             return;
         }
 
-        // 重建不抢焦点：配置窗口保存后主窗口不该跳到前台
+        // 重建不抢焦点：保存配置或重置时，主窗口都不该跳到前台
         match create_main_window(&app_handle, shown, false) {
             Ok(window) => {
                 if let Some(position) = position {
                     let _ = window.set_position(position);
                 }
             }
-            Err(err) => warn!("recreate main window failed: {}", err),
+            Err(err) => warn!("rebuild main window failed: {}", err),
         }
     });
 

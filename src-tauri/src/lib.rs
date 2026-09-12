@@ -78,9 +78,9 @@ mod tray {
                     debug!("show_main_window {:?}", _r);
                 }
                 "reset_main" => {
-                    let _r = window_utils::destory_main_window(app);
+                    let _r = window_utils::reset_main_window(app);
                     #[cfg(debug_assertions)]
-                    debug!("destory_main_window {:?}", _r);
+                    debug!("reset_main_window {:?}", _r);
                 }
                 "open_config" => {
                     let _ = window_utils::show_config_window(app);
