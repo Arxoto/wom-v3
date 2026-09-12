@@ -62,6 +62,25 @@ export interface EffectInfo {
     alpha: number,
 }
 
+/**
+ * 扫描根路径变量（对应 Rust 侧 persistence::scan_base::ScanBase）
+ *
+ * 值就是设置文件里写的变量名，各平台落到哪个目录由 tauri 决定。
+ * 手写的设置文件可以用这张表以外的变量，配置页的下拉只提供这些。
+ */
+export type ScanBase =
+    | "$HOME" | "$DESKTOP" | "$DOWNLOAD" | "$DOCUMENT" | "$PICTURE" | "$AUDIO" | "$VIDEO"
+    | "$CONFIG" | "$DATA" | "$LOCALDATA" | "$RESOURCE"
+    | "$APPCONFIG" | "$APPDATA" | "$APPLOCALDATA";
+
+/**
+ * 扫描根路径的下拉选项（对应 Rust 侧 ScanBaseOption）
+ */
+export interface ScanBaseOption {
+    value: ScanBase,
+    label: string,
+}
+
 export const get_config = async () => {
     return (await invoke('fetch_config')) as Config;
 }
@@ -72,6 +91,10 @@ export const set_config = async (config: Config) => {
 
 export const get_effect_info = async () => {
     return (await invoke('fetch_effect_info')) as EffectInfo;
+}
+
+export const get_scan_base_options = async () => {
+    return (await invoke('fetch_scan_base_options')) as ScanBaseOption[];
 }
 
 /**

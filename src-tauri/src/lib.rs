@@ -167,6 +167,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::fetch_config,
             commands::fetch_effect_info,
+            commands::fetch_scan_base_options,
             commands::set_config
         ])
         .setup(|app| {

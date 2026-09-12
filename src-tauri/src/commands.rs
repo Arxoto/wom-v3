@@ -5,7 +5,10 @@
 
 use tauri_plugin_log::log::warn;
 
-use crate::{configs, window_effect, window_utils};
+use crate::{
+    builtin_plugins::persistence::scan_base::{ScanBase, ScanBaseOption},
+    configs, window_effect, window_utils,
+};
 
 #[cfg(desktop)]
 use crate::global_shortcut;
@@ -26,6 +29,14 @@ pub async fn fetch_effect_info() -> configs::EffectInfo {
         available: window_effect::available(),
         alpha: window_effect::alpha(effective),
     }
+}
+
+/// 扫描根路径的可选项，配置页用来渲染下拉
+///
+/// 顺带给出每个变量在这台机器上解析出来的目录，前端可以直接显示
+#[tauri::command]
+pub async fn fetch_scan_base_options() -> Vec<ScanBaseOption> {
+    ScanBase::options()
 }
 
 /// 保存整份配置，并让它立刻生效

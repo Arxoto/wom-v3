@@ -5,6 +5,8 @@ pub mod parse_impl_common;
 pub mod parse_impl_scan;
 pub mod parse_impl_system;
 
+pub mod scan_base;
+
 pub mod scans_helper;
 
 pub mod load;
