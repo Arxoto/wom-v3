@@ -18,6 +18,22 @@ body {
   background-color: #0000;
 }
 
+/* 面板底色层：颜色取自 core.css 的调色板，透明度取自 core.css 的 --color-bg-alpha（默认 1，js 会覆写）。
+   单独一层 + opacity 是为了避开 css 的相对颜色语法（旧 WebView2 / WebKit 不支持，
+    整条声明会被丢弃）。它铺在 #root 之下，所以 #root 的 1px 发丝线仍画在底色之上。
+    尺寸写成 width/height 而不是四条边：压缩器会把四条边合并成 inset，
+    而 inset 要 Safari 14.1+，比这里要兼容的底线还新。 */
+body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-comm-general);
+  opacity: var(--color-bg-alpha);
+}
+
 #root {
   margin: 0;
   padding: 0;
@@ -31,7 +47,5 @@ body {
      窗口尺寸已为此预留 configs.rs::layout_coupling::EDGE_BORDER */
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.4);
-  /* 底色仍是 core.css 的 --color-comm-general，透明度由 js 写入 --color-bg-alpha */
-  background-color: var(--color-comm-general);
-  background-color: rgb(from var(--color-comm-general) r g b / var(--color-bg-alpha, 1));
+  /* 底色不在这里，交给上面的 body::before 一层 */
 }

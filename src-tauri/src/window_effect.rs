@@ -64,7 +64,7 @@ pub fn resolve(configured: Option<WindowEffect>) -> WindowEffect {
         .unwrap_or_default()
 }
 
-/// 面板底色的透明度，对应前端 js 写入的 `--color-bg-alpha`
+/// 面板底色的透明度，前端写入 css 变量 `--color-bg-alpha`（见 index_main.css 的底色层）
 pub fn alpha(effect: WindowEffect) -> f64 {
     match effect {
         WindowEffect::Solid | WindowEffect::Framed => 1.0,

@@ -43,7 +43,7 @@ Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
 
 ### Frontend (`src/`)
 
-- **`core.tsx`** — Shared setup: disables context menu (near-native feel), mirrors the Rust config types (`Config`, `EffectInfo`, `WindowEffect`, `MainWindowMode`), fetches them via `invoke('fetch_config')` / `invoke('fetch_effect_info')`, and sets CSS custom properties (`--head-h`, `--tail-h`, `--item-h`, `--color-bg-alpha`). Config changes reach the UI by rebuilding the window, not by events.
+- **`core.tsx`** — Shared setup: disables context menu (near-native feel), mirrors the Rust config types (`Config`, `EffectInfo`, `WindowEffect`, `MainWindowMode`), fetches them via `invoke('fetch_config')` / `invoke('fetch_effect_info')`, and sets CSS custom properties (`--head-h`, `--tail-h`, `--item-h`, `--color-bg-alpha`). The panel background is a dedicated `body::before` layer in `index_main.css` whose `opacity` is that alpha, so the palette color stays in CSS and no relative color syntax (`rgb(from ...)`, unsupported by older WebView2/WebKit) is needed. Config changes reach the UI by rebuilding the window, not by events.
 - **`AppMain.tsx`** — Main window layout: `Box > Static(Head) > DividerTop > Elastic(Body) > DividerBottom > Static(Tail)`. Layout components in `main/Layout.tsx` use flexbox with CSS variables for dimensions.
 - **`head.tsx`** — Search input with ghost/suggestion text layer overlaid on a real input.
 - **`body.tsx`** — Scrollable item list with optional preview panel.

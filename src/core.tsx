@@ -86,7 +86,8 @@ const set_layout_px = (k: string, v: number) => {
 /**
  * 按最新配置设置页面：布局尺寸 + 面板底色透明度
  *
- * 布局值来自可编辑配置，透明度来自窗口效果的解析结果（见 window_effect::alpha）。
+ * 布局值来自可编辑配置，面板底色的透明度来自窗口效果的解析结果（见 window_effect::alpha）。
+ * 颜色本身留在 css 的调色板里，这里只给透明度，由 index_main.css 的 body::before 用 opacity 消费。
  */
 const set_page_config_data = async () => {
     const config = await get_config();
