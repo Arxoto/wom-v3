@@ -1,4 +1,4 @@
-use tauri::{AppHandle, LogicalSize, Manager, Result, WebviewUrl, WebviewWindow};
+use tauri::{AppHandle, Manager, Result, WebviewUrl, WebviewWindow};
 use tauri_plugin_log::log::{debug, warn};
 
 use crate::{configs, constants, window_effect};
@@ -20,7 +20,7 @@ pub fn show_hide_main_window(app: &AppHandle) -> Result<()> {
             w.set_focus()?;
         }
     } else {
-        create_main_window(app, true)?;
+        create_main_window(app, true, true)?;
     }
     Ok(())
 }
@@ -31,7 +31,7 @@ pub fn show_main_window(app: &AppHandle) -> Result<()> {
         w.show()?;
         w.set_focus()?;
     } else {
-        create_main_window(app, true)?;
+        create_main_window(app, true, true)?;
     }
     Ok(())
 }
@@ -47,9 +47,10 @@ pub fn show_config_window(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-pub fn create_main_window(app: &AppHandle, shown: bool) -> Result<WebviewWindow> {
+pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result<WebviewWindow> {
     let conf = configs::get_data();
     let effect = conf.effect();
+    let (width, height) = conf.window_size();
     debug!("create window {:}", "index.html");
 
     let the_builder = WebviewWindow::builder(
@@ -61,12 +62,12 @@ pub fn create_main_window(app: &AppHandle, shown: bool) -> Result<WebviewWindow>
     .transparent(effect.transparent()) // 窗口透明
     .decorations(effect.window_frame()) // 原生框架
     .resizable(effect.window_frame()) // 大小可变
-    .inner_size(conf.window_width(), conf.window_height())
+    .inner_size(width, height)
     .fullscreen(false) // 全屏
     .center() // 居中
     .always_on_top(conf.always_on_top) // 置顶
     .visible(shown) // 初始可见
-    .focused(shown); // 获取焦点
+    .focused(focused); // 获取焦点
 
     // Platform 跨平台特性
     let the_builder = the_builder
@@ -97,34 +98,18 @@ pub fn create_main_window(app: &AppHandle, shown: bool) -> Result<WebviewWindow>
     Ok(w)
 }
 
-/// 主窗口存在时，把尺寸同步到最新的布局配置
-pub fn resize_main_window(app: &AppHandle, size: (f64, f64)) {
-    let Some(window) = app.get_webview_window(constants::LABEL_MAIN) else {
-        return;
-    };
-
-    if let Err(err) = window.set_size(LogicalSize::new(size.0, size.1)) {
-        warn!("resize main window failed: {}", err);
-    }
-}
-
 /// 按最新配置重建主窗口，保留可见性与位置
 ///
 /// 窗口标签要等旧窗口真正销毁后才能复用，所以重建放在 `Destroyed` 回调里；
 /// 该回调在主线程执行，正好满足窗口效果 `apply` 的主线程要求。
+/// 主窗口不存在时什么都不做——它下次被创建时本来就会读到最新配置。
 pub fn recreate_main_window(app: &AppHandle) -> Result<()> {
     let Some(window) = app.get_webview_window(constants::LABEL_MAIN) else {
-        // 主窗口不存在（例如被托盘销毁过）：在主线程上补建
-        let app_handle = app.clone();
-        app.run_on_main_thread(move || {
-            if let Err(err) = create_main_window(&app_handle, true) {
-                warn!("create main window failed: {}", err);
-            }
-        })?;
         return Ok(());
     };
 
-    let shown = window.is_visible().unwrap_or(true);
+    // 取不到可见性就按隐藏处理：宁可少弹一次，也不要凭空出现在屏幕上
+    let shown = window.is_visible().unwrap_or(false);
     let position = window.outer_position().ok();
     let app_handle = app.clone();
 
@@ -133,7 +118,8 @@ pub fn recreate_main_window(app: &AppHandle) -> Result<()> {
             return;
         }
 
-        match create_main_window(&app_handle, shown) {
+        // 重建不抢焦点：配置窗口保存后主窗口不该跳到前台
+        match create_main_window(&app_handle, shown, false) {
             Ok(window) => {
                 if let Some(position) = position {
                     let _ = window.set_position(position);

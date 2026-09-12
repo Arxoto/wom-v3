@@ -41,22 +41,15 @@ impl WindowEffect {
 /// 未做选择时的效果：跟随当前平台的推荐值
 pub fn recommended() -> WindowEffect {
     candidates()
-        .iter()
-        .copied()
         .find(|effect| is_available(*effect))
         .unwrap_or_default()
 }
 
 /// 当前平台与系统版本下可选的效果，末尾是经典外观的两种形态，供配置界面使用
 pub fn available() -> Vec<WindowEffect> {
-    let mut effects: Vec<WindowEffect> = candidates()
-        .iter()
-        .copied()
+    candidates()
         .filter(|effect| is_available(*effect))
-        .collect();
-    effects.push(WindowEffect::Solid);
-    effects.push(WindowEffect::Framed);
-    effects
+        .collect()
 }
 
 /// 解析用户配置：未选择时用推荐值；选中的效果不可用时沿候选链降级
@@ -65,22 +58,9 @@ pub fn resolve(configured: Option<WindowEffect>) -> WindowEffect {
         return recommended();
     };
 
-    // 经典外观永远可用
-    if is_available(configured) {
-        return configured;
-    }
-
-    // 从选中项开始沿候选链向下找第一个可用项
-    let candidates = candidates();
-    candidates
-        .iter()
-        .position(|effect| *effect == configured)
-        .and_then(|index| {
-            candidates[index..]
-                .iter()
-                .copied()
-                .find(|effect| is_available(*effect))
-        })
+    // 从选中项开始沿候选链向下找第一个可用项；链尾的经典外观永远可用
+    chain_from(configured)
+        .find(|effect| is_available(*effect))
         .unwrap_or_default()
 }
 
@@ -96,49 +76,49 @@ pub fn alpha(effect: WindowEffect) -> f64 {
 
 /// 应用效果，返回实际生效的效果（降级后会与传入值不同）
 pub fn apply(window: &WebviewWindow, effect: WindowEffect) -> WindowEffect {
-    // 经典外观不需要任何系统调用
-    if matches!(effect, WindowEffect::Solid | WindowEffect::Framed) {
-        return effect;
-    }
-
-    // 从配置的效果开始沿链向下，先成功的胜出
-    let candidates = candidates();
-    let start = candidates
-        .iter()
-        .position(|item| *item == effect)
-        .unwrap_or(0);
-
-    for candidate in &candidates[start..] {
-        match apply_one(window, *candidate) {
+    // 从配置的效果开始沿链向下，先成功的胜出；经典外观在链尾，不需要系统调用
+    for candidate in chain_from(effect) {
+        match apply_one(window, candidate) {
             Ok(()) => {
                 debug!("window effect {:?} applied", candidate);
-                return *candidate;
+                return candidate;
             }
             Err(err) => warn!("apply window effect {:?} failed: {}", candidate, err),
         }
     }
 
-    warn!("no window effect applied, fallback to solid");
+    // 只有 effect 不在本平台的候选链上时才会走到这里
+    warn!("window effect {:?} is off chain, fallback to solid", effect);
     WindowEffect::default()
 }
 
-/// 当前平台的原生效果候选，越靠前越优先，降级时沿此顺序向下找
-fn candidates() -> &'static [WindowEffect] {
+/// 经典外观的两种形态：不依赖原生材质，任何平台都能用，所以排在候选链末尾兜底
+const CLASSIC_APPEARANCE: [WindowEffect; 2] = [WindowEffect::Solid, WindowEffect::Framed];
+
+/// 当前平台的候选链，越靠前越优先，降级时沿此顺序向下找；链尾是经典外观
+fn candidates() -> impl Iterator<Item = WindowEffect> {
     #[cfg(target_os = "windows")]
-    let candidates = &[WindowEffect::Mica, WindowEffect::Acrylic];
+    let native: &'static [WindowEffect] = &[WindowEffect::Mica, WindowEffect::Acrylic];
 
     #[cfg(target_os = "macos")]
-    let candidates = &[WindowEffect::Vibrancy];
+    let native: &'static [WindowEffect] = &[WindowEffect::Vibrancy];
 
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    let candidates: &'static [WindowEffect] = &[];
+    let native: &'static [WindowEffect] = &[];
 
-    candidates
+    native.iter().copied().chain(CLASSIC_APPEARANCE)
+}
+
+/// 候选链从 `effect` 起（含）的尾部；`effect` 不在链上（换平台带来的效果）时为空
+fn chain_from(effect: WindowEffect) -> impl Iterator<Item = WindowEffect> {
+    candidates().skip_while(move |candidate| *candidate != effect)
 }
 
 #[cfg(target_os = "windows")]
 fn is_available(effect: WindowEffect) -> bool {
     // build 22000 = Windows 11 21H2，17763 = Windows 10 v1809
+    // 与 window-vibrancy 内部的版本判断保持一致（见其 windows.rs 的 is_swca_supported
+    // 与 is_undocumented_mica_supported），升级该依赖时要一起核对
     let build = windows_version::OsVersion::current().build;
     match effect {
         WindowEffect::Mica => build >= 22000,
@@ -245,6 +225,41 @@ mod tests {
     fn available_effects_are_kept_as_is() {
         for effect in available() {
             assert_eq!(resolve(Some(effect)), effect);
+        }
+    }
+
+    /// 链从选中项本身开始；不在链上的效果（如 Windows 上的 Vibrancy）拿不到链
+    #[test]
+    fn chain_starts_at_the_selected_effect() {
+        for effect in candidates() {
+            assert_eq!(chain_from(effect).next(), Some(effect), "{:?}", effect);
+        }
+
+        for effect in [
+            WindowEffect::Mica,
+            WindowEffect::Acrylic,
+            WindowEffect::Vibrancy,
+        ] {
+            if candidates().any(|candidate| candidate == effect) {
+                continue;
+            }
+            assert_eq!(chain_from(effect).next(), None, "{:?}", effect);
+            assert_eq!(resolve(Some(effect)), WindowEffect::Solid, "{:?}", effect);
+        }
+    }
+
+    /// 每条链都以经典外观收尾且链尾可用：降级总有着落
+    #[test]
+    fn every_chain_ends_in_the_classic_appearance() {
+        for effect in candidates() {
+            let last = chain_from(effect).last().expect("chain is never empty");
+            assert!(
+                matches!(last, WindowEffect::Solid | WindowEffect::Framed),
+                "{:?} ends with {:?}",
+                effect,
+                last
+            );
+            assert!(is_available(last), "{:?}", last);
         }
     }
 

@@ -1,15 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 
 export const set_page_main = () => {
     set_near_native();
     set_page_config_data();
-    listen_config_changed();
 }
 
 export const set_page_config = () => {
     set_near_native();
-    listen_config_changed();
 }
 
 /**
@@ -36,11 +33,11 @@ export type WindowEffect = "Solid" | "Framed" | "Mica" | "Acrylic" | "Vibrancy";
 export type MainWindowMode = "Always" | "HideAndShow";
 
 /**
- * 前端用户可编辑的配置（对应 Rust 侧 configs::EditableConfig）
+ * 配置（对应 Rust 侧 configs::Config，也就是 config.json 的形状）
  *
  * 整份读写：拿到什么形状就回传什么形状，后端会校验后再落盘。
  */
-export interface EditableConfig {
+export interface Config {
     main_window_mode: MainWindowMode,
     window_effect: WindowEffect | null,
     always_on_top: boolean,
@@ -65,12 +62,12 @@ export interface EffectInfo {
     alpha: number,
 }
 
-export const get_editable_config = async () => {
-    return (await invoke('fetch_editable_config')) as EditableConfig;
+export const get_config = async () => {
+    return (await invoke('fetch_config')) as Config;
 }
 
-export const set_editable_config = async (edit: EditableConfig) => {
-    await invoke('set_editable_config', { edit });
+export const set_config = async (config: Config) => {
+    await invoke('set_config', { config });
 }
 
 export const get_effect_info = async () => {
@@ -92,28 +89,11 @@ const set_layout_px = (k: string, v: number) => {
  * 布局值来自可编辑配置，透明度来自窗口效果的解析结果（见 window_effect::alpha）。
  */
 const set_page_config_data = async () => {
-    const config = await get_editable_config();
+    const config = await get_config();
     set_layout_px('--head-h', config.main_head_h);
     set_layout_px('--tail-h', config.main_tail_h);
     set_layout_px('--item-h', config.main_item_h);
 
     const effect_info = await get_effect_info();
     document.documentElement.style.setProperty('--color-bg-alpha', String(effect_info.alpha));
-}
-
-/** 配置变更监听只需要注册一次 */
-let config_listener_ready = false;
-
-/**
- * 后端保存配置后会广播 config_changed，前端据此重读配置
- */
-const listen_config_changed = async () => {
-    if (config_listener_ready) {
-        return;
-    }
-    config_listener_ready = true;
-
-    await listen('config_changed', () => {
-        void set_page_config_data();
-    });
 }

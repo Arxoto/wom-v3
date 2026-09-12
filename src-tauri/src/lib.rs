@@ -5,14 +5,16 @@ mod constants;
 
 mod shortcuts;
 
+mod window_effect;
+
 mod configs;
 
 mod window_utils;
 
-mod window_effect;
-
 #[cfg(desktop)]
 mod global_shortcut;
+
+mod commands;
 
 mod builtin_plugins;
 
@@ -106,7 +108,11 @@ mod tray {
                 }
                 "reload" => {
                     info!("try reload config data");
-                    configs::reload_data(app);
+                    if configs::reload_data(app) {
+                        if let Err(e) = window_utils::recreate_main_window(app) {
+                            warn!("recreate main window failed: {}", e);
+                        }
+                    }
                 }
                 "quit" => {
                     debug!("try exit");
@@ -157,17 +163,19 @@ pub fn run() {
         .plugin(global_shortcut::global_shortcut_startup_register())
         // 自定义插件
         .plugin(builtin_plugins::init())
+        // 注册命令
         .invoke_handler(tauri::generate_handler![
-            configs::fetch_editable_config,
-            configs::fetch_effect_info,
-            configs::set_editable_config
+            commands::fetch_config,
+            commands::fetch_effect_info,
+            commands::set_config
         ])
         .setup(|app| {
             configs::load_data(app.handle());
             let conf = configs::get_data();
 
             tray::create_tray(app)?;
-            window_utils::create_main_window(app.handle(), conf.show_main_auto())?;
+            let auto_show = conf.show_main_auto();
+            window_utils::create_main_window(app.handle(), auto_show, auto_show)?;
 
             Ok(())
         })

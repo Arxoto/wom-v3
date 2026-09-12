@@ -7,12 +7,8 @@ WOM is a Tauri desktop launcher: it lives in the system tray, is toggled by a gl
 ### Configuration
 
 **Config**:
-The configuration persisted on disk and used at runtime; the single source of truth for the app's behaviour.
-_Avoid_: settings, ConfigData, ConfigSettings, ConfigFile
-
-**Editable Config**:
-The subset of Config the user can change from the config window, such as the window appearance, layout, and shortcuts.
-_Avoid_: user settings, preferences, options, config draft
+The configuration persisted on disk and used at runtime; the single source of truth for the app's behaviour, and the whole of what the config window reads and writes.
+_Avoid_: settings, ConfigData, ConfigSettings, ConfigFile, Editable Config
 
 ### Window appearance
 

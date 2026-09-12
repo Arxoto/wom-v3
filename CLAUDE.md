@@ -25,7 +25,8 @@ Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
 ### Rust backend (`src-tauri/src/`)
 
 - **`lib.rs`** — App setup: registers plugins (log, opener, global-shortcut, custom inner-plugin), creates tray menu, manages windows, prevents exit on window close (app stays in tray).
-- **`configs.rs`** — Configuration stored as JSON in app data dir (`config.json`). `Config` is both the file format and the runtime source of truth; derived values (window size, effective window effect, `show_main_auto`) are methods, not fields. `EditableConfig` is the user-editable subset (`From<&Config>` / `Config::apply`) and is what the frontend reads and writes. Uses `arc_swap::ArcSwap` for lock-free hot-reload, and a `layout_coupling` module for constants shared with the frontend. Commands: `fetch_editable_config`, `fetch_effect_info`, `set_editable_config` (validate → save → reload → recreate the window if the effect changed → re-register the shortcut → emit `config_changed`).
+- **`configs.rs`** — Configuration stored as JSON in app data dir (`config.json`). `Config` is the file format, the runtime source of truth, and the shape the config window reads/writes; derived values (window size, effective window effect, `show_main_auto`) are methods, not fields. Reads are tolerant (unknown keys ignored, unknown enum names fall back to defaults), writes are strict. Uses `arc_swap::ArcSwap` for lock-free hot-reload, and a `layout_coupling` module for constants shared with the frontend. Depends only on `constants`, `shortcuts`, `window_effect` — never on `window_utils`; `reload_data` reports whether the config changed and the caller decides to rebuild.
+- **`commands.rs`** — The commands the frontend calls (`fetch_config`, `fetch_effect_info`, `set_config`). Lives outside `configs.rs` because saving a config rebuilds the window: dependencies flow one way (commands → configs / window_utils / global_shortcut), never back.
 - **`window_effect.rs`** — `WindowEffect` enum (`Solid` / `Framed` / `Mica` / `Acrylic` / `Vibrancy`) plus per-platform availability, the downgrade chain, the tint alpha, and applying the effect to a window through `window-vibrancy`.
 - **`global_shortcut.rs`** — Maps config-defined hotkey (modifiers + single char) to show/hide the main window.
 - **`inner_plugins/`** — Custom Tauri plugin providing the core search functionality:
@@ -42,7 +43,7 @@ Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
 
 ### Frontend (`src/`)
 
-- **`core.tsx`** — Shared setup: disables context menu (near-native feel), mirrors the Rust config types (`EditableConfig`, `EffectInfo`, `WindowEffect`, `MainWindowMode`), fetches them via `invoke('fetch_editable_config')` / `invoke('fetch_effect_info')`, sets CSS custom properties (`--head-h`, `--tail-h`, `--item-h`, `--color-bg-alpha`), and re-reads them on the `config_changed` event.
+- **`core.tsx`** — Shared setup: disables context menu (near-native feel), mirrors the Rust config types (`Config`, `EffectInfo`, `WindowEffect`, `MainWindowMode`), fetches them via `invoke('fetch_config')` / `invoke('fetch_effect_info')`, and sets CSS custom properties (`--head-h`, `--tail-h`, `--item-h`, `--color-bg-alpha`). Config changes reach the UI by rebuilding the window, not by events.
 - **`AppMain.tsx`** — Main window layout: `Box > Static(Head) > DividerTop > Elastic(Body) > DividerBottom > Static(Tail)`. Layout components in `main/Layout.tsx` use flexbox with CSS variables for dimensions.
 - **`head.tsx`** — Search input with ghost/suggestion text layer overlaid on a real input.
 - **`body.tsx`** — Scrollable item list with optional preview panel.
@@ -54,7 +55,7 @@ Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
 2. User types in Head input → frontend calls `invoke('search', { k: query })`
 3. Rust runs 4-tier matching → deduplicates via BitVec → caches result → returns first page
 4. Scrolling calls `invoke('search_page', { index: N })` for pagination
-5. Config changes are written by `set_editable_config` (config window); the tray menu "Reload Global Config" re-reads `config.json` for hand edits. Both go through `reload_data`, which broadcasts `config_changed` so open windows re-read
+5. Config changes are written by `set_config` (config window); the tray menu "Reload Global Config" re-reads `config.json` for hand edits. Both go through `reload_data`, which rebuilds the main window when the config actually changed, so the UI starts from the new config
 
 ## Agent skills
 
