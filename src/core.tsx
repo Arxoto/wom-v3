@@ -41,6 +41,7 @@ export interface Config {
     main_window_mode: MainWindowMode,
     window_effect: WindowEffect | null,
     always_on_top: boolean,
+    main_width: number,
     main_head_h: number,
     main_tail_h: number,
     main_item_h: number,
@@ -60,6 +61,17 @@ export interface EffectInfo {
     effective: WindowEffect,
     available: WindowEffect[],
     alpha: number,
+}
+
+/**
+ * 列表条目的渲染结构（对应 Rust 侧 search::ItemDisplay）
+ *
+ * 只带渲染需要的类型、名称与描述；关键字与动作不在其中。
+ */
+export interface ItemDisplay {
+    the_type: string,
+    name: string,
+    desc: string,
 }
 
 /**

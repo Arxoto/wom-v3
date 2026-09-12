@@ -10,6 +10,16 @@ WOM is a Tauri desktop launcher: it lives in the system tray, is toggled by a gl
 The configuration persisted on disk and used at runtime; the single source of truth for the app's behaviour, and the whole of what the config window reads and writes.
 _Avoid_: settings, ConfigData, ConfigSettings, ConfigFile, Editable Config
 
+### Search and items
+
+**Item**:
+A single piece of built-in content that search can find and that carries a name, a description, keywords, and an action; it is the smallest unit of both searching and acting.
+_Avoid_: entry, record, result
+
+**Item Display**:
+The projection of an Item rendered in the list, holding only its type, name, and description.
+_Avoid_: ItemView, display model, item DTO
+
 ### Window appearance
 
 **Window Effect**:

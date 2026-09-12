@@ -2,6 +2,7 @@
   "main_window_mode": "HideAndShow",
   "window_effect": null,
   "always_on_top": true,
+  "main_width": 800.0,
   "main_head_h": 60.0,
   "main_tail_h": 24.0,
   "main_item_h": 40.0,

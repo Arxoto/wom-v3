@@ -54,7 +54,10 @@ pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result
     .title("wom")
     .transparent(effect.transparent()) // 窗口透明
     .decorations(effect.window_frame()) // 原生框架
-    .resizable(effect.window_frame()) // 大小可变
+    // 尺寸固定：面板里 head / tail / item 的高度与数量都按配置算好，
+    // 前端布局（尤其是列表区的高度与逐行下翻）依赖这个尺寸，拖拽改大小会把布局搞乱
+    .resizable(false)
+    .maximizable(false) // 最大化同样会改尺寸，一并关掉
     .inner_size(width, height)
     .fullscreen(false) // 全屏
     .center() // 居中

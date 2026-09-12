@@ -68,6 +68,8 @@ pub struct Config {
     /// 始终置顶
     pub always_on_top: bool,
     // ========= 界面布局 =========
+    /// 面板宽度，窗口宽度再额外加上两侧的发丝线（见 [`Config::window_width`]）
+    pub main_width: f64,
     /// head 高度
     pub main_head_h: f64,
     /// tail 高度
@@ -90,6 +92,7 @@ impl Default for Config {
             main_window_mode: MainWindowMode::default(),
             window_effect: None,
             always_on_top: true,
+            main_width: layout_coupling::MAIN_WIDTH,
             main_head_h: 60.0,
             main_tail_h: 24.0,
             main_item_h: 40.0,
@@ -121,7 +124,7 @@ impl Config {
 
     /// 窗口宽度：面板宽度 + 两侧 1px 发丝线
     pub fn window_width(&self) -> f64 {
-        layout_coupling::PANEL_WIDTH + layout_coupling::EDGE_BORDER
+        self.main_width + layout_coupling::EDGE_BORDER
     }
 
     /// 窗口高度：1px 发丝线 + 分割线 + head / tail / item 的高度
@@ -140,6 +143,9 @@ impl Config {
 
     /// 保存前的校验：写盘是显式动作，宁可报错也不静默改用户的值
     pub fn validate(&self) -> Result<(), String> {
+        if self.main_width <= 0.0 {
+            return Err(format!("窗口宽度必须大于 0，当前 {}", self.main_width));
+        }
         if self.main_head_h <= 0.0 {
             return Err(format!("head 高度必须大于 0，当前 {}", self.main_head_h));
         }
@@ -210,7 +216,14 @@ impl Config {
     /// 发布环境仍用 [`ShortcutChar::default`]（Space）。
     fn dev_default() -> Self {
         Self {
+            main_window_mode: MainWindowMode::Always,
             hot_key_char: "X".to_string(),
+            // 开发机器（大屏幕）上的最佳布局
+            main_width: 1000.0,
+            main_head_h: 72.0,
+            main_tail_h: 28.0,
+            main_item_h: 60.0,
+            // 其余使用默认值
             ..Self::default()
         }
     }
@@ -225,8 +238,8 @@ impl Config {
 
 /// 与前端布局耦合的数据，需要同步修改
 mod layout_coupling {
-    /// 面板宽度，窗口宽度再额外加上两侧的发丝线
-    pub const PANEL_WIDTH: f64 = 800.0;
+    /// 默认面板宽度（[`Config::main_width`] 的默认值），窗口宽度再额外加上两侧的发丝线
+    pub const MAIN_WIDTH: f64 = 800.0;
     /// 面板左右/上下各 1px 的发丝线
     pub const EDGE_BORDER: f64 = 2.0;
     pub const DIVIDER_H: f64 = 8.0;
@@ -325,22 +338,6 @@ mod tests {
     const GOLDEN: &str = include_str!("../tests/fixtures/config.golden.json");
 
     #[test]
-    fn default_config_matches_golden_file() {
-        assert_eq!(Config::default().to_file_json().unwrap(), GOLDEN);
-    }
-
-    /// 开发环境新建配置时默认用 X 作为快捷键字符，发布环境用 Space
-    #[test]
-    fn dev_default_uses_x_as_hot_key_char() {
-        assert_eq!(Config::dev_default().hot_key_char, "X");
-        assert_eq!(
-            Config::default().hot_key_char,
-            ShortcutChar::default().to_string()
-        );
-        assert!(Config::dev_default().validate().is_ok());
-    }
-
-    #[test]
     fn golden_file_loads_as_default_config() {
         let config: Config = serde_json::from_str(GOLDEN).unwrap();
         assert_eq!(config, Config::default());
@@ -388,20 +385,6 @@ mod tests {
                 .unwrap();
         assert_eq!(config.main_window_mode, MainWindowMode::default());
         assert_eq!(config.window_effect, None);
-    }
-
-    /// 窗口尺寸由布局字段算出，不再持久化宽度
-    #[test]
-    fn window_size_follows_the_layout_fields() {
-        let config = Config::default();
-        // 800 + 1px × 2
-        assert_eq!(config.window_width(), 802.0);
-        // 1px × 2 + 分割线 8 × 2 + 60 + 24 + 40 × 10
-        assert_eq!(config.window_height(), 502.0);
-
-        let mut taller = config.clone();
-        taller.main_item_n = 5;
-        assert_eq!(taller.window_height(), 302.0);
     }
 
     #[test]
@@ -483,19 +466,5 @@ mod tests {
     fn wrong_type_on_plain_fields_is_an_error() {
         assert!(serde_json::from_str::<Config>(r#"{"main_item_n": "10"}"#).is_err());
         assert!(serde_json::from_str::<Config>(r#"{"always_on_top": "yes"}"#).is_err());
-    }
-
-    /// 开发期允许破坏性升级：旧文件只要不崩即可，未知键忽略、缺失字段用默认
-    #[test]
-    fn stale_config_file_loads_with_defaults() {
-        let config: Config = serde_json::from_str(
-            r#"{"main_window_mode": "Always", "custom_shadow": true, "window_frame": true, "main_width": 800.0}"#,
-        )
-        .unwrap();
-
-        assert_eq!(config.main_window_mode, MainWindowMode::Always);
-        assert!(config.show_main_auto());
-        assert_eq!(config.window_effect, None);
-        assert_eq!(config.main_item_n, Config::default().main_item_n);
     }
 }

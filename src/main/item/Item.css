@@ -1,0 +1,69 @@
+/* 一行条目：左图标 + 中间文字 + 右侧动作
+   尺寸全部挂在 --item-h 上等比缩放，因为行高是用户可配的 */
+.item-box {
+    flex: 0 0 auto;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: var(--item-h);
+    overflow: hidden;
+}
+
+/* 图标：纯色块占位，后期换成 svg / ico */
+.item-icon {
+    flex: 0 0 auto;
+    width: calc(var(--item-h) * 0.7);
+    height: calc(var(--item-h) * 0.7);
+    border-radius: calc(var(--item-h) * 0.2);
+    background-color: var(--color-diff-general);
+}
+
+/* 中间列：flex-basis 0 让它随父元素宽度弹性伸缩（预览显示时变窄）
+   min-width 0 是允许它缩到内容宽度以下的关键，否则文字会把整行撑开 */
+.item-text {
+    flex: 1 1 0;
+    min-width: 0;
+
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: center;
+    align-items: flex-start;
+    margin: 0 calc(var(--item-h) * 0.15);
+    overflow: hidden;
+
+    /* 文字超出时右侧渐变消失。渐变宽度用 em 跟着字号缩放；
+       文字没超出时渐变区里没有内容，视觉上等于没有 */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+}
+
+.item-name,
+.item-desc {
+    width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.item-name {
+    font-size: calc(var(--item-h) * 0.35);
+    font-weight: bold;
+    color: var(--color-diff);
+}
+
+.item-desc {
+    margin-top: 0.15em;
+    font-size: calc(var(--item-h) * 0.25);
+    color: var(--color-diff-general);
+}
+
+/* 动作名称：占位，宽度由内容决定，不参与中间列的伸缩 */
+.item-action {
+    flex: 0 0 auto;
+    padding-right: calc(var(--item-h) * 0.2);
+    white-space: nowrap;
+    font-size: calc(var(--item-h) * 0.25);
+    color: var(--color-diff-general);
+}
