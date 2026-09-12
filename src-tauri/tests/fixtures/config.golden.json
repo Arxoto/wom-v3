@@ -1,0 +1,14 @@
+{
+  "main_window_mode": "HideAndShow",
+  "window_effect": null,
+  "always_on_top": true,
+  "main_head_h": 60.0,
+  "main_tail_h": 24.0,
+  "main_item_h": 40.0,
+  "main_item_n": 10,
+  "hot_key_alt": true,
+  "hot_key_ctrl": false,
+  "hot_key_meta": false,
+  "hot_key_shift": false,
+  "hot_key_char": "Space"
+}

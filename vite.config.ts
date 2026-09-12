@@ -8,6 +8,16 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [react()],
 
+  // 多入口：主窗口 + 配置窗口（tauri.conf.json 的 frontendDist 直接指向 dist）
+  build: {
+    rollupOptions: {
+      input: {
+        index: "index.html",
+        index_config: "index_config.html",
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

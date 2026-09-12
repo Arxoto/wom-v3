@@ -27,5 +27,11 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  /* 1px 发丝线画在窗口内边缘：border-box 让面板外框仍等于窗口尺寸，
+     窗口尺寸已为此预留 configs.rs::layout_coupling::EDGE_BORDER */
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  /* 底色仍是 core.css 的 --color-comm-general，透明度由 js 写入 --color-bg-alpha */
   background-color: var(--color-comm-general);
+  background-color: rgb(from var(--color-comm-general) r g b / var(--color-bg-alpha, 1));
 }

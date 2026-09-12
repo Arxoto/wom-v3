@@ -14,10 +14,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 WOM is a **Tauri v2** desktop launcher/search tool (similar to Spotlight/Raycast). It runs in the system tray and is toggled via a global shortcut.
 
-### Three entry points (multi-window)
+### Two entry points (multi-window)
 
 The Rust backend (`lib.rs`) creates two window types:
-- **Main window** — uses either `index.html` (transparent, no decorations) or `index_frame.html` (custom shadow variant). The choice depends on the `custom_shadow` config.
+- **Main window** — uses `index.html` (transparent, no decorations). Window material and native frame come from the `window_effect` config.
 - **Config window** — uses `index_config.html`.
 
 Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
@@ -25,7 +25,8 @@ Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
 ### Rust backend (`src-tauri/src/`)
 
 - **`lib.rs`** — App setup: registers plugins (log, opener, global-shortcut, custom inner-plugin), creates tray menu, manages windows, prevents exit on window close (app stays in tray).
-- **`configs.rs`** — Configuration stored as JSON in app data dir (`config.json`). Uses `arc_swap::ArcSwap` for lock-free hot-reload. `ConfigData` is the internal representation (derived from `ConfigSettings`). A `layout_coupling` module defines constants shared with the frontend (frame border width, divider heights). Exposes `fetch_layout_config` Tauri command.
+- **`configs.rs`** — Configuration stored as JSON in app data dir (`config.json`). `Config` is both the file format and the runtime source of truth; derived values (window size, effective window effect, `show_main_auto`) are methods, not fields. `EditableConfig` is the user-editable subset (`From<&Config>` / `Config::apply`) and is what the frontend reads and writes. Uses `arc_swap::ArcSwap` for lock-free hot-reload, and a `layout_coupling` module for constants shared with the frontend. Commands: `fetch_editable_config`, `fetch_effect_info`, `set_editable_config` (validate → save → reload → recreate the window if the effect changed → re-register the shortcut → emit `config_changed`).
+- **`window_effect.rs`** — `WindowEffect` enum (`Solid` / `Framed` / `Mica` / `Acrylic` / `Vibrancy`) plus per-platform availability, the downgrade chain, the tint alpha, and applying the effect to a window through `window-vibrancy`.
 - **`global_shortcut.rs`** — Maps config-defined hotkey (modifiers + single char) to show/hide the main window.
 - **`inner_plugins/`** — Custom Tauri plugin providing the core search functionality:
   - **`base.rs`** — `ItemType` enum: `System`, `Cmd`, `Snippets`, `Note`, `Web`, `File`, `Scan`. Each item has a `KeyWord` and `ItemDesc` (string or path).
@@ -41,7 +42,7 @@ Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
 
 ### Frontend (`src/`)
 
-- **`core.tsx`** — Shared setup: disables context menu (near-native feel), fetches layout config from Rust via `invoke('fetch_layout_config')`, sets CSS custom properties (`--head-h`, `--tail-h`, `--item-h`).
+- **`core.tsx`** — Shared setup: disables context menu (near-native feel), mirrors the Rust config types (`EditableConfig`, `EffectInfo`, `WindowEffect`, `MainWindowMode`), fetches them via `invoke('fetch_editable_config')` / `invoke('fetch_effect_info')`, sets CSS custom properties (`--head-h`, `--tail-h`, `--item-h`, `--color-bg-alpha`), and re-reads them on the `config_changed` event.
 - **`AppMain.tsx`** — Main window layout: `Box > Static(Head) > DividerTop > Elastic(Body) > DividerBottom > Static(Tail)`. Layout components in `main/Layout.tsx` use flexbox with CSS variables for dimensions.
 - **`head.tsx`** — Search input with ghost/suggestion text layer overlaid on a real input.
 - **`body.tsx`** — Scrollable item list with optional preview panel.
@@ -53,7 +54,7 @@ Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
 2. User types in Head input → frontend calls `invoke('search', { k: query })`
 3. Rust runs 4-tier matching → deduplicates via BitVec → caches result → returns first page
 4. Scrolling calls `invoke('search_page', { index: N })` for pagination
-5. Config changes are persisted to `config.json`, hot-reloaded via tray menu "Reload Global Config"
+5. Config changes are written by `set_editable_config` (config window); the tray menu "Reload Global Config" re-reads `config.json` for hand edits. Both go through `reload_data`, which broadcasts `config_changed` so open windows re-read
 
 ## Agent skills
 
