@@ -16,7 +16,7 @@ use tauri::path::BaseDirectory;
 /// 设置文件本身由 tauri 解析，手写的其它变量（如 `$TEMP` ）照样有效，只是不出现在下拉里。
 ///
 /// 序列化形式就是变量名本身（如 `"$DESKTOP"` ），前端拿到的值与写进设置文件的值一致。
-/// 
+///
 /// [`ItemParsedScan::base`]: crate::builtin_plugins::persistence::parse_impl_scan::ItemParsedScan::base
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScanBase {

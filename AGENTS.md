@@ -1,6 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to agents working with code in this repository.
+
+## Principles
+
+- Write production code only; leave test code to the user. Add or change tests when explicitly asked.
 
 ## Build/Run Commands
 

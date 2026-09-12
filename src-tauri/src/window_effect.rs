@@ -7,7 +7,7 @@ use tauri_plugin_log::log::{debug, warn};
 /// 原生效果与经典外观（Solid Panel）是互斥的两条路：用原生效果时窗口必须透明、无原生框架，
 /// 所以"是否使用系统原生框架"只体现在经典外观的两种形态上。
 /// 窗口阴影一律用系统原生阴影，不做自绘。
-/// 
+///
 /// todo Liquid Glass (macOS 26+) 目前 API 不够稳定，
 /// 且 Tauri 下必须用 with_webview 把 WKWebView 交给 NSGlassEffectView 的 contentView 。
 /// 待稳定再加回来：恢复 macOS 的 objc2-app-kit 依赖。
@@ -40,15 +40,17 @@ impl WindowEffect {
 
 /// 未做选择时的效果：跟随当前平台的推荐值
 pub fn recommended() -> WindowEffect {
+    let version = system_version();
     candidates()
-        .find(|effect| is_available(*effect))
+        .find(|effect| is_available(*effect, version))
         .unwrap_or_default()
 }
 
 /// 当前平台与系统版本下可选的效果，末尾是经典外观的两种形态，供配置界面使用
 pub fn available() -> Vec<WindowEffect> {
+    let version = system_version();
     candidates()
-        .filter(|effect| is_available(*effect))
+        .filter(|effect| is_available(*effect, version))
         .collect()
 }
 
@@ -59,8 +61,9 @@ pub fn resolve(configured: Option<WindowEffect>) -> WindowEffect {
     };
 
     // 从选中项开始沿候选链向下找第一个可用项；链尾的经典外观永远可用
+    let version = system_version();
     chain_from(configured)
-        .find(|effect| is_available(*effect))
+        .find(|effect| is_available(*effect, version))
         .unwrap_or_default()
 }
 
@@ -114,22 +117,37 @@ fn chain_from(effect: WindowEffect) -> impl Iterator<Item = WindowEffect> {
     candidates().skip_while(move |candidate| *candidate != effect)
 }
 
+/// 系统版本探测：Windows 的可用性取决于系统版本，读一次供整条候选链复用
+/// （`RtlGetVersion` 是系统调用，没必要每个候选都问一遍）；
+/// 其它平台的可用性不取决于版本，探测结果为空
 #[cfg(target_os = "windows")]
-fn is_available(effect: WindowEffect) -> bool {
+fn system_version() -> windows_version::OsVersion {
+    windows_version::OsVersion::current()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn system_version() {}
+
+#[cfg(target_os = "windows")]
+fn is_available(effect: WindowEffect, version: windows_version::OsVersion) -> bool {
+    use windows_version::OsVersion;
+
     // build 22000 = Windows 11 21H2，17763 = Windows 10 v1809
     // 与 window-vibrancy 内部的版本判断保持一致（见其 windows.rs 的 is_swca_supported
     // 与 is_undocumented_mica_supported），升级该依赖时要一起核对
-    let build = windows_version::OsVersion::current().build;
+    const MICA_SINCE: OsVersion = OsVersion::new(10, 0, 0, 22000);
+    const ACRYLIC_SINCE: OsVersion = OsVersion::new(10, 0, 0, 17763);
+
     match effect {
-        WindowEffect::Mica => build >= 22000,
-        WindowEffect::Acrylic => build >= 17763,
+        WindowEffect::Mica => version >= MICA_SINCE,
+        WindowEffect::Acrylic => version >= ACRYLIC_SINCE,
         WindowEffect::Solid | WindowEffect::Framed => true,
         _ => false,
     }
 }
 
 #[cfg(target_os = "macos")]
-fn is_available(effect: WindowEffect) -> bool {
+fn is_available(effect: WindowEffect, _version: ()) -> bool {
     matches!(
         effect,
         WindowEffect::Vibrancy | WindowEffect::Solid | WindowEffect::Framed
@@ -137,7 +155,7 @@ fn is_available(effect: WindowEffect) -> bool {
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-fn is_available(effect: WindowEffect) -> bool {
+fn is_available(effect: WindowEffect, _version: ()) -> bool {
     // Linux 等平台的效果由合成器决定，不做处理
     matches!(effect, WindowEffect::Solid | WindowEffect::Framed)
 }
@@ -259,8 +277,34 @@ mod tests {
                 effect,
                 last
             );
-            assert!(is_available(last), "{:?}", last);
+            assert!(is_available(last, system_version()), "{:?}", last);
         }
+    }
+
+    /// 版本号是注入的，阈值判断不依赖运行环境
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn availability_follows_the_windows_build_thresholds() {
+        use windows_version::OsVersion;
+
+        let supports = |effect, build| is_available(effect, OsVersion::new(10, 0, 0, build));
+
+        // 17763 = Windows 10 v1809，22000 = Windows 11 21H2
+        assert!(!supports(WindowEffect::Acrylic, 17762));
+        assert!(supports(WindowEffect::Acrylic, 17763));
+        assert!(!supports(WindowEffect::Mica, 21999));
+        assert!(supports(WindowEffect::Mica, 22000));
+
+        // 大版本不够时不会因为 build 数字大就误判
+        assert!(!is_available(
+            WindowEffect::Mica,
+            OsVersion::new(6, 1, 0, 7601)
+        ));
+
+        // 原生效果之外只有经典外观可用
+        assert!(!supports(WindowEffect::Vibrancy, 26100));
+        assert!(supports(WindowEffect::Solid, 0));
+        assert!(supports(WindowEffect::Framed, 0));
     }
 
     #[test]
