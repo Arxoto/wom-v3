@@ -54,3 +54,17 @@ Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
 3. Rust runs 4-tier matching → deduplicates via BitVec → caches result → returns first page
 4. Scrolling calls `invoke('search_page', { index: N })` for pagination
 5. Config changes are persisted to `config.json`, hot-reloaded via tray menu "Reload Global Config"
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as markdown files under `.scratch/<feature>/` in this repo. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles, each using its own name as the `Status:` value. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
