@@ -42,9 +42,7 @@
 .item-name,
 .item-desc {
     width: 100%;
-    overflow: hidden;
     white-space: nowrap;
-    line-height: 1.2;
 }
 
 .item-name {
@@ -54,7 +52,6 @@
 }
 
 .item-desc {
-    margin-top: 0.15em;
     font-size: calc(var(--item-h) * 0.25);
     color: var(--color-diff-general);
 }
