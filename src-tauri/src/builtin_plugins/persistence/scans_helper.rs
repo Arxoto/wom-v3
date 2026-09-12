@@ -29,14 +29,20 @@ pub(super) fn scan_files<R: Runtime>(
         path,
     } = parsed;
 
-    // BaseDirectory::from_variable
-    let base_dir = BasePath::from_variable(&base).map(BaseDirectory::from);
-
-    let real_path = match base_dir {
+    // 根路径变量交给 tauri 解析（支持的变量见 ItemParsedScan::base 的文档注释），
+    // 不自行维护变量名与 BaseDirectory 的映射表，避免与 tauri 的平台差异脱节
+    let real_path = match BaseDirectory::from_variable(&base) {
         Some(base_dir) => app.path().resolve(path, base_dir).map_err(|_| {
             ItemParseErr::ItemValueParsedFailed("resolve base path failed".to_string())
         })?,
-        None => Path::new(&path).to_path_buf(),
+        // 空 base 是合法写法，此时 path 原样使用（见 ItemParsedScan::path）
+        None if base.is_empty() => PathBuf::from(&path),
+        // 非空却认不出来，说明变量名写错了，直接报错而不是退化成相对路径静默扫不到文件
+        None => {
+            return Err(ItemParseErr::ItemValueParsedFailed(format!(
+                "unknown base path variable: {base}"
+            )));
+        }
     };
 
     let target_types: Vec<FileType> = file_types
@@ -68,72 +74,6 @@ pub(super) fn scan_files<R: Runtime>(
         .collect();
 
     Ok(r)
-}
-
-const BASE_PATH_HOME: &str = "home";
-const BASE_PATH_DESKTOP: &str = "desktop";
-const BASE_PATH_DOWNLOAD: &str = "download";
-const BASE_PATH_DOCUMENT: &str = "document";
-const BASE_PATH_PICTURE: &str = "picture";
-const BASE_PATH_AUDIO: &str = "audio";
-const BASE_PATH_VIDEO: &str = "video";
-
-#[derive(Debug, Clone, Copy)]
-pub enum BasePath {
-    /// 用户目录
-    Home,
-    /// 桌面
-    Desktop,
-    /// 下载目录
-    Download,
-    /// 文档目录
-    Document,
-    /// 图片目录
-    Picture,
-    /// 音频目录
-    Audio,
-    /// 视频目录
-    Video,
-    // todo 确认具体目录和用户级还是全局
-    // Public,
-    // Resource,
-    // Config,
-    // AppConfig,
-    // Data,
-    // LocalData,
-    // AppData,
-    // AppLocalData,
-    // Cache,
-    // AppCache,
-}
-
-impl BasePath {
-    pub fn from_variable(s: &str) -> Option<Self> {
-        match s {
-            BASE_PATH_HOME => Some(Self::Home),
-            BASE_PATH_DESKTOP => Some(Self::Desktop),
-            BASE_PATH_DOWNLOAD => Some(Self::Download),
-            BASE_PATH_DOCUMENT => Some(Self::Document),
-            BASE_PATH_PICTURE => Some(Self::Picture),
-            BASE_PATH_AUDIO => Some(Self::Audio),
-            BASE_PATH_VIDEO => Some(Self::Video),
-            _ => None,
-        }
-    }
-}
-
-impl From<BasePath> for tauri::path::BaseDirectory {
-    fn from(value: BasePath) -> Self {
-        match value {
-            BasePath::Home => Self::Home,
-            BasePath::Desktop => Self::Desktop,
-            BasePath::Download => Self::Download,
-            BasePath::Document => Self::Document,
-            BasePath::Picture => Self::Picture,
-            BasePath::Audio => Self::Audio,
-            BasePath::Video => Self::Video,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
