@@ -13,15 +13,9 @@ pub struct ItemTypeParseFailed;
 
 // region: ItemType
 
-/// todo
-/// - Clipboard 剪贴板增强，纯文本复制、预览，不做历史管理，太重了，历史管理和增强有
-///   - Windows 原生
-///   - Ditto(Windows) https://github.com/sabrogden/Ditto
-///   - CopyQ(Win/Mac/Linux) https://github.com/hluk/CopyQ
-///   - Maccy(macOS) https://github.com/p0deje/Maccy
-///   - FlowLauncher/Raycast 等启动软件集成
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ItemType {
+    // Clipboard 剪贴板增强，纯文本复制和预览没必要做，历史管理又涉及存储老化太重了
     /// 片段 仅允许复制
     Snippets,
     /// 内置实现的系统命令
