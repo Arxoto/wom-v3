@@ -48,7 +48,7 @@ mod tray {
         let open_config_desc = "Open Config Window";
         let register_desc = "register Global-Shortcut";
         let unregister_desc = "unregister Global-Shortcut";
-        let re_plugin_desc = "Reload Inner-Plugin Settings";
+        let re_plugin_desc = "Reload Builtin-Plugin Settings";
         let reload_desc = "Reload Global Config";
         let quit_desc = "Quit";
 
@@ -58,6 +58,7 @@ mod tray {
             .menu(&Menu::with_items(
                 app,
                 &[
+                    // 尽量保证整齐不换行
                     &MenuItem::with_id(app, "show_main", show_main_desc, true, None::<&str>)?,
                     &MenuItem::with_id(app, "reset_main", reset_main_desc, true, None::<&str>)?,
                     &MenuItem::with_id(app, "open_config", open_config_desc, true, None::<&str>)?,
@@ -161,16 +162,19 @@ pub fn run() {
         // 全局快捷键
         .plugin(global_shortcut::global_shortcut_handler_init())
         .plugin(global_shortcut::global_shortcut_startup_register())
-        // 自定义插件
-        .plugin(builtin_plugins::init())
         // 注册命令
         .invoke_handler(tauri::generate_handler![
             commands::fetch_config,
             commands::fetch_effect_info,
             commands::fetch_scan_base_options,
-            commands::set_config
+            commands::set_config,
+            commands::search,
+            commands::search_page
         ])
         .setup(|app| {
+            // 内建条目的运行期状态：命令以 `State<BuiltinStat>` 取用，必须在创建窗口前托管
+            builtin_plugins::load_stat(app.handle())?;
+
             configs::load_data(app.handle());
             let conf = configs::get_data();
 

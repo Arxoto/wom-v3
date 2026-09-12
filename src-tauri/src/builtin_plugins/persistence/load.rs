@@ -24,7 +24,7 @@ use crate::{
 
 /// 根据设置文件得到的全量的 items
 ///
-/// 由 [`crate::builtin_plugins::plugins::PluginStat`] 持有
+/// 由 [`crate::builtin_plugins::stat::BuiltinStat`] 持有
 pub struct ItemCollection {
     pub item_list: Vec<Item>,
 }

@@ -1,76 +1,57 @@
 # AGENTS.md
 
-This file provides guidance to agents working with code in this repository.
+给在本仓库工作的 agent 的指引。
 
-## Principles
+## 本文档自己的规则
 
-- Write production code only; leave test code to the user. Add or change tests when explicitly asked.
+- 只放两类内容：**开发原则**与**架构索引**，保持简短。
+- **代码是唯一事实依据**。字段名、函数签名、模块清单、格式、常量、依赖版本一律看代码，本文档不复述这类事实。
+- **设计原因与选型取舍写在代码的文档注释里**，就近写在被解释的模块 / 类型上；跨模块的决定另记 `docs/adr/`。本文档不承担解释职责。
+- 与代码冲突时以代码为准，顺手把本文档改回来；不要为迁就本文档而改代码。
 
-## Build/Run Commands
+## 开发原则
 
-- **Dev**: `pnpm tauri dev` (or run `build_scripts/run_dev.ps1` which sets up fnm env first)
-- **Build**: `pnpm tauri build` (or `build_scripts/run_build.ps1`)
-- **Frontend only**: `pnpm dev` (Vite dev server on port 1420), `pnpm build` (typecheck + Vite build)
-- **Rust tests**: `cargo test --manifest-path src-tauri/Cargo.toml`
-- The project uses **pnpm** (see `package.json` `packageManager` field) and requires fnm for Node version management (see `.node-version`).
+- 只写生产代码；测试留给用户。允许修改既有测试，但**测试逻辑一有改动，先与用户对齐**。
+- 动手前先读该模块顶部的文档注释与相关 ADR。
+- 依赖单向流动：`commands` → `configs` / `window_utils` / `global_shortcut`，不允许反向依赖。
+- 配置只有一份：`Config` 既是 `config.json` 的格式，也是运行时唯一依据；派生值用方法现算，不另存运行时结构。
+- 配置读写不对称：读盘宽容（未知键忽略、缺失字段取默认），写盘严格（必须整份回传并通过校验）。
+- 前端手写镜像 Rust 的类型（见 `src/core.tsx`），改名不会有编译期报错，靠金样本测试兜底。
+- 平台差异交给平台 API 或 tauri 解析，本项目不另立映射表。
+- 注释与提交信息沿用仓库现状：中文。
 
-## Architecture
+## 架构索引
 
-WOM is a **Tauri v2** desktop launcher/search tool (similar to Spotlight/Raycast). It runs in the system tray and is toggled via a global shortcut.
+WOM 是 Tauri v2 桌面启动器：常驻托盘，由全局快捷键唤出主面板。两个 HTML 入口各挂一个 React app——`index.html`（主窗口）与 `index_config.html`（配置窗口）。
 
-### Two entry points (multi-window)
+Rust 后端 `src-tauri/src/`：
 
-The Rust backend (`lib.rs`) creates two window types:
-- **Main window** — uses `index.html` (transparent, no decorations). Window material and native frame come from the `window_effect` config.
-- **Config window** — uses `index_config.html`.
+| 模块 | 职责 |
+| --- | --- |
+| `lib.rs` | 应用组装：插件注册、托盘菜单、窗口生命周期、命令注册表 |
+| `commands.rs` | 前端调用的命令；依赖的最外层 |
+| `configs.rs` | `Config` 的读写、校验与派生值 |
+| `window_effect.rs` | 窗口外观：原生效果、可用性与降级链 |
+| `window_utils.rs` | 窗口的创建、显示与重建 |
+| `global_shortcut.rs` | 全局快捷键的注册与运行期状态 |
+| `shortcuts.rs` | 快捷键字符 |
+| `constants.rs` | 文件名、窗口 label 等常量 |
+| `builtin_plugins/` | 内建条目与检索：`base` / `common` / `persistence` / `search` / `stat` |
 
-Each HTML entry loads a separate React app via its own `src/index_*.tsx`.
+前端 `src/`：`core.tsx` 是两个入口共用的部分（类型镜像、invoke 封装、css 变量），`index_main.tsx` / `index_config.tsx` 是入口，`AppMain.tsx` / `AppConfig.tsx` 是根组件，`main/` 装主窗口的布局与各区块。
 
-### Rust backend (`src-tauri/src/`)
+文档与约定：`CONTEXT.md`（术语表）、`docs/adr/`（架构决定）、`docs/agents/`（issue tracker、triage 标签、domain 规则）。
 
-- **`lib.rs`** — App setup: registers plugins (log, opener, global-shortcut, custom inner-plugin), creates tray menu, manages windows, prevents exit on window close (app stays in tray).
-- **`configs.rs`** — Configuration stored as JSON in app data dir (`config.json`). `Config` is the file format, the runtime source of truth, and the shape the config window reads/writes; derived values (window size, effective window effect, `show_main_auto`) are methods, not fields. Reads are tolerant (unknown keys ignored, unknown enum names fall back to defaults), writes are strict. Uses `arc_swap::ArcSwap` for lock-free hot-reload, and a `layout_coupling` module for constants shared with the frontend. Depends only on `constants`, `shortcuts`, `window_effect` — never on `window_utils`; `reload_data` reports whether the config changed and the caller decides to rebuild.
-- **`commands.rs`** — The commands the frontend calls (`fetch_config`, `fetch_effect_info`, `set_config`). Lives outside `configs.rs` because saving a config rebuilds the window: dependencies flow one way (commands → configs / window_utils / global_shortcut), never back.
-- **`window_effect.rs`** — `WindowEffect` enum (`Solid` / `Framed` / `Mica` / `Acrylic` / `Vibrancy`) plus per-platform availability, the downgrade chain, the tint alpha, and applying the effect to a window through `window-vibrancy`.
-- **`global_shortcut.rs`** — Maps config-defined hotkey (modifiers + single char) to show/hide the main window.
-- **`inner_plugins/`** — Custom Tauri plugin providing the core search functionality:
-  - **`base.rs`** — `ItemType` enum: `System`, `Cmd`, `Snippets`, `Note`, `Web`, `File`, `Scan`. Each item has a `KeyWord` and `ItemDesc` (string or path).
-  - **`common.rs`** — `Item` struct: has a monotonic `ItemId`, type, keyword, name, and description. `new_list()` generates multiple items sharing the same ID for different keywords.
-  - **`persistence/load.rs`** — Loads items from `inner_plugins.txt` (app data dir). Reads line-by-line, parses each line, handles Scan items by walking the filesystem via `walkdir`.
-  - **`persistence/parse_core.rs`** — Line parser using `<->` as field delimiter and space as keyword delimiter. Dispatches to type-specific parsers.
-  - **`persistence/parse_impl_common.rs`** — 4-field format: `Type <-> key1 key2 <-> name <-> desc`
-  - **`persistence/parse_impl_system.rs`** — 3-field format: `System <-> key1 key2 <-> name`
-  - **`persistence/parse_impl_scan.rs`** — 7-field format: `Scan <-> File Dir <-> .txt .md <-> blacklist <-> r <-> home <-> path`
-  - **`persistence/scans_helper.rs`** — Filesystem scanner using `walkdir`, resolves base directories (home/desktop/download/etc.), filters by file type, suffix, and blacklist.
-  - **`search.rs`** — Four-tier matching algorithm: exact match → prefix match → contains match → subsequence match. Results merged and deduplicated using `bitvec::BitVec` (ID-based dedup, contiguous IDs assumed for efficiency). Results cached in `ItemSearchStat` (a `Mutex`). Exposes `search` and `search_page` Tauri commands. `ItemSearchPage` is the frontend-facing paginated result (100 items per page). Search result lists include split indices so the frontend can render match-type separators.
-  - **`plugins.rs`** — Plugin init: loads items on setup, manages `ItemsStat` and `ItemSearchStat` as Tauri managed state. `reload_setting()` clears search cache and reloads items.
+## 构建 / 运行
 
-### Frontend (`src/`)
-
-- **`core.tsx`** — Shared setup: disables context menu (near-native feel), mirrors the Rust config types (`Config`, `EffectInfo`, `WindowEffect`, `MainWindowMode`), fetches them via `invoke('fetch_config')` / `invoke('fetch_effect_info')`, and sets CSS custom properties (`--head-h`, `--tail-h`, `--item-h`, `--color-bg-alpha`). The panel background is a dedicated `body::before` layer in `index_main.css` whose `opacity` is that alpha, so the palette color stays in CSS and no relative color syntax (`rgb(from ...)`, unsupported by older WebView2/WebKit) is needed. Config changes reach the UI by rebuilding the window, not by events.
-- **`AppMain.tsx`** — Main window layout: `Box > Static(Head) > DividerTop > Elastic(Body) > DividerBottom > Static(Tail)`. Layout components in `main/Layout.tsx` use flexbox with CSS variables for dimensions.
-- **`head.tsx`** — Search input with ghost/suggestion text layer overlaid on a real input.
-- **`body.tsx`** — Scrollable item list with optional preview panel.
-- **`core.css`** — CSS custom properties for color scheme, scrollbar styling, text selection disabled globally.
-
-### Data flow
-
-1. On startup, Rust loads `inner_plugins.txt` → parses into `Vec<Item>` → stored in `ItemsStat`
-2. User types in Head input → frontend calls `invoke('search', { k: query })`
-3. Rust runs 4-tier matching → deduplicates via BitVec → caches result → returns first page
-4. Scrolling calls `invoke('search_page', { index: N })` for pagination
-5. Config changes are written by `set_config` (config window); the tray menu "Reload Global Config" re-reads `config.json` for hand edits. Both go through `reload_data`, which rebuilds the main window when the config actually changed, so the UI starts from the new config
+- 开发：`pnpm tauri dev`，或 `build_scripts/run_dev.ps1`（先用 fnm 切到 `.node-version` 指定的 Node）
+- 打包：`pnpm tauri build`，或 `build_scripts/run_build.ps1`
+- 前端单独：`pnpm dev`（1420）、`pnpm build`（tsc + vite build）
+- Rust 测试：`cargo test --manifest-path src-tauri/Cargo.toml`
+- 包管理器用 pnpm
 
 ## Agent skills
 
-### Issue tracker
-
-Issues and specs live as markdown files under `.scratch/<feature>/` in this repo. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-The five canonical triage roles, each using its own name as the `Status:` value. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+- Issue tracker：spec 与 issue 是 `.scratch/<feature>/` 下的 markdown，见 `docs/agents/issue-tracker.md`。
+- Triage labels：五个标准角色，见 `docs/agents/triage-labels.md`。
+- Domain docs：单上下文，`CONTEXT.md` 与 `docs/adr/` 在仓库根，见 `docs/agents/domain.md`。

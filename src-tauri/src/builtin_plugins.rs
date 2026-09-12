@@ -5,7 +5,6 @@ pub mod persistence;
 
 pub mod search;
 
-pub mod plugins;
+pub mod stat;
 
-pub use plugins::init;
-pub use plugins::reload_setting;
+pub use stat::{load_stat, reload_setting};

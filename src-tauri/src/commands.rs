@@ -1,12 +1,20 @@
 //! 前端调用的命令
 //!
-//! 放在这里而不是 `configs`：保存配置后要重建窗口，而依赖只能单向流动
-//! （commands → configs / window_utils / global_shortcut），configs 不能反过来依赖 window_utils。
+//! 实现的归属：能留在各自模块里的就只在这里转发（如检索命令，见 [`stat`]）；
+//! 配置相关的命令要同时指挥 configs / window_utils / global_shortcut，实现直接落在这里——
+//! 放进 `configs` 会让它反向依赖 `window_utils`，而依赖只能单向流动。
+//!
+//! 应用只有一张命令注册表：`lib.rs` 的 `invoke_handler`。
 
+use tauri::State;
 use tauri_plugin_log::log::warn;
 
 use crate::{
-    builtin_plugins::persistence::scan_base::{ScanBase, ScanBaseOption},
+    builtin_plugins::{
+        persistence::scan_base::{ScanBase, ScanBaseOption},
+        search::ItemSearchPage,
+        stat::{self, BuiltinStat},
+    },
     configs, window_effect, window_utils,
 };
 
@@ -62,4 +70,19 @@ pub fn set_config(app: tauri::AppHandle, config: serde_json::Value) -> Result<()
     global_shortcut::register_global_shortcut(&app).map_err(|err| err.to_string())?;
 
     Ok(())
+}
+
+/// 使用关键字进行检索（实现见 [`stat::search`]）
+#[tauri::command]
+pub async fn search(builtin_stat: State<'_, BuiltinStat>, k: &str) -> Result<ItemSearchPage, ()> {
+    Ok(stat::search(&builtin_stat, k))
+}
+
+/// 对检索结果进行翻页（实现见 [`stat::search_page`]）
+#[tauri::command]
+pub async fn search_page(
+    builtin_stat: State<'_, BuiltinStat>,
+    index: usize,
+) -> Result<ItemSearchPage, ()> {
+    Ok(stat::search_page(&builtin_stat, index))
 }

@@ -9,7 +9,7 @@ use crate::builtin_plugins::{common::Item, persistence::load::ItemCollection};
 /// 只保存下标，渲染用的 [`Item`] 在翻页时再从 [`ItemCollection`] 取出，
 /// 避免为每条命中结果克隆一次 [`Item`]
 ///
-/// 由 [`crate::builtin_plugins::plugins::PluginStat`] 持有
+/// 由 [`crate::builtin_plugins::stat::BuiltinStat`] 持有
 #[derive(Debug, Default)]
 pub struct ItemSearchResult {
     /// 产生该结果的检索输入
