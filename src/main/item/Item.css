@@ -61,6 +61,26 @@
     flex: 0 0 auto;
     padding-right: calc(var(--item-h) * 0.2);
     white-space: nowrap;
-    font-size: calc(var(--item-h) * 0.25);
+    font-size: calc(var(--item-h) * 0.35);
+    font-weight: bold;
     color: var(--color-diff-general);
+}
+
+/* 选中效果：整行换底色，文字与动作换成高亮色并加发光
+   现在只有鼠标悬停会触发；将来键盘选中时把同样的样式挂到选中类上即可
+   发光半径挂在 --item-h 上，跟着行高缩放 */
+.item-box:hover {
+    background-color: var(--color-hover-back);
+    border-radius: calc(var(--item-h) * 0.2);
+}
+
+.item-box:hover .item-name,
+.item-box:hover .item-desc {
+    color: var(--color-hover-inner);
+    text-shadow: 0 0 4px var(--color-hover-outer);
+}
+
+.item-box:hover .item-action {
+    color: var(--color-hover-front);
+    text-shadow: 0 0 4px var(--color-hover-outer);
 }
