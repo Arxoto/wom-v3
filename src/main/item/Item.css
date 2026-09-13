@@ -17,7 +17,7 @@
     width: calc(var(--item-h) * 0.7);
     height: calc(var(--item-h) * 0.7);
     border-radius: calc(var(--item-h) * 0.2);
-    background-color: var(--color-diff-general);
+    background-color: var(--color-comm-magical);
 }
 
 /* 中间列：flex-basis 0 让它随父元素宽度弹性伸缩（预览显示时变窄）

@@ -40,21 +40,32 @@ const MOCK_ITEM_LIST: ItemDisplay[] = [
     { the_type: "note", name: "短", desc: "短" },
 ];
 
-const BodyPreview = () => {
+interface BodyPreviewProps {
+    item: ItemDisplay,
+}
+
+/**
+ * 预览：当前条目的图标、名称与描述
+ *
+ * 选中条目的逻辑还没接，先用列表第一条占位。
+ */
+const BodyPreview = ({ item }: BodyPreviewProps) => {
     return <>
         <div className="body-divider"></div>
         <div className="body-preview">
-            <div className="body-preview-icon">ICON</div>
-            <div className="body-preview-title">TITLE-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssss</div>
+            <div className="body-preview-icon">
+                <div className="body-preview-icon-block"></div>
+            </div>
+            <div className="body-preview-title">{item.name}</div>
             <div className="body-preview-divider"></div>
-            <div className="body-preview-details">DETAILS</div>
+            <div className="body-preview-details">{item.desc}</div>
         </div>
     </>;
 }
 
 const Body = () => {
     let show_preview = true;
-    show_preview = false;
+    // show_preview = false;
     return (
         <div className="body-box">
             <div className="body-items">
@@ -63,7 +74,7 @@ const Body = () => {
                     <Item key={index} item={item} action="action"></Item>
                 ))}
             </div>
-            {show_preview ? <BodyPreview></BodyPreview> : <></>}
+            {show_preview ? <BodyPreview item={MOCK_ITEM_LIST[8]}></BodyPreview> : <></>}
         </div>
     );
 }
