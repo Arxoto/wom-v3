@@ -42,7 +42,7 @@ const IconCursor = () => {
 /* 回车键：一条折线加箭头，形状取自常见的 ↵ */
 const IconEnter = () => {
     return (
-        <svg className="tail-icon" viewBox="0 0 16 16" aria-hidden="true"
+        <svg className="tail-icon tail-icon-enter" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12.5 3.5v5H3.5M6.5 5.5l-3 3 3 3"></path>
         </svg>

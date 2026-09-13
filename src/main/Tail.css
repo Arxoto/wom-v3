@@ -47,6 +47,12 @@
     height: 1em;
 }
 
+/* 回车键的折线本身偏上，视觉重心比文字高，单独往下压一点与文字对齐 */
+.tail-icon-enter {
+    position: relative;
+    top: calc(var(--tail-h) * 0.02);
+}
+
 /* 文字键帽：没有对应符号的按键（如 ESC）用带边框的小字块表示 */
 .tail-key {
     flex: 0 0 auto;
@@ -54,5 +60,8 @@
     border: 1px solid currentColor;
     border-radius: calc(var(--tail-h) * 0.15);
     font-size: calc(var(--tail-h) * 0.4);
-    line-height: calc(var(--tail-h) * 0.5);
+
+    position: relative;
+    top: calc(var(--tail-h) * 0.02);
+    line-height: 120%;
 }
