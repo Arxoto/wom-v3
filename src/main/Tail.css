@@ -1,0 +1,58 @@
+/* 底部提示条：左边说怎么选中，右边说怎么触发动作与打开预览
+   尺寸挂在 --tail-h 上，和 head / item 一样跟着配置缩放 */
+.tail-box {
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: var(--tail-h);
+    /* 左右留白取 head 的比例，与 Body 的内容对齐 */
+    padding: 0 calc(var(--head-h) * 0.3);
+    box-sizing: border-box;
+    overflow: hidden;
+
+    font-size: calc(var(--tail-h) * 0.5);
+    color: var(--color-diff-general);
+}
+
+/* 一组提示：图标与文字横向排列，不换行 */
+.tail-group {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    white-space: nowrap;
+}
+
+/* 用相邻兄弟的 margin 代替 gap：flex 的 gap 要 Safari 14.1+，比本项目兼容的底线新 */
+.tail-group>*+* {
+    margin-left: calc(var(--tail-h) * 0.25);
+}
+
+/* 组合键：两个图标挨紧，与后面的说明拉开 */
+.tail-combo {
+    display: inline-flex;
+    flex-flow: row nowrap;
+    align-items: center;
+}
+
+.tail-combo>*+* {
+    margin-left: calc(var(--tail-h) * 0.1);
+}
+
+/* 图标 1em 见方，跟着字号缩放；颜色由 currentColor 跟随文字 */
+.tail-icon {
+    flex: 0 0 auto;
+    width: 1em;
+    height: 1em;
+}
+
+/* 文字键帽：没有对应符号的按键（如 ESC）用带边框的小字块表示 */
+.tail-key {
+    flex: 0 0 auto;
+    padding: 0 calc(var(--tail-h) * 0.15);
+    border: 1px solid currentColor;
+    border-radius: calc(var(--tail-h) * 0.15);
+    font-size: calc(var(--tail-h) * 0.4);
+    line-height: calc(var(--tail-h) * 0.5);
+}

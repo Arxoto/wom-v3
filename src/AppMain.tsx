@@ -1,13 +1,17 @@
 import { Box, Static, Elastic, DividerTop, DividerBottom } from "./main/Layout";
 import Head from "./main/Head";
 import Body from "./main/Body";
-import Tail from "./main/Tail";
+import Tail, { TailHint } from "./main/Tail";
 import { set_page_main } from "./core";
 
 import "./core.css";
 
 const App = () => {
   set_page_main();
+  // 预览是否打开，同时也是 Tail 显示的提示；交互还没接，先用常量，
+  // 接上 shift+回车 / ESC 后换成 useState
+  let show_preview = true;
+  // show_preview = false;
   return (
     <Box>
       <Static>
@@ -15,11 +19,11 @@ const App = () => {
       </Static>
       <DividerTop></DividerTop>
       <Elastic>
-        <Body></Body>
+        <Body show_preview={show_preview}></Body>
       </Elastic>
       <DividerBottom></DividerBottom>
       <Static>
-        <Tail></Tail>
+        <Tail hint={show_preview ? TailHint.Preview : TailHint.ItemList}></Tail>
       </Static>
     </Box>
   );

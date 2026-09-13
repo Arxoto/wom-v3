@@ -63,9 +63,16 @@ const BodyPreview = ({ item }: BodyPreviewProps) => {
     </>;
 }
 
-const Body = () => {
-    let show_preview = true;
-    // show_preview = false;
+interface Props {
+    show_preview: boolean,
+}
+
+/**
+ * 列表主体：左侧条目列表，右侧预览
+ *
+ * 预览是否打开由外部传入（AppMain），这样它与 Tail 的提示是同一个状态。
+ */
+const Body = ({ show_preview }: Props) => {
     return (
         <div className="body-box">
             <div className="body-items">
