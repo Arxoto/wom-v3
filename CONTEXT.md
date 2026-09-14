@@ -20,6 +20,24 @@ _Avoid_: entry, record, result
 The projection of an Item rendered in the list, holding only its type, name, and description.
 _Avoid_: ItemView, display model, item DTO
 
+### Main window interaction
+
+**Selection**:
+The Item in the search results that the main window is currently aimed at; ↑/↓ move it and Enter acts on it.
+_Avoid_: 高亮, focus, cursor, 当前项
+
+**Preview**:
+The side panel of the main window that shows the Selection in full; ⇧+Enter toggles it and ESC closes it.
+_Avoid_: detail view, panel, 预览页面
+
+**Item Action**:
+One of the things an Item can be made to do; an Item carries the list of Item Actions it offers, ←/→ picks among them and Enter runs the picked one, with the first as its default.
+_Avoid_: command, operation, verb, 触发动作
+
+**Item Index**:
+The position of an Item in the set loaded from the settings file; it rides along with the Item Display and addresses that Item when running an Item Action.
+_Avoid_: id, item_id, key
+
 ### Window appearance
 
 **Window Effect**:
