@@ -1,7 +1,7 @@
 # 四类动作的插件覆盖
 
 Type: research
-Status: claimed
+Status: resolved
 
 ## Question
 

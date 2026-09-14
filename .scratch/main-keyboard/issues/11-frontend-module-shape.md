@@ -1,7 +1,7 @@
 # 前端接缝的形状
 
 Type: grilling
-Status: open
+Status: resolved
 
 ## Question
 
@@ -9,10 +9,26 @@ Status: open
 
 ## Answer
 
-待解决。已定的只是形状的**模式**（见 [按键层与状态归属](04-key-layering-and-state-ownership.md)），这一票把它钉成具体文件与签名。
+落定（2026-09-14），草案里的四个待拍点按下面执行：
+
+- **文件**：新增 `src/main/interaction/`（`src/main/item/` 已有先例）——`keys.ts` 纯函数 `resolve_key(key, mod, ctx) → Intent | null`；`reducer.ts`；`useMainInteraction.ts` 唯一的接线层（window 级 keydown、50ms 防抖、请求令牌、预请求、动作 / 退场 / 检索三类 invoke）。
+- `Intent`：`select_prev / select_next / run_action / toggle_preview / dismiss`；`ctx` 只带 `{ preview_open }`（合成判据待实测，见 [IME 合成期间的事件语义](01-research-ime-composition.md)）。
+- `MainState { input, item_list, total, selection, preview_open }`；动作来源只有 `typing / page_loaded / intent` 三类。
+- **列表位置不是 `Item Index`**：`ItemDisplay` 带 `item_index`（设置文件整集里的下标，`CONTEXT.md` 的 `Item Index` 条目与 [Destination 与范围](03-destination-and-scope.md) 都已这么写），`selection` 只是已加载列表里的行号。草案里那条「前端列表下标就是 `Item Index`」的不变量作废。
+- **副作用只在事件回调里做**，不进 reducer、不放 effect：`index_main.tsx` 挂着 `React.StrictMode`，dev 下 reducer / state updater 会被调用两次（见 [Item Action 与触发命令](07-item-action-and-command.md) 的评论）。
+- **可见窗口由 `Body` 现算**：hook 不产出 `visible_items`，滚动偏移是 `Selection` 的派生值（见 [按键层与状态归属](04-key-layering-and-state-ownership.md)）。
+- **input 的 `ref` 归 hook**，`Head` 只收 `ref` 与值。
+- 类型镜像：`core.tsx` 新增 `ItemType`（联合）、`ItemActionId`（`"copy" | "open_url" | "open_path" | "reveal" | "open_note"` 的字符串联合）、`ItemAction { id, label_key }`、`ItemTypeActions`（`Record<ItemType, ItemAction[]>`，`System` 是空数组）、`get_item_type_actions()`、`run_item_action(item_index, action)`、`dismiss_main_window()`；`ItemDisplay` 加 `item_index: number`。
+
+props：
+
+- `Head { value, ghost, on_change, input_ref }`
+- `Body { item_list, selection, item_n, show_preview, type_actions }`
+- `Item { item, action_id, is_selected }`（图标由 Item 按 `action_id` 查一张前端 svg 表；没有动作时传 `null`，整块不渲染。每行传该行的默认动作）
+- `Tail { hint, action_desc }`（`action_desc` 是当前 `ItemType` + 动作解析出来的文案，先用动作名占位；条目没有动作时为 `null`，动作栏整块不渲染）
 
 ## Comments
 
-- 一份**未经确认的草案**（此前由一名 agent 提出，直接记在这里免得丢）：新增 `src/main/interaction/` 三个文件——`keys.ts`（纯函数 `resolve_key(key, mod, ctx) → Intent | null`，`Intent` 为 `select_prev / select_next / action_prev / action_next / run_action / toggle_preview / dismiss`，`ctx` 只带 `{ composing, preview_open }`）、`reducer.ts`（`MainState { input, item_list, total, selection, action_index, preview_open }` + `reduce(state, action)`，动作来源只有 `typing` / `page_loaded` / `intent` 三类）、`useMainInteraction.ts`（唯一的接线层：window 级 keydown、50ms 防抖、请求令牌、预请求、三个 invoke）。`Head` 收 `{ value, on_change, input_ref }`，`Body` 收 `{ item_list, selection, item_n, show_preview, action_labels }`，`Item` 收 `{ item, action_label, is_selected }`。草案里还提了一条不变量：**前端列表下标就是 `Item Index`**（只要分页按 index 顺序追加不跳页，`selection` 既是列表位置也是寻址参数，不需要第二套映射）。
-
-- 该草案附带四个待拍的点：① `core.tsx` 里 `ItemActionId` 用字符串联合还是 `string`；② 三个文件放新目录 `src/main/interaction/` 还是散在 `src/main/`；③ 可见窗口由 `Body` 现算还是 hook 算好 `visible_items` 传下去；④ input 的 `ref` 归 hook 还是归 `Head`。
+- 更早的草案（`action_prev` / `action_next` 切动作、`action_index` 状态、`action_labels` / `action_label` 这组 props、「前端列表下标就是 `Item Index`」那条不变量）已被上面的 Answer 逐条取代，细节不再保留。当时附带的四个待拍点——`ItemActionId` 用字符串联合、三个文件放新目录、可见窗口由 `Body` 现算、`ref` 归 hook——都按上面的 Answer 执行。
+- 2026-09-14 讨论后改的两处：`label_key` 改成按 `ItemType` + 动作分套（见 [Item Action 映射表与元数据](10-item-action-table-and-metadata.md)），行内动作从文字改成图标、详细解释挪到 Tail。
+- 2026-09-14 收口：行内图标固定是该行的默认动作（`←` / `→` 已放行，见 [Item Action 与触发命令](07-item-action-and-command.md)），无动作的条目动作栏整块留空。

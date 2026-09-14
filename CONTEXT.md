@@ -38,6 +38,10 @@ _Avoid_: command, operation, verb, 触发动作
 The position of an Item in the set loaded from the settings file; it rides along with the Item Display and addresses that Item when running an Item Action.
 _Avoid_: id, item_id, key
 
+**List Position**:
+The row of the loaded result list that the Selection currently occupies; the list's scroll offset is derived from it. It is not the Item Index.
+_Avoid_: index, position, row number, 列表下标
+
 ### Window appearance
 
 **Window Effect**:
