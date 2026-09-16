@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 export const set_page_main = () => {
     set_near_native();
@@ -74,13 +75,54 @@ export interface EffectInfo {
 /**
  * 列表条目的渲染结构（对应 Rust 侧 search::ItemDisplay）
  *
- * 只带渲染需要的类型、名称与描述；关键字与动作不在其中。
+ * 只带渲染需要的类型、名称与描述，外加 `item_index`（Item Index）：条目在整集里的
+ * 下标，前端跑 Item Action 时用它寻址。列表里的行号是 List Position，两者不是一回事。
+ * 关键字与动作不在其中。
  */
 export interface ItemDisplay {
-    the_type: string,
+    the_type: ItemType,
     name: string,
     desc: string,
+    item_index: number,
 }
+
+/**
+ * Item 的类型（对应 Rust 侧 base::ItemType）
+ */
+export type ItemType = "snip" | "sys" | "note" | "cmd" | "web" | "file" | "scan";
+
+/**
+ * Item Action 的标识（对应 Rust 侧 action::ItemActionId）
+ */
+export type ItemActionId = "copy" | "open_url" | "open_path" | "reveal" | "open_note";
+
+/**
+ * 一个 Item Action 的元数据（对应 Rust 侧 action::ItemAction）
+ *
+ * `label_key` 按 ItemType + 动作分套，中文文案见 src/main/interaction/action_labels.ts。
+ */
+export interface ItemAction {
+    id: ItemActionId,
+    label_key: string,
+}
+
+/**
+ * 每种 ItemType 支持的动作（对应 Rust 侧 action::table）
+ *
+ * 顺序即优先级，第一个是该类型的默认动作。
+ */
+export type ItemTypeActions = Record<ItemType, ItemAction[]>;
+
+/** 还没拉到动作表时的空表：拉到之前没有条目显示动作图标 */
+export const EMPTY_ITEM_TYPE_ACTIONS: ItemTypeActions = {
+    snip: [],
+    sys: [],
+    note: [],
+    cmd: [],
+    web: [],
+    file: [],
+    scan: [],
+};
 
 /**
  * 检索结果的一页（对应 Rust 侧 search::ItemSearchPage）
@@ -140,6 +182,56 @@ export const get_scan_base_options = async () => {
  */
 export const search = async (k: string) => {
     return (await invoke('search', { k })) as ItemSearchPage;
+}
+
+/**
+ * 取检索结果的一页
+ *
+ * `index` 是这一页在结果集里的起始位置（不是页码）：预请求传已加载条数。
+ */
+export const search_page = async (index: number) => {
+    return (await invoke('search_page', { index })) as ItemSearchPage;
+}
+
+/**
+ * 每种 ItemType 支持的动作
+ *
+ * 前端只在挂载时拉一次：配置重载会重建窗口，不需要热更新。
+ */
+export const get_item_type_actions = async () => {
+    return (await invoke('fetch_item_type_actions')) as ItemTypeActions;
+}
+
+/**
+ * 跑一个 Item Action
+ *
+ * 按下标与动作 id 派发；越界索引、认不出的动作与还没实现的动作在 Rust 侧当无操作
+ * 并记日志。跑完之后要不要隐藏主窗口由 Rust 按 `main_window_mode` 决定，前端不参与。
+ */
+export const run_item_action = async (item_index: number, action: ItemActionId) => {
+    await invoke('run_item_action', { itemIndex: item_index, action });
+}
+
+/**
+ * 无条件隐藏主窗口
+ *
+ * 它就是 ESC 那条显式意图，与 main_window_mode 无关——配置只管失焦与触发动作
+ * 这两条被动隐藏规则。
+ */
+export const dismiss_main_window = async () => {
+    await invoke('dismiss_main_window');
+}
+
+/** 主窗口被显示时后端发来的事件名（对应 Rust 侧 constants::EVENT_MAIN_SHOWN） */
+const EVENT_MAIN_SHOWN = "main_shown";
+
+/**
+ * 监听主窗口被显示（每次显示都会发）
+ *
+ * 返回取消监听的函数，调用方负责在卸载时取消。
+ */
+export const on_main_shown = async (handler: () => void) => {
+    return await listen(EVENT_MAIN_SHOWN, handler);
 }
 
 /**

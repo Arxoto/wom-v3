@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Manager, Result, WebviewUrl, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, Result, WebviewUrl, WebviewWindow};
 use tauri_plugin_log::log::{debug, warn};
 
 use crate::{configs, constants, window_effect};
@@ -11,6 +11,7 @@ pub fn show_hide_main_window(app: &AppHandle) -> Result<()> {
             w.unminimize()?;
             w.show()?;
             w.set_focus()?;
+            emit_main_shown(app)?;
         }
     } else {
         create_main_window(app, true, true)?;
@@ -23,8 +24,27 @@ pub fn show_main_window(app: &AppHandle) -> Result<()> {
         w.unminimize()?;
         w.show()?;
         w.set_focus()?;
+        emit_main_shown(app)?;
     } else {
         create_main_window(app, true, true)?;
+    }
+    Ok(())
+}
+
+/// 通知前端「主窗口刚被显示」
+///
+/// 前端收到后关掉 Preview、聚焦并全选输入框（见 spec §4.5）。
+/// 创建窗口那条路上事件会早于前端就绪，那一步由前端挂载时兜底，所以这里不发。
+fn emit_main_shown(app: &AppHandle) -> Result<()> {
+    app.emit_to(constants::LABEL_MAIN, constants::EVENT_MAIN_SHOWN, ())
+}
+
+/// 无条件隐藏主窗口
+///
+/// ESC 那条显式意图：不看 `main_window_mode`，窗口不存在时什么都不做。
+pub fn hide_main_window(app: &AppHandle) -> Result<()> {
+    if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
+        w.hide()?;
     }
     Ok(())
 }

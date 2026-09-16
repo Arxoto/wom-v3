@@ -1,26 +1,32 @@
-import type { ItemDisplay } from "../../core";
+import type { ItemActionId, ItemDisplay } from "../../core";
+import { ACTION_ICONS } from "./action_icons";
 import "./Item.css";
 
 interface Props {
     item: ItemDisplay,
-    action: string,
+    /** 该行的默认动作（动作表第一个）；条目没有动作时传 null，动作栏整块不渲染 */
+    action_id: ItemActionId | null,
+    is_selected: boolean,
 }
 
 /**
- * 一行条目：左图标、中间名称与描述、右侧动作名称
+ * 一行条目：左图标、中间名称与描述、右侧动作图标
  *
  * 图标先用纯色块占位，后期换成 svg / ico。
- * 动作名称与 Item 数据无关（来自动作系统），所以由外部传入，当前传占位值。
+ * 动作与 Item 数据无关（来自动作表），所以由外部传入；哪个动作是默认动作也由外部决定。
+ * is_selected 是键盘选中的那一行，与鼠标悬停各走一套配色（见 Item.css）。
  */
-const Item = ({ item, action }: Props) => {
+const Item = ({ item, action_id, is_selected }: Props) => {
     return (
-        <div className="item-box">
+        <div className={is_selected ? "item-box is-selected" : "item-box"}>
             <div className="item-icon"></div>
             <div className="item-text">
                 <div className="item-name">{item.name}</div>
                 <div className="item-desc">{item.desc}</div>
             </div>
-            <div className="item-action">{action}</div>
+            {action_id !== null
+                ? <div className="item-action">{ACTION_ICONS[action_id]}</div>
+                : <></>}
         </div>
     );
 }

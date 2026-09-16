@@ -157,6 +157,8 @@ pub fn run() {
         .plugin(log_setting_init())
         // 系统通知
         .plugin(tauri_plugin_notification::init())
+        // 系统剪贴板
+        .plugin(tauri_plugin_clipboard_manager::init())
         // 默认打开方式
         .plugin(tauri_plugin_opener::init())
         // 全局快捷键
@@ -167,9 +169,12 @@ pub fn run() {
             commands::fetch_config,
             commands::fetch_effect_info,
             commands::fetch_scan_base_options,
+            commands::fetch_item_type_actions,
+            commands::run_item_action,
             commands::set_config,
             commands::search,
-            commands::search_page
+            commands::search_page,
+            commands::dismiss_main_window
         ])
         .setup(|app| {
             // 内建条目的运行期状态：命令以 `State<BuiltinStat>` 取用，必须在创建窗口前托管

@@ -54,8 +54,11 @@ impl ItemSearchResult {
 
         let item_list: Vec<ItemDisplay> = self.item_indexes[start_index..final_index]
             .iter()
-            .filter_map(|index| item_collection.get_by_index(*index))
-            .map(ItemDisplay::from)
+            .filter_map(|index| {
+                item_collection
+                    .get_by_index(*index)
+                    .map(|item| ItemDisplay::new(*index, item))
+            })
             .collect();
 
         ItemSearchPage {
@@ -71,19 +74,26 @@ impl ItemSearchResult {
 }
 
 /// [`Item`] 渲染结构
+///
+/// `item_index` 是 Item Index：条目在设置文件加载出的整集里的下标，
+/// 前端靠它寻址条目（跑 Item Action）；列表里的行号只是 `List Position`，
+/// 两者不是一回事，所以下标跟着条目一起下发。
 #[derive(Debug, Serialize)]
 pub struct ItemDisplay {
     pub the_type: String,
     pub name: String,
     pub desc: String,
+    pub item_index: usize,
 }
 
-impl From<&Item> for ItemDisplay {
-    fn from(value: &Item) -> Self {
+impl ItemDisplay {
+    /// 由条目在整集里的下标与条目本身造出渲染数据
+    pub fn new(item_index: usize, item: &Item) -> Self {
         Self {
-            the_type: value.the_type.to_string(),
-            name: value.name.clone(),
-            desc: value.desc.to_string(),
+            the_type: item.the_type.to_string(),
+            name: item.name.clone(),
+            desc: item.desc.to_string(),
+            item_index,
         }
     }
 }

@@ -51,7 +51,8 @@ const ITEM_FILE: &str = "file";
 const ITEM_SCAN: &str = "scan";
 
 impl ItemType {
-    pub fn as_str(&self) -> &str {
+    /// 类型的字符串形式，也是它在设置文件与检索结果里的名字
+    pub fn as_str(&self) -> &'static str {
         match self {
             ItemType::Snippets => ITEM_SNIPPETS,
             ItemType::System => ITEM_SYSTEM,

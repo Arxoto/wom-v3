@@ -4,6 +4,7 @@ import Body from "./main/Body";
 import Tail, { TailHint } from "./main/Tail";
 import { set_page_main } from "./core";
 import { useMainInteraction } from "./main/interaction/useMainInteraction";
+import { default_action_label } from "./main/interaction/action_labels";
 
 import "./core.css";
 
@@ -16,12 +17,18 @@ const GHOST_VALUE = "_world-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy";
 
 const App = () => {
   set_page_main();
-  const { state, item_n, input_ref, on_input_change } = useMainInteraction();
+  const { state, item_n, type_actions, input_ref, on_input_change } = useMainInteraction();
 
   return (
     <Box>
       <Static>
-        <Head value={state.input} ghost={GHOST_VALUE} on_change={on_input_change} input_ref={input_ref}></Head>
+        <Head
+          value={state.input}
+          ghost={GHOST_VALUE}
+          on_change={on_input_change}
+          input_ref={input_ref}
+          read_only={state.preview_open}>
+        </Head>
       </Static>
       <DividerTop></DividerTop>
       <Elastic>
@@ -29,12 +36,16 @@ const App = () => {
           item_list={state.item_list}
           selection={state.selection}
           item_n={item_n}
-          show_preview={state.preview_open}>
+          show_preview={state.preview_open}
+          type_actions={type_actions}>
         </Body>
       </Elastic>
       <DividerBottom></DividerBottom>
       <Static>
-        <Tail hint={state.preview_open ? TailHint.Preview : TailHint.ItemList}></Tail>
+        <Tail
+          hint={state.preview_open ? TailHint.Preview : TailHint.ItemList}
+          action_desc={default_action_label(type_actions, state.item_list[state.selection])}>
+        </Tail>
       </Static>
     </Box>
   );

@@ -17,7 +17,7 @@ A single piece of built-in content that search can find and that carries a name,
 _Avoid_: entry, record, result
 
 **Item Display**:
-The projection of an Item rendered in the list, holding only its type, name, and description.
+The projection of an Item rendered in the list, holding its type, name, and description, and carrying its Item Index so an Item Action can be addressed without the list row.
 _Avoid_: ItemView, display model, item DTO
 
 ### Main window interaction

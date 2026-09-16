@@ -68,14 +68,17 @@ const KeyEsc = () => {
 
 interface Props {
     hint: TailHint,
+    /** 当前条目的默认动作文案；没有条目或条目没有动作时为 null，动作栏整块不渲染 */
+    action_desc: string | null,
 }
 
 /**
- * 底部提示条：左边是选中方式，右边是触发方式与预览
+ * 底部提示条：左边是选中方式，右边是当前动作与预览
  *
- * 提示文字只看传入的 hint，不接别的数据；真正按键时是否显示（比如预览不可用）留给后续功能。
+ * 提示文字只看传入的 hint 与 action_desc，不接别的数据；
+ * 真正按键时是否显示（比如预览不可用）留给后续功能。
  */
-const Tail = ({ hint }: Props) => {
+const Tail = ({ hint, action_desc }: Props) => {
     const in_preview = hint === TailHint.Preview;
     return (
         <div className="tail-box">
@@ -93,8 +96,13 @@ const Tail = ({ hint }: Props) => {
                     </>}
             </div>
             <div className="tail-group">
-                <IconEnter></IconEnter>
-                <span className="tail-text">触发动作</span>
+                {/* 动作栏：条目没有动作时整块不渲染，Enter 对它也确实什么都不做 */}
+                {action_desc !== null
+                    ? <>
+                        <IconEnter></IconEnter>
+                        <span className="tail-text">{action_desc}</span>
+                    </>
+                    : <></>}
                 <span className="tail-combo">
                     <IconShift></IconShift>
                     <IconEnter></IconEnter>

@@ -11,6 +11,7 @@ use tauri_plugin_log::log::warn;
 
 use crate::{
     builtin_plugins::{
+        action::{self, ItemActionTable},
         persistence::scan_base::{ScanBase, ScanBaseOption},
         search::ItemSearchPage,
         stat::{self, BuiltinStat},
@@ -47,6 +48,37 @@ pub async fn fetch_scan_base_options() -> Vec<ScanBaseOption> {
     ScanBase::options()
 }
 
+/// 每种 ItemType 支持的动作（实现见 [`action::table`]）
+///
+/// 顺序即优先级，第一个是默认动作；前端只在挂载时拉一次。
+#[tauri::command]
+pub async fn fetch_item_type_actions() -> ItemActionTable {
+    action::table()
+}
+
+/// 按下标取出条目并跑它的一个 Item Action（实现见 [`stat::run_item_action`]）
+///
+/// 动作真的跑完，才轮到「按 `main_window_mode` 决定要不要隐藏窗口」这一问：
+/// `HideAndShow` 隐藏，`Always` 留着（见 spec §3 / §4.3）。越界索引、认不出的动作
+/// 与还没实现的动作都当无操作并记 warn——不 panic、不隐藏，前端不提示失败。
+#[tauri::command]
+pub fn run_item_action(
+    app: tauri::AppHandle,
+    builtin_stat: State<'_, BuiltinStat>,
+    item_index: usize,
+    action: String,
+) -> Result<(), String> {
+    if !stat::run_item_action(&app, &builtin_stat, item_index, &action) {
+        return Ok(());
+    }
+
+    if configs::get_data().hide_main_after_action() {
+        window_utils::hide_main_window(&app).map_err(|err| err.to_string())?;
+    }
+
+    Ok(())
+}
+
 /// 保存整份配置，并让它立刻生效
 ///
 /// 同步命令：窗口效果只能在主线程应用（见 [`crate::window_effect::apply`] ）。
@@ -76,6 +108,14 @@ pub fn set_config(app: tauri::AppHandle, config: serde_json::Value) -> Result<()
 #[tauri::command]
 pub async fn search(builtin_stat: State<'_, BuiltinStat>, k: &str) -> Result<ItemSearchPage, ()> {
     Ok(stat::search(&builtin_stat, k))
+}
+
+/// 无条件隐藏主窗口（实现见 [`window_utils::hide_main_window`]）
+///
+/// 它就是 ESC 那条显式意图，与 `main_window_mode` 无关。
+#[tauri::command]
+pub fn dismiss_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    window_utils::hide_main_window(&app).map_err(|err| err.to_string())
 }
 
 /// 对检索结果进行翻页（实现见 [`stat::search_page`]）

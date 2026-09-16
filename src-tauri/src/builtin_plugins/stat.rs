@@ -1,4 +1,4 @@
-//! 内建插件的运行期状态、检索与重载
+//! 内建插件的运行期状态、检索、动作与重载
 
 use std::sync::Mutex;
 
@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_log::log;
 
 use crate::builtin_plugins::{
+    action,
     persistence::load::{self, ItemCollection},
     search::{ItemSearchPage, ItemSearchResult},
 };
@@ -74,8 +75,30 @@ pub fn search(builtin_stat: &BuiltinStat, k: &str) -> ItemSearchPage {
 }
 
 /// 对检索结果进行翻页
+///
+/// 预请求传的是已加载条数，所以下标正常不会超出结果集；真超了说明前端的已加载列表
+/// 与结果集对不上，给空页并记 warn —— 前端静默丢弃，指针还在区间里时下一次 ↓ 会再试。
 pub fn search_page(builtin_stat: &BuiltinStat, index: usize) -> ItemSearchPage {
     let stat = builtin_stat.0.lock().unwrap();
 
+    if index > stat.item_search_result.item_indexes.len() {
+        log::warn!("search page out of range: {index}");
+    }
+
     stat.item_search_result.page(index, &stat.item_collection)
+}
+
+/// 按下标取出条目并跑它的一个 Item Action，返回动作是否真的执行了
+///
+/// 与检索一样，取条目与执行在同一把锁里：并发重载设置时，下标不该落到另一个条目上。
+/// 越界索引与认不出的动作在 [`action::run`] 里当无操作并记 warn。
+pub fn run_item_action(
+    app: &tauri::AppHandle,
+    builtin_stat: &BuiltinStat,
+    item_index: usize,
+    action_id: &str,
+) -> bool {
+    let stat = builtin_stat.0.lock().unwrap();
+
+    action::run(app, &stat.item_collection, item_index, action_id)
 }

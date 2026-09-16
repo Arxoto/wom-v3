@@ -7,14 +7,16 @@ interface Props {
     ghost: string,
     on_change: (value: string) => void,
     input_ref: RefObject<HTMLInputElement | null>,
+    read_only: boolean,
 }
 
 /**
  * 顶部输入框：真实 input 收字符，下面同宽的一层只负责显示 ghost 建议
  *
  * 值的变化往外转交（受控），合成事件由接线层挂在 input 上（见 useMainInteraction）。
+ * 预览打开时只读：焦点不动（主动 blur 会打断可能正在进行的合成），输入内容保留。
  */
-const Head = ({ value, ghost, on_change, input_ref }: Props) => {
+const Head = ({ value, ghost, on_change, input_ref, read_only }: Props) => {
     return (
         <div className="head-box">
             <div className="head-space"></div>
@@ -29,6 +31,7 @@ const Head = ({ value, ghost, on_change, input_ref }: Props) => {
                     className="real-input input-base"
                     value={value}
                     onChange={event => on_change(event.target.value)}
+                    readOnly={read_only}
                     spellCheck="false"
                 />
             </div>

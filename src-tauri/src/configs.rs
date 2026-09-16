@@ -114,7 +114,19 @@ impl Config {
 
     /// 主窗口失去焦点时隐藏
     pub fn hide_main_unfocused(&self) -> bool {
-        !self.show_main_auto()
+        self.passive_hide()
+    }
+
+    /// 跑完 Item Action 后隐藏主窗口
+    pub fn hide_main_after_action(&self) -> bool {
+        self.passive_hide()
+    }
+
+    /// 两条被动隐藏规则（失焦、跑完动作）的共同判据
+    ///
+    /// 只有 `HideAndShow` 会隐藏；`ESC` 那条显式退场不看配置。
+    fn passive_hide(&self) -> bool {
+        matches!(self.main_window_mode, MainWindowMode::HideAndShow)
     }
 
     /// 当前平台实际生效的窗口效果：未选择时取推荐值，选中的效果不可用时降级

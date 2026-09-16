@@ -25,6 +25,7 @@ walkdir = "2.5.0"
 # macos-private-api：跟 tauri.conf.json 的 macOSPrivateApi 对应，透明窗口在 macOS 上需要
 tauri = { version = "2", features = [ "tray-icon", "macos-private-api" ] }
 tauri-plugin-log = "2"
+tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
 window-vibrancy = "0.8.0"
