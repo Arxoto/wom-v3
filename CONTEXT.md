@@ -31,7 +31,7 @@ The side panel of the main window that shows the Selection in full; ⇧+Enter to
 _Avoid_: detail view, panel, 预览页面
 
 **Item Action**:
-One of the things an Item can be made to do; an Item carries the list of Item Actions it offers, ←/→ picks among them and Enter runs the picked one, with the first as its default.
+One of the things an Item can be made to do; an Item carries the list of Item Actions it offers in priority order, and Enter runs the first — its default, the one the list row shows.
 _Avoid_: command, operation, verb, 触发动作
 
 **Item Index**:
