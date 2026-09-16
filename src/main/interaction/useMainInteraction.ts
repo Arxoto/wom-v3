@@ -189,6 +189,7 @@ export const useMainInteraction = () => {
             composing.current = false;
             // 读输入框当前值补一次；与提交之后那次 input 谁先谁后，
             // 都靠「文本没变不重发」收敛到同一个结果
+            // todo 这里确认是否有必要，会导致发两遍
             send_search(input.value);
         };
 

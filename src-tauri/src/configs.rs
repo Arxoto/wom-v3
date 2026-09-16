@@ -122,11 +122,15 @@ impl Config {
         self.passive_hide()
     }
 
-    /// 两条被动隐藏规则（失焦、跑完动作）的共同判据
+    /// 是否被动隐藏
     ///
-    /// 只有 `HideAndShow` 会隐藏；`ESC` 那条显式退场不看配置。
+    /// `ESC` 主动后退不依据本规则
     fn passive_hide(&self) -> bool {
-        matches!(self.main_window_mode, MainWindowMode::HideAndShow)
+        // 显式所有枚举类型，已防止新增类型后忘记修改
+        match self.main_window_mode {
+            MainWindowMode::Always => false,
+            MainWindowMode::HideAndShow => true,
+        }
     }
 
     /// 当前平台实际生效的窗口效果：未选择时取推荐值，选中的效果不可用时降级

@@ -116,7 +116,7 @@ const NOTE_ACTIONS: &[ItemAction] = &[ItemAction {
     label_key: "action.note.open_note",
 }];
 
-/// 命令本来是「可复制并自动打开终端、后台执行」，自动执行不在本 effort
+/// todo 命令支持「可复制并自动打开终端、后台执行」
 const CMD_ACTIONS: &[ItemAction] = &[ItemAction {
     id: ItemActionId::Copy,
     label_key: "action.cmd.copy",
@@ -170,7 +170,7 @@ const SCAN_ACTIONS: &[ItemAction] = &[
 pub fn of(the_type: ItemType) -> &'static [ItemAction] {
     match the_type {
         ItemType::Snippets => SNIP_ACTIONS,
-        // 系统命令不挂动作：它们各有各的界面，本 effort 不动
+        // todo 系统命令不挂动作（待实现）
         ItemType::System => &[],
         ItemType::Note => NOTE_ACTIONS,
         ItemType::Cmd => CMD_ACTIONS,
