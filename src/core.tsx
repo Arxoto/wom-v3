@@ -11,8 +11,16 @@ export const set_page_config = () => {
 
 /**
  * 类原生应用设置
+ *
+ * 只挂一次：这些监听是全局的，页面每次重渲染都会调到这里，
+ * 多挂一次就等于多一个监听（主窗口每次输入都会重渲染）。
  */
+let near_native_ready = false;
+
 const set_near_native = () => {
+    if (near_native_ready) return;
+    near_native_ready = true;
+
     // 禁用右键菜单
     window.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -75,6 +83,22 @@ export interface ItemDisplay {
 }
 
 /**
+ * 检索结果的一页（对应 Rust 侧 search::ItemSearchPage）
+ *
+ * `index` 是这一页在结果集里的起始位置（不是页码），
+ * 三个分组边界用来在列表里画匹配模式的分割线。
+ */
+export interface ItemSearchPage {
+    total: number,
+    index: number,
+    item_list: ItemDisplay[],
+    index_eq: number,
+    index_starts_with: number,
+    index_contains: number,
+    index_match: number,
+}
+
+/**
  * 扫描根路径变量（对应 Rust 侧 persistence::scan_base::ScanBase）
  *
  * 值就是设置文件里写的变量名，各平台落到哪个目录由 tauri 决定。
@@ -107,6 +131,15 @@ export const get_effect_info = async () => {
 
 export const get_scan_base_options = async () => {
     return (await invoke('fetch_scan_base_options')) as ScanBaseOption[];
+}
+
+/**
+ * 使用关键字检索
+ *
+ * 空串是合法输入：后端按「空关键字匹配所有」给出全部条目。
+ */
+export const search = async (k: string) => {
+    return (await invoke('search', { k })) as ItemSearchPage;
 }
 
 /**

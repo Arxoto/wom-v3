@@ -3,27 +3,38 @@ import Head from "./main/Head";
 import Body from "./main/Body";
 import Tail, { TailHint } from "./main/Tail";
 import { set_page_main } from "./core";
+import { useMainInteraction } from "./main/interaction/useMainInteraction";
 
 import "./core.css";
 
+/**
+ * 补全建议的占位串
+ *
+ * 本 effort 不实现补全，先沿用样式阶段那条假建议。
+ */
+const GHOST_VALUE = "_world-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy";
+
 const App = () => {
   set_page_main();
-  // 预览是否打开，同时也是 Tail 显示的提示；交互还没接，先用常量，
-  // 接上 shift+回车 / ESC 后换成 useState
-  let show_preview = true;
-  // show_preview = false;
+  const { state, item_n, input_ref, on_input_change } = useMainInteraction();
+
   return (
     <Box>
       <Static>
-        <Head></Head>
+        <Head value={state.input} ghost={GHOST_VALUE} on_change={on_input_change} input_ref={input_ref}></Head>
       </Static>
       <DividerTop></DividerTop>
       <Elastic>
-        <Body show_preview={show_preview}></Body>
+        <Body
+          item_list={state.item_list}
+          selection={state.selection}
+          item_n={item_n}
+          show_preview={state.preview_open}>
+        </Body>
       </Elastic>
       <DividerBottom></DividerBottom>
       <Static>
-        <Tail hint={show_preview ? TailHint.Preview : TailHint.ItemList}></Tail>
+        <Tail hint={state.preview_open ? TailHint.Preview : TailHint.ItemList}></Tail>
       </Static>
     </Box>
   );
