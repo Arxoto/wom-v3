@@ -13,7 +13,7 @@ import "./core.css";
  *
  * 本 effort 不实现补全，先沿用样式阶段那条假建议。
  */
-const GHOST_VALUE = "_world-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy";
+const GHOST_VALUE = "World-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy";
 
 const App = () => {
   set_page_main();

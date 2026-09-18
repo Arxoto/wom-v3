@@ -37,7 +37,10 @@
     font-variant-ligatures: none;
 }
 
-/* font 保证字体一致 line-height 保证垂直对齐 letter-spacing 保证字符额外间距默认 */
+/* font 保证字体一致 letter-spacing 保证字符额外间距默认
+   垂直对齐不能靠 line-height：input 是单行文本控件，Blink 不给它按声明的 line-height 放字，
+   而是按字体自身的正常行高把内部 editor 在内容盒里居中，
+   所以 ghost 层照抄 input 的规则 */
 .input-base {
     position: absolute;
     top: 0;
@@ -49,7 +52,6 @@
     height: calc(var(--head-h) * 0.4);
 
     font: inherit;
-    line-height: calc(var(--head-h) * 0.4);
     letter-spacing: normal;
 }
 
@@ -68,6 +70,10 @@
     background-color: transparent;
     z-index: 1;
 
+    display: flex;
+    align-items: center;
+    line-height: normal;
+
     pointer-events: none;
     user-select: none;
     white-space: pre;
@@ -80,7 +86,6 @@
 
 .suggestion-layer>.ghost-text {
     color: var(--color-diff-general);
-    font-style: italic;
 }
 
 /* 标志 */
