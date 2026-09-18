@@ -104,9 +104,9 @@ dismiss_main_window()
 
 **打字 → 检索**
 
-- 非合成变更后 50ms 尾防抖；文本与上次发送相同就不重发（后端另有 `input_key` 缓存兜底）。
+- 变更后 50ms 尾防抖（`compositionend` 补的那次也走这里）；文本与上次发送相同就不重发（后端另有 `input_key` 缓存兜底）。
 - 请求令牌只与「当前最新令牌」比相等，不比较大小；用有界环计数器（`% 256`，远大于同时在飞的请求数）。过期响应整包丢弃。
-- `compositionstart` / `compositionend` 维护 lock：合成期间 input 路径不防抖、不检索；`compositionend` 自己补一次检索（读 input 当前值），靠上面那条「文本没变不重发」去重，所以 `compositionend` 与提交后那次 input 谁先谁后都得到同一结果。
+- `compositionstart` / `compositionend` 维护 lock：合成期间 input 路径不防抖、不检索；`compositionend` 自己补一次检索（读 input 当前值），同样进 50ms 防抖——连续提交候选（每次都是一份新文本）只在停手后发一次，不绕过防抖；靠上面那条「文本没变不重发」去重，所以 `compositionend` 与提交后那次 input 谁先谁后都得到同一结果。
 - 不做「窗口显示时清 lock」的兜底（判为罕见情形，见 §6）。
 
 **预请求**

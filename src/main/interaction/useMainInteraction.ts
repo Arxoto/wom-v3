@@ -115,15 +115,20 @@ export const useMainInteraction = () => {
             .catch(() => settle());
     }, [state.item_list.length, state.selection, state.total]);
 
+    /** 排一次防抖检索：清掉待发的，重新起表 */
+    const schedule_search = useCallback((k: string) => {
+        window.clearTimeout(debounce_timer.current);
+        debounce_timer.current = window.setTimeout(() => send_search(k), SEARCH_DEBOUNCE_MS);
+    }, [send_search]);
+
     const on_input_change = useCallback((value: string) => {
         dispatch({ kind: "typing", value });
 
-        // 合成中间态不是最终文本：这一次不发，等 compositionend 自己补
+        // 合成中间态不是最终文本：这一次不排，等 compositionend 自己补
         if (composing.current) return;
 
-        window.clearTimeout(debounce_timer.current);
-        debounce_timer.current = window.setTimeout(() => send_search(value), SEARCH_DEBOUNCE_MS);
-    }, [send_search]);
+        schedule_search(value);
+    }, [schedule_search]);
 
     /**
      * 跑当前条目的默认动作
@@ -188,9 +193,10 @@ export const useMainInteraction = () => {
         const on_composition_end = () => {
             composing.current = false;
             // 读输入框当前值补一次；与提交之后那次 input 谁先谁后，
-            // 都靠「文本没变不重发」收敛到同一个结果
-            // todo 这里确认是否有必要，会导致发两遍
-            send_search(input.value);
+            // 都靠「文本没变不重发」收敛到同一个结果。
+            // 补的这一次也走防抖：连续提交候选只有停手后那一次真的检索，
+            // 每次提交都是新文本，直发会让后端整集重扫多次
+            schedule_search(input.value);
         };
 
         input.addEventListener("compositionstart", on_composition_start);
@@ -199,7 +205,7 @@ export const useMainInteraction = () => {
             input.removeEventListener("compositionstart", on_composition_start);
             input.removeEventListener("compositionend", on_composition_end);
         };
-    }, [send_search]);
+    }, [schedule_search]);
 
     // 按键只有一个入口：window 捕获阶段的 keydown。挂在真实 input 上会漏掉
     // 「预览打开」「鼠标点过 body 之后焦点不在 input」这些情形（见 ADR-0006）。
