@@ -117,7 +117,7 @@ export const useMainInteraction = () => {
 
     const on_input_change = useCallback((value: string) => {
         dispatch({ kind: "typing", value });
-        // 合成中间态不排检索、空输入不搜、怎么从输入切出关键字：这些判据都在会话里
+        // 合成中间态不排检索、空输入不搜、怎么从输入切出关键字：这些判据都在会话的 send 里
         // （见 search_session.ts）
         session.input_changed(value);
     }, [session]);

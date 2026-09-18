@@ -41,8 +41,8 @@ Status: settled
 | 文件 | 职责 |
 | --- | --- |
 | `keys.ts` | 纯函数 `resolve_key(key, mod, ctx) → Intent \| null`；`Intent` 为 `select_prev / select_next / run_action / toggle_preview / dismiss`，`ctx` 只带 `{ preview_open }`（只有 `ESC` 要判它；合成判据待实测，见 §6） |
-| `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `page_loaded` / `page_appended` / `intent` / `main_shown` 五类。输入清空时结果置空也在这里 |
-| `search_session.ts` | 检索会话的时序：50ms 尾防抖、请求令牌、在飞预请求的记账、合成锁（合成期间不排检索，解锁时按读到的当前文本补一次）、从输入切关键字（第一个空格之前）与空输入不搜（在飞作废、去重记录复位）。非 React 模块，两个 invoke 与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
+| `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `page_loaded` / `page_appended` / `intent` / `main_shown` 五类。`page_loaded` 的 `page` 为 `undefined` 表示这一轮没进行搜索，那时结果整份清空 |
+| `search_session.ts` | 检索会话的时序：50ms 尾防抖、请求令牌、在飞预请求的记账、合成锁（合成期间不排检索，解锁时按读到的当前文本补一次）；搜不搜（空输入不搜）与关键字怎么切（第一个空格之前）都在内部的 `send` 里判断，不搜时直接回调 `on_page_loaded(undefined)`（在飞作废、去重记录复位）。非 React 模块，两个 invoke 与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
 | `useMainInteraction.ts` | 唯一 React 接线层：window 级 keydown、合成事件、显示重置、动作 / 退场 / 检索三类 invoke 与聚焦 |
 
 `MainState`（渲染用得上的都在这里，请求时序状态留在 hook 内部）：
@@ -106,7 +106,7 @@ dismiss_main_window()
 **打字 → 检索**
 
 - **首屏不检索**：挂载时不发那次空关键字，列表空着、列表区提示输入搜索，直到第一次输入。
-- **空输入不检索**：输入变成空串时不检索，并把结果整份清空（`Selection` 与 `Preview` 归零，列表区回到提示输入），在飞的第一页与预请求一并作废，去重记录复位——清空后重打同一个关键字会重新搜。判据是原始输入而不是关键字：只打一个空格时输入非空，照常按空关键字（全量）检索。
+- **空输入不检索**：尾防抖到点后 `send` 看到原始输入是空串，就不发请求，直接回调 `on_page_loaded(undefined)`——reducer 把结果整份清空（`Selection` 与 `Preview` 归零，列表区回到提示输入）。同时在飞的第一页与预请求一并作废，去重记录复位，清空后重打同一个关键字会重新搜。判据是原始输入而不是关键字：只打一个空格时输入非空，照常按空关键字（全量）检索。
 - **关键字是第一个空格之前的内容**：空格之后的部分留给条目参数，不参与检索；以空格开头时关键字就是空串，也就是全量。
 - 变更后 50ms 尾防抖（`compositionend` 补的那次也走这里）；关键字与上次发送相同就不重发（后端另有 `input_key` 缓存兜底）。
 - 请求令牌只与「当前最新令牌」比相等，不比较大小；用有界环计数器（`% 256`，远大于同时在飞的请求数）。过期响应整包丢弃。

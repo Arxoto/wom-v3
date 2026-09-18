@@ -30,11 +30,12 @@ export const MAIN_STATE_INIT: MainState = {
 /**
  * 状态变化的来源
  *
- * 只有五类：打字、新结果回来、下一页回来、按键意图、主窗口被显示。
+ * 只有五类：打字、新结果回来（`undefined` 表示这一轮没进行搜索）、下一页回来、按键意图、
+ * 主窗口被显示。
  */
 export type MainAction =
     | { kind: "typing", value: string }
-    | { kind: "page_loaded", page: ItemSearchPage }
+    | { kind: "page_loaded", page: ItemSearchPage | undefined }
     | { kind: "page_appended", page: ItemSearchPage }
     | { kind: "intent", intent: Intent }
     | { kind: "main_shown" };
@@ -80,12 +81,16 @@ const step_selection = (state: MainState, delta: number): number => {
 export const reduce_main = (state: MainState, action: MainAction): MainState => {
     switch (action.kind) {
         case "typing":
-            // 空输入等于回到起点：结果整份清空（列表区换成提示输入），Selection 与 Preview
-            // 跟着归零。清空之后的检索与在飞请求的作废由会话处理（见 search_session.ts）
-            return action.value === ""
-                ? { ...state, input: "", item_list: [], total: 0, selection: 0, preview_open: false }
-                : { ...state, input: action.value };
+            return { ...state, input: action.value };
         case "page_loaded":
+            // 没进行搜索（输入为空）：结果整份清空，列表区换成提示输入
+            if (action.page === undefined) return {
+                ...state,
+                item_list: [],
+                total: 0,
+                selection: 0,
+                preview_open: false,
+            };
             // 新结果回到第一条；空结果没有可预览的条目，Preview 自动关闭
             return {
                 ...state,

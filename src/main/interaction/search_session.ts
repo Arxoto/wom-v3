@@ -31,8 +31,8 @@ export interface SearchSessionDeps {
     search: (key: string) => Promise<ItemSearchPage>;
     /** 取结果集里第 `page_start` 条起的一页，参数是起始位置不是页码 */
     search_page: (page_start: number) => Promise<ItemSearchPage>;
-    /** 新检索的第一页回来了 */
-    on_page_loaded: (page: ItemSearchPage) => void;
+    /** 新检索的第一页回来了；`undefined` 表示这一轮没有进行搜索（输入为空） */
+    on_page_loaded: (page: ItemSearchPage | undefined) => void;
     /** 预请求续上的一页回来了 */
     on_page_appended: (page: ItemSearchPage) => void;
 }
@@ -45,9 +45,8 @@ export interface SearchSessionDeps {
  */
 export interface SearchSession {
     /**
-     * 输入变了（DOM 的 input 事件，或合成结束时补的那次）：空输入直接不搜，并在飞的那一笔
-     * 作废、去重记录复位（结果置空在 reducer 的 `typing` 里），否则按 [`search_key`] 切出
-     * 关键字，与上次真正发出去的关键字相同就不发，否则排一次 `SEARCH_DEBOUNCE_MS` 的尾防抖；
+     * 输入变了（DOM 的 input 事件，或合成结束时补的那次）：排一次 `SEARCH_DEBOUNCE_MS` 的
+     * 尾防抖，到点交给内部的 `send` 决定搜不搜、搜什么（搜不搜与关键字都在那里判断）；
      * 合成期间调用整个丢弃（中间态不是最终文本，见 [`begin_composition`]）
      */
     input_changed(value: string): void;
@@ -66,6 +65,7 @@ export interface SearchSession {
  *
  * 非 React 模块：防抖定时器、请求令牌、在飞的预请求、合成锁、「这次输入该不该搜」（空输入
  * 不搜）、关键字怎么从输入里切出来（第一个空格之前，见 [`search_key`]）都在这里记账，
+ * 后两件事只发生在 `send` 一处——防抖到点把原始输入交给它，搜不搜、搜什么由它定；
  * 接线层只把事件转过来（输入变了 / 合成开始或结束 / 卸载）。这样做的原因是这些不变量
  * 互相咬合——令牌一前进就要清掉在飞那一笔、响应又要拿令牌判过期、合成一开始已排上的防抖
  * 要作废——散进 hook 的各个闭包就会变成一份看不见的共享状态（见 spec §2 / §3）。
@@ -111,20 +111,32 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
     };
 
     /**
-     * 真正把这次检索发出去
+     * 真正把这次输入落到检索上
      *
-     * 不在对外形状里：接线层只有 [`input_changed`] 一个入口，发没发、什么时候发由这里决定。
+     * 不在对外形状里：接线层只有 [`input_changed`] 一个入口，搜不搜、搜什么、什么时候发
+     * 由这里决定。空输入是「这一轮不搜」——结果回到空态（`on_page_loaded(undefined)`），
+     * 同时在飞的那一笔作废、去重记录复位。
      */
-    const send = (key: string) => {
-        // 关键字没变不重发：后端另有 input_key 缓存兜底，这里省掉一次往返
-        if (key === last_sent) return;
-        last_sent = key;
+    const send = (value: string) => {
+        const current_token = (latest_token + 1) % TOKEN_MOD;
+        latest_token = current_token;
 
         // 新检索作废在飞的预请求：它回来时令牌对不上，整包丢弃
         in_flight_page = undefined;
 
-        const current_token = (latest_token + 1) % TOKEN_MOD;
-        latest_token = current_token;
+        // 空输入不搜：把输入清空后列表整份清掉，等有内容再检索。
+        // 判据是原始输入而不是关键字——以空格开头时关键字是空串，那次照常搜
+        if (value === "") {
+            // 去重记录复位：清空后重打同一个关键字要能重新搜（列表此时是空的）
+            last_sent = null;
+            deps.on_page_loaded(undefined);
+            return;
+        }
+
+        const key = search_key(value);
+        // 关键字没变不重发：后端另有 input_key 缓存兜底，这里省掉一次往返
+        if (key === last_sent) return;
+        last_sent = key;
 
         deps.search(key)
             .then(page => {
@@ -141,18 +153,7 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
         if (composing) return;
         // 排上的那一次已经作废，不管这次要不要搜
         clear_timer();
-        // 空输入不搜：把输入清空后列表整份清掉，等有内容再检索。
-        // 判据是原始输入而不是关键字——以空格开头时关键字是空串，那次照常搜
-        if (value === "") {
-            // 在飞的那一笔不能落在空输入上：令牌前进一格就等于把它们全作废
-            latest_token = (latest_token + 1) % TOKEN_MOD;
-            // 去重记录复位：清空后重打同一个关键字要能重新搜（列表此时是空的）
-            last_sent = null;
-            return;
-        }
-
-        const key = search_key(value);
-        debounce_timer = window.setTimeout(() => send(key), SEARCH_DEBOUNCE_MS);
+        debounce_timer = window.setTimeout(() => send(value), SEARCH_DEBOUNCE_MS);
     };
 
     const begin_composition = () => {
