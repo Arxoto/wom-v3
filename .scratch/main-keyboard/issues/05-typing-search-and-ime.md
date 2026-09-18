@@ -16,4 +16,5 @@ Status: resolved
 
 ## Comments
 
+- 2026-09-18：首屏不再自动检索——挂载时那次空关键字请求去掉，列表空着直到第一次输入；输入清空到空串仍照常检索。`SearchSession` 的对外方法随之按事件改名：`send` 不再对外（只有内部防抖定时器调它），`schedule` → `input_changed`，`cancel` → `dispose`（见 [spec.md](../main-keyboard/spec.md) §3）。
 - 判据在 2026-09-14 收口过一次（原文写的是「合成期间所有被拦截的键一律放行」，那要求 keydown 能判出合成状态）。当前口径见 Answer 第一条。

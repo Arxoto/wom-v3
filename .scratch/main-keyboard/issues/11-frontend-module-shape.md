@@ -29,6 +29,7 @@ props：
 
 ## Comments
 
+- 2026-09-18：合成锁搬进 `search_session.ts`（`begin_composition` / `end_composition`）——它是「这一刻的文本能不能搜」的一部分，与防抖 / 去重 / 令牌同族；原先是 hook 里的 `composing` ref，写者在 DOM 事件、读者在输入路径，是 hook 内唯一的跨簇共享状态。`useMainInteraction.ts` 仍然只留 DOM 监听与 `schedule` 的调用。
 - 2026-09-18：检索的时序从接线层拆到 `search_session.ts`——令牌 / 去重 / 在飞预请求 / 尾防抖互相咬合（令牌一前进就要清空在飞页，响应又要拿令牌判过期），散在 hook 的各个闭包里会变成一份看不见的共享状态。`useMainInteraction.ts` 仍是唯一 React 接线层，对外接口不变（见 [spec.md](../main-keyboard/spec.md) §2）。
 - 2026-09-18：`Tail` 的 props 从 `hint: TailHint` 改成 `preview_open: boolean`——形态是 `preview_open` 的派生值，在派发点现算；提示条内容拆到 `src/main/hint_bar/`，图标收进 `src/main/icons/`（见 [spec.md](../main-keyboard/spec.md) §2）。
 - 更早的草案（`action_prev` / `action_next` 切动作、`action_index` 状态、`action_labels` / `action_label` 这组 props、「前端列表下标就是 `Item Index`」那条不变量）已被上面的 Answer 逐条取代，细节不再保留。当时附带的四个待拍点——`ItemActionId` 用字符串联合、三个文件放新目录、可见窗口由 `Body` 现算、`ref` 归 hook——都按上面的 Answer 执行。

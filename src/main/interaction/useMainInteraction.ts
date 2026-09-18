@@ -30,7 +30,7 @@ const is_select_intent = (intent: Intent) =>
  * 主窗口交互的接线层
  *
  * 唯一碰副作用的地方：事件注册、invoke、DOM 聚焦。每次按键与每次输入都从这里进，
- * 状态变化交给 [`reduce_main`]，检索的时序（防抖、令牌、在飞页）交给
+ * 状态变化交给 [`reduce_main`]，检索的时序（防抖、令牌、在飞页、合成锁）交给
  * [`create_search_session`]，所以这里只管「什么时候做」。
  */
 export const useMainInteraction = () => {
@@ -42,8 +42,6 @@ export const useMainInteraction = () => {
     const input_ref = useRef<HTMLInputElement>(null);
     /** 上一次移动 Selection 的时刻；初值 -Infinity 让首次按键立即响应 */
     const last_select_at = useRef(Number.NEGATIVE_INFINITY);
-    /** 合成会话开着没有：合成期间输入框照常更新，只是不检索 */
-    const composing = useRef(false);
 
     // 检索会话不随每次渲染重建：时序状态都在它里面，重建就等于丢掉在飞的请求
     const [session] = useState(() => create_search_session({
@@ -70,11 +68,8 @@ export const useMainInteraction = () => {
 
     const on_input_change = useCallback((value: string) => {
         dispatch({ kind: "typing", value });
-
-        // 合成中间态不是最终文本：这一次不排，等 compositionend 自己补
-        if (composing.current) return;
-
-        session.schedule(value);
+        // 合成中间态不排检索：这道判据在会话里（见 search_session.ts）
+        session.input_changed(value);
     }, [session]);
 
     /**
@@ -133,18 +128,10 @@ export const useMainInteraction = () => {
         const input = input_ref.current;
         if (!input) return;
 
-        const on_composition_start = () => {
-            composing.current = true;
-            session.cancel();
-        };
-        const on_composition_end = () => {
-            composing.current = false;
-            // 读输入框当前值补一次；与提交之后那次 input 谁先谁后，
-            // 都靠「文本没变不重发」收敛到同一个结果。
-            // 补的这一次也走防抖：连续提交候选只有停手后那一次真的检索，
-            // 每次提交都是新文本，直发会让后端整集重扫多次
-            session.schedule(input.value);
-        };
+        const on_composition_start = () => session.begin_composition();
+        // 读输入框当前值补一次；与提交之后那次 input 谁先谁后，
+        // 都靠「文本没变不重发」收敛到同一个结果（见 search_session.ts）
+        const on_composition_end = () => session.end_composition(input.value);
 
         input.addEventListener("compositionstart", on_composition_start);
         input.addEventListener("compositionend", on_composition_end);
@@ -203,17 +190,16 @@ export const useMainInteraction = () => {
         return () => window.removeEventListener("keydown", on_key_down, true);
     }, [state.preview_open, run_current_action, prefetch_next_page]);
 
+    // 首屏不检索：没有输入进来就没有请求，列表空着；输入清空到空串仍会检索全部条目
     useEffect(() => {
-        // 首屏：没有输入时后端按空关键字给出全部条目
-        session.send("");
         // 可见条数就是配置里的 main_item_n，窗口高度也按它算好
         void get_config().then(config => set_item_n(config.main_item_n));
         // 动作表只在挂载时拉一次：配置重载会重建窗口，不需要热更新
         void get_item_type_actions().then(set_type_actions);
-    }, [session]);
+    }, []);
 
     // 卸载时丢掉还没到点的防抖
-    useEffect(() => () => session.cancel(), [session]);
+    useEffect(() => () => session.dispose(), [session]);
 
     return { state, item_n, type_actions, input_ref, on_input_change };
 }

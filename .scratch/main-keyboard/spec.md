@@ -42,7 +42,7 @@ Status: settled
 | --- | --- |
 | `keys.ts` | 纯函数 `resolve_key(key, mod, ctx) → Intent \| null`；`Intent` 为 `select_prev / select_next / run_action / toggle_preview / dismiss`，`ctx` 只带 `{ preview_open }`（只有 `ESC` 要判它；合成判据待实测，见 §6） |
 | `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `page_loaded` / `intent` 三类 |
-| `search_session.ts` | 检索会话的时序：50ms 尾防抖、请求令牌、在飞预请求的记账。非 React 模块，两个 invoke 与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
+| `search_session.ts` | 检索会话的时序：50ms 尾防抖、请求令牌、在飞预请求的记账、合成锁（合成期间不排检索，解锁时按读到的当前文本补一次）。非 React 模块，两个 invoke 与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
 | `useMainInteraction.ts` | 唯一 React 接线层：window 级 keydown、合成事件、显示重置、动作 / 退场 / 检索三类 invoke 与聚焦 |
 
 `MainState`（渲染用得上的都在这里，请求时序状态留在 hook 内部）：
@@ -105,6 +105,7 @@ dismiss_main_window()
 
 **打字 → 检索**
 
+- **首屏不检索**：挂载时不发那次空关键字，列表空着，直到第一次输入。空串仍是合法输入——把输入清空到空串照常检索，后端按空关键字给出全部条目。
 - 变更后 50ms 尾防抖（`compositionend` 补的那次也走这里）；文本与上次发送相同就不重发（后端另有 `input_key` 缓存兜底）。
 - 请求令牌只与「当前最新令牌」比相等，不比较大小；用有界环计数器（`% 256`，远大于同时在飞的请求数）。过期响应整包丢弃。
 - `compositionstart` / `compositionend` 维护 lock：合成期间 input 路径不防抖、不检索；`compositionend` 自己补一次检索（读 input 当前值），同样进 50ms 防抖——连续提交候选（每次都是一份新文本）只在停手后发一次，不绕过防抖；靠上面那条「文本没变不重发」去重，所以 `compositionend` 与提交后那次 input 谁先谁后都得到同一结果。

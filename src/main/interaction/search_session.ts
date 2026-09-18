@@ -32,16 +32,22 @@ export interface SearchSessionDeps {
 /**
  * 检索会话的对外形状
  *
- * 方法是「做什么」，不吐结果：两类页各自经注入的回调派发。判据要用的状态由调用方传入，
- * 会话不认识 React state。
+ * 方法按「发生了什么」命名，不吐结果：两类页各自经注入的回调派发。判据要用的状态由调用方
+ * 传入，会话不认识 React state；「该不该真发、什么时候发」全在会话里，接线层只报事件。
  */
 export interface SearchSession {
-    /** 立即检索关键字 `k`：文本没变不发，新检索作废在飞的预请求 */
-    send(k: string): void;
-    /** 尾防抖：停手 `SEARCH_DEBOUNCE_MS` 之后才走 [`send`] */
-    schedule(k: string): void;
-    /** 丢掉还没到点的防抖（合成开始、卸载） */
-    cancel(): void;
+    /**
+     * 输入变了（DOM 的 input 事件，或合成结束时补的那次）：文本与上次真正发出去的相同就不发，
+     * 否则排一次 `SEARCH_DEBOUNCE_MS` 的尾防抖；合成期间调用整个丢弃（中间态不是最终文本，
+     * 见 [`begin_composition`]）
+     */
+    input_changed(k: string): void;
+    /** 合成会话开始：丢掉已经排上的防抖，此后 [`input_changed`] 一律丢弃 */
+    begin_composition(): void;
+    /** 合成会话结束：解锁，并让读到的当前文本 `k` 补一次 [`input_changed`] */
+    end_composition(k: string): void;
+    /** 丢掉还没到点的防抖；接线层卸载时调用 */
+    dispose(): void;
     /** 判据成立且这一页不在飞时，续下一页 */
     prefetch(ctx: PrefetchContext): void;
 }
@@ -49,10 +55,11 @@ export interface SearchSession {
 /**
  * 建一次检索会话
  *
- * 非 React 模块：防抖定时器、请求令牌、在飞的预请求都在这里记账，接线层只回答
- * 「什么时候调哪个方法」。这样做的原因是这些不变量互相咬合——令牌一前进就要清掉在飞那一笔、
- * 响应又要拿令牌判过期——散进 hook 的各个闭包就会变成一份看不见的共享状态
- * （见 spec §2 / §3）。依赖全部注入，所以这个文件不碰 React、不碰 invoke。
+ * 非 React 模块：防抖定时器、请求令牌、在飞的预请求、合成锁都在这里记账，接线层只把事件
+ * 转过来（输入变了 / 合成开始或结束 / 卸载）。这样做的原因是这些不变量互相咬合——令牌一前进
+ * 就要清掉在飞那一笔、响应又要拿令牌判过期、合成一开始已排上的防抖要作废——散进 hook 的各个
+ * 闭包就会变成一份看不见的共享状态（见 spec §2 / §3）。依赖全部注入，所以这个文件不碰 React、
+ * 不碰 invoke。
  *
  * 「文本没变不重发」是这里的判据：`compositionend` 补的那次与提交之后那次 input
  * 谁先谁后，都收敛到同一个结果。
@@ -79,12 +86,25 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
     let in_flight_page: { page_start: number, token: number } | undefined = undefined;
     /** 还没到点的防抖定时器 */
     let debounce_timer: number | undefined = undefined;
+    /**
+     * 合成会话开着没有：合成期间输入框照常更新，只是每次变更都不排检索。
+     *
+     * 和防抖 / 去重同族——回答的都是「这一刻的文本能不能搜」，所以判据放在这里，
+     * 而不是让写入者（DOM 事件）与读出者（输入路径）各拿一半。
+     */
+    let composing = false;
 
-    const cancel = () => {
+    /** 丢掉还没到点的那一次防抖 */
+    const clear_timer = () => {
         window.clearTimeout(debounce_timer);
         debounce_timer = undefined;
     };
 
+    /**
+     * 真正把这次检索发出去
+     *
+     * 不在对外形状里：接线层只有 [`input_changed`] 一个入口，发没发、什么时候发由这里决定。
+     */
     const send = (k: string) => {
         // 文本没变不重发：后端另有 input_key 缓存兜底，这里省掉一次往返
         if (k === last_sent) return;
@@ -106,9 +126,24 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
             .catch(() => { });
     };
 
-    const schedule = (k: string) => {
-        cancel();
+    const input_changed = (k: string) => {
+        // 合成中间态不是最终文本：这一次不排，等 `end_composition` 自己补
+        if (composing) return;
+        clear_timer();
         debounce_timer = window.setTimeout(() => send(k), SEARCH_DEBOUNCE_MS);
+    };
+
+    const begin_composition = () => {
+        composing = true;
+        // 已经排上的那一次带的是合成中间态：作废
+        clear_timer();
+    };
+
+    const end_composition = (k: string) => {
+        composing = false;
+        // 补这一次也走防抖：连续提交候选（每次都是一份新文本）只有停手后那一次真的检索，
+        // 直发会让后端整集重扫多次
+        input_changed(k);
     };
 
     /**
@@ -149,5 +184,5 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
             .catch(() => release());
     };
 
-    return { send, schedule, cancel, prefetch };
+    return { input_changed, begin_composition, end_composition, dispose: clear_timer, prefetch };
 };
