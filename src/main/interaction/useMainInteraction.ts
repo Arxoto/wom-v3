@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Dispatch, RefObject, useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import {
     EMPTY_ITEM_TYPE_ACTIONS,
@@ -13,7 +13,7 @@ import {
 } from "../../core";
 import { default_action } from "./action_labels";
 import { resolve_key, type Intent } from "./keys";
-import { MAIN_STATE_INIT, reduce_main } from "./reducer";
+import { MAIN_STATE_INIT, MainAction, reduce_main } from "./reducer";
 import { create_search_session } from "./search_session";
 
 /** 按住 ↑/↓ 连发的限流间隔：首次按键立即响应，之后的连发最快 100ms 一次 */
@@ -27,14 +27,63 @@ const is_select_intent = (intent: Intent) =>
     intent === "select_prev" || intent === "select_next";
 
 /**
+ * 主窗口显示时的复位
+ * 
+ * 合成事件挂在同一个 input 上，所以 ref 由这里持有再传进去
+ *
+ * 触发点有两个：
+ * - 每次显示窗口都会走一次（见 window_utils::emit_main_shown）；
+ * - 启动即显示、窗口刚建出来这两种情况下事件早于前端就绪，所以挂载时也做一次。
+ */
+const useMainWindowFocus = (
+    input_ref: RefObject<HTMLInputElement | null>,
+    dispatch: Dispatch<MainAction>,
+) => {
+    /**
+     * 每次显示都要做两件事：回到列表模式（关 `Preview`），输入框聚焦并全选。
+     *
+     * 全选让「直接重打」与「看到上次的结果」同时成立：输入内容与已加载的结果都保留。
+     * 不主动 blur 输入框，免得打断可能正在进行的合成。
+     */
+    const reset = useCallback(() => {
+        dispatch({ kind: "main_shown" });
+
+        const input = input_ref.current;
+        if (!input) return;
+        input.focus();
+        input.select();
+    }, [input_ref, dispatch]);
+
+    useEffect(() => {
+        reset();
+
+        let unlisten: (() => void) | undefined;
+        let cancelled = false;
+
+        void on_main_shown(reset).then(stop => {
+            // 注册还没回来就卸载了，就地退订
+            if (cancelled) stop();
+            else unlisten = stop;
+        });
+
+        return () => {
+            cancelled = true;
+            unlisten?.();
+        };
+    }, [reset]);
+};
+
+/**
  * 主窗口交互的接线层
  *
- * 唯一碰副作用的地方：事件注册、invoke、DOM 聚焦。每次按键与每次输入都从这里进，
- * 状态变化交给 [`reduce_main`]，检索的时序（防抖、令牌、在飞页、合成锁）交给
- * [`create_search_session`]，所以这里只管「什么时候做」。
+ * 每次按键与每次输入都从这里进：状态变化交给 [`reduce_main`]，检索的时序（防抖、令牌、
+ * 在飞页、合成锁）交给 [`create_search_session`]，窗口显示时的复位与聚焦交给
+ * [`useMainWindowFocus`]，这里只剩事件注册、invoke 与「什么时候做」。
  */
 export const useMainInteraction = () => {
+    /** 主状态 */
     const [state, dispatch] = useReducer(reduce_main, MAIN_STATE_INIT);
+    /** 主界面显示几行 item */
     const [item_n, set_item_n] = useState(FALLBACK_ITEM_N);
     /** 动作表：挂载时拉一次，拉到之前是空表（没有条目显示动作图标） */
     const [type_actions, set_type_actions] = useState<ItemTypeActions>(EMPTY_ITEM_TYPE_ACTIONS);
@@ -87,41 +136,6 @@ export const useMainInteraction = () => {
         dispatch({ kind: "intent", intent: "run_action" });
         void run_item_action(item.item_index, action.id);
     }, [state.item_list, state.selection, type_actions]);
-
-    /**
-     * 主窗口显示时要做的两件事：回到列表模式，输入框聚焦并全选
-     *
-     * 全选让「直接重打」与「看到上次的结果」同时成立：输入内容与已加载的结果都保留。
-     * 不主动 blur 输入框，免得打断可能正在进行的合成。
-     */
-    const on_main_shown_reset = useCallback(() => {
-        dispatch({ kind: "main_shown" });
-
-        const input = input_ref.current;
-        if (!input) return;
-        input.focus();
-        input.select();
-    }, []);
-
-    // 每次显示窗口都会走一次（见 window_utils::emit_main_shown）；
-    // 启动即显示、窗口刚建出来这两种情况下事件早于前端就绪，所以挂载时也做一次。
-    useEffect(() => {
-        on_main_shown_reset();
-
-        let unlisten: (() => void) | undefined;
-        let cancelled = false;
-
-        void on_main_shown(on_main_shown_reset).then(stop => {
-            // 注册还没回来就卸载了，就地退订
-            if (cancelled) stop();
-            else unlisten = stop;
-        });
-
-        return () => {
-            cancelled = true;
-            unlisten?.();
-        };
-    }, [on_main_shown_reset]);
 
     // 合成事件挂在真实 input 上（按键路径见下面那个 window 级入口）
     useEffect(() => {
@@ -190,7 +204,7 @@ export const useMainInteraction = () => {
         return () => window.removeEventListener("keydown", on_key_down, true);
     }, [state.preview_open, run_current_action, prefetch_next_page]);
 
-    // 首屏不检索：没有输入进来就没有请求，列表空着；输入清空到空串仍会检索全部条目
+    // 获取配置
     useEffect(() => {
         // 可见条数就是配置里的 main_item_n，窗口高度也按它算好
         void get_config().then(config => set_item_n(config.main_item_n));
@@ -200,6 +214,8 @@ export const useMainInteraction = () => {
 
     // 卸载时丢掉还没到点的防抖
     useEffect(() => () => session.dispose(), [session]);
+
+    useMainWindowFocus(input_ref, dispatch);
 
     return { state, item_n, type_actions, input_ref, on_input_change };
 }
