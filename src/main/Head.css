@@ -39,6 +39,12 @@
 
 /* font 保证字体一致 line-height 保证垂直对齐 letter-spacing 保证字符额外间距默认 */
 .input-base {
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 0;
+    padding: 0;
+
     width: 100%;
     height: calc(var(--head-h) * 0.4);
 
@@ -59,12 +65,6 @@
 
 /* pointer-events 禁止点击 user-select 禁止选中 white-space 空格不合并 */
 .suggestion-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: var(--head-h);
-
     background-color: transparent;
     z-index: 1;
 
