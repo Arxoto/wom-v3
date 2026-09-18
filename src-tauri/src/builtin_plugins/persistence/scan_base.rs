@@ -1,7 +1,7 @@
 //! 扫描根路径变量：配置页选项与具体目录的映射
 //!
 //! 变量名与平台解析都交给 [`BaseDirectory`] ，这里只维护"哪些变量值得摆到配置页上"
-//! 以及给前端看的中文名，避免 tauri 的变量表在这里出现第二份。
+//! 以及前端下拉用的 label，避免 tauri 的变量表在这里出现第二份。
 
 use serde::Serialize;
 use tauri::path::BaseDirectory;

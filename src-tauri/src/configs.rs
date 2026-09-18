@@ -160,26 +160,41 @@ impl Config {
     /// 保存前的校验：写盘是显式动作，宁可报错也不静默改用户的值
     pub fn validate(&self) -> Result<(), String> {
         if self.main_width <= 0.0 {
-            return Err(format!("窗口宽度必须大于 0，当前 {}", self.main_width));
+            return Err(format!(
+                "main_width must be greater than 0, got {}",
+                self.main_width
+            ));
         }
         if self.main_head_h <= 0.0 {
-            return Err(format!("head 高度必须大于 0，当前 {}", self.main_head_h));
+            return Err(format!(
+                "main_head_h must be greater than 0, got {}",
+                self.main_head_h
+            ));
         }
         if self.main_tail_h < 0.0 {
-            return Err(format!("tail 高度不能为负，当前 {}", self.main_tail_h));
+            return Err(format!(
+                "main_tail_h must not be negative, got {}",
+                self.main_tail_h
+            ));
         }
         if self.main_item_h <= 0.0 {
-            return Err(format!("item 高度必须大于 0，当前 {}", self.main_item_h));
+            return Err(format!(
+                "main_item_h must be greater than 0, got {}",
+                self.main_item_h
+            ));
         }
         if self.main_item_n <= 0 {
-            return Err(format!("item 数量必须大于 0，当前 {}", self.main_item_n));
+            return Err(format!(
+                "main_item_n must be greater than 0, got {}",
+                self.main_item_n
+            ));
         }
         if ShortcutChar::from_str(&self.hot_key_char).is_err() {
-            return Err(format!("无法识别的快捷键字符：{}", self.hot_key_char));
+            return Err(format!("unrecognized hot_key_char: {}", self.hot_key_char));
         }
         if let Some(effect) = self.window_effect {
             if !window_effect::available().contains(&effect) {
-                return Err(format!("当前平台不支持窗口效果 {:?}", effect));
+                return Err(format!("{:?} is not supported on this platform", effect));
             }
         }
         Ok(())
@@ -304,7 +319,7 @@ pub struct EffectInfo {
 /// 漏字段意味着前端出错，宁可报错也不要把用户的值静默重置成默认值。
 pub(crate) fn parse_full_config(payload: serde_json::Value) -> Result<Config, String> {
     if !payload.is_object() {
-        return Err("配置必须是 JSON 对象".to_string());
+        return Err("config must be a JSON object".to_string());
     }
 
     // 期望的键从 Config 现算，不另立一份手写清单
@@ -315,7 +330,9 @@ pub(crate) fn parse_full_config(payload: serde_json::Value) -> Result<Config, St
     if actual != expected {
         let missing: Vec<&String> = expected.difference(&actual).collect();
         let extra: Vec<&String> = actual.difference(&expected).collect();
-        return Err(format!("配置字段不匹配，缺少 {missing:?}，多出 {extra:?}"));
+        return Err(format!(
+            "config fields mismatch, missing {missing:?}, extra {extra:?}"
+        ));
     }
 
     // 写盘不接受读盘能容忍的枚举名或类型（见 deserialize_tolerant）
@@ -339,11 +356,11 @@ fn strict<T: serde::de::DeserializeOwned>(
     key: &str,
 ) -> Result<(), String> {
     let Some(value) = payload.get(key) else {
-        return Err(format!("缺少字段 {key}"));
+        return Err(format!("missing field {key}"));
     };
     serde_json::from_value::<T>(value.clone())
         .map(|_| ())
-        .map_err(|err| format!("{key} 无法解析：{err}"))
+        .map_err(|err| format!("{key} cannot be parsed: {err}"))
 }
 
 #[cfg(test)]
