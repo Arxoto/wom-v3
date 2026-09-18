@@ -42,6 +42,10 @@ _Avoid_: id, item_id, key
 The row of the loaded result list that the Selection currently occupies; the list's scroll offset is derived from it. It is not the Item Index.
 _Avoid_: index, position, row number, 列表下标
 
+**Hint Bar**:
+The row of key hints at the bottom of the main window, showing what the keys do in the current mode; it is what Tail renders, not Tail itself — Tail is the layout shell that sits beside Head and Body.
+_Avoid_: footer, status bar, 底部提示条
+
 ### Window appearance
 
 **Window Effect**:

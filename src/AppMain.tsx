@@ -1,7 +1,7 @@
 import { Box, Static, Elastic, DividerTop, DividerBottom } from "./main/Layout";
 import Head from "./main/Head";
 import Body from "./main/Body";
-import Tail, { TailHint } from "./main/Tail";
+import Tail from "./main/Tail";
 import { set_page_main } from "./core";
 import { useMainInteraction } from "./main/interaction/useMainInteraction";
 import { default_action_label } from "./main/interaction/action_labels";
@@ -43,7 +43,7 @@ const App = () => {
       <DividerBottom></DividerBottom>
       <Static>
         <Tail
-          hint={state.preview_open ? TailHint.Preview : TailHint.ItemList}
+          preview_open={state.preview_open}
           action_desc={default_action_label(type_actions, state.item_list[state.selection])}>
         </Tail>
       </Static>

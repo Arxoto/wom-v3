@@ -5,8 +5,8 @@ import type { ItemActionId } from "../../core";
 /**
  * Item Action 的图标
  *
- * 行内动作是图标不是文字，所以每个动作配一张。图标都是装饰性的：
- * 尺寸交给 css（跟着 --item-h 缩放），颜色用 currentColor 跟随整行的状态。
+ * 行内动作是图标不是文字，所以每个动作配一张。
+ * 图标是行内的一部分，所以尺寸与颜色都由 Item.css 决定（跟着 --item-h 缩放、currentColor 跟随整行状态）。
  */
 
 const IconCopy = () => {

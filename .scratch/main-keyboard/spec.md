@@ -69,7 +69,15 @@ Status: settled
 | `Head` | `{ value, ghost, on_change, input_ref }`（ref 归 hook，聚焦与全选要用；`ghost` 沿用现状的占位串，本 effort 不实现补全） |
 | `Body` | `{ item_list, selection, item_n, show_preview, type_actions }`（滚动偏移自己现算） |
 | `Item` | `{ item, action_id, is_selected }`（图标按 `action_id` 查；没有动作时传 `null`，整块不渲染） |
-| `Tail` | `{ hint, action_desc }`（当前 `ItemType` + 动作对应的文案，先用动作名占位；条目没有动作时为 `null`，动作栏整块不渲染） |
+| `Tail` | `{ preview_open, action_desc }`（当前 `ItemType` + 动作对应的文案，先用动作名占位；条目没有动作时为 `null`，动作栏整块不渲染） |
+
+2026-09-18 起，前端文件形状在交互接缝之外多了一层：`Tail` 与 `Head` / `Body` 同层，只管外壳布局（`Tail.css` 只剩 `.tail-box`），也不出现任何图标与顺序；形态由 `preview_open` 现算（不再由 `AppMain` 传枚举进来），`Tail.tsx` 按 `HintBarKind` 从一张说辞表里取 `esc_label` / `preview_toggle_label` 交给 `src/main/hint_bar/HintBar.tsx`——两套形态的骨架并成这一份，因为图标顺序本来就一致、差异只有文案。子组件（`SelectionHint` / `ActionHint` / `ActionName` / `PreviewToggleHint` / `EscHint` / `KeyEsc`）也在 `HintBar.tsx`，提示条自己的按键图标合在 `hint_icon.tsx`（类名 `.hint-icon`、`.hint-icon-enter`，尺寸在 `HintBar.css`）。列表行的动作图标不跟过来：它随消费者留在 `item/action_icons.tsx`（类名 `.item-action-icon`，尺寸在 `Item.css`）。
+
+提示条的内容（同一天定）：左组是 `ESC → ↑ ↓ 🖱 选中条目`，ESC 出口两套形态都有，文案由形态给——列表模式「关闭界面」（对应 `dismiss`，隐藏主窗口）、预览模式「关闭预览」（只关预览）；右组是 `↵ 触发动作` 与 `⇧↵ 打开/关闭预览`，具体动作名不进右组，绝对定位在 tail 正中（`.hint-action-name`）。
+
+动作名的归属（同一天定）：它由 `Tail` 直接渲染在 `.tail-box` 里，不进 `HintBar`——`HintBar` 收的只有 `esc_label` / `preview_toggle_label` / `has_action`，都是形态级输入，再配 `memo`，上下切条目时提示条整个跳过重渲染；动作名自己随 `Selection` 每次上下重渲染，那是它该做的事。`has_action` 只管「↵ 触发动作」显不显示（没有动作的条目连它一起不渲染）。
+
+同一轮里动作名换了位置：具体动作名（「复制命令」等）绝对定位在 tail 正中（`.hint-action-name`，父元素 50% + 自身 -50%），不参与左右两组的分宽；右侧那栏只说「触发动作」，不再跟着当前动作变。
 
 新增的前端表（放哪个文件是实现细节，两处都只放数据）：
 

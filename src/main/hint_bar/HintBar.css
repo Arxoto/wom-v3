@@ -1,0 +1,62 @@
+/* 提示条内部：一组提示怎么排。外壳尺寸挂在 --tail-h 上（见 Tail.css） */
+
+/* 提示条的按键图标：1em 见方，跟着外壳字号缩放；颜色由 currentColor 跟随文字 */
+.hint-icon {
+    display: block;
+    flex: 0 0 auto;
+    width: 1em;
+    height: 1em;
+}
+
+/* 正中的动作名：不参与左右两组的分宽，靠「父元素 50% + 自身 -50%」强制居中
+   left/top 取外壳的 50%，translate 再退回自身的一半，所以左右两组的长短动不了它 */
+.hint-action-name {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+}
+
+/* 一组提示：图标与文字横向排列，不换行 */
+.hint-group {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    white-space: nowrap;
+}
+
+/* 用相邻兄弟的 margin 代替 gap：flex 的 gap 要 Safari 14.1+，比本项目兼容的底线新 */
+.hint-group>*+* {
+    margin-left: calc(var(--tail-h) * 0.25);
+}
+
+/* 组合键：两个图标挨紧，与后面的说明拉开 */
+.hint-combo {
+    display: inline-flex;
+    flex-flow: row nowrap;
+    align-items: center;
+}
+
+.hint-combo>*+* {
+    margin-left: calc(var(--tail-h) * 0.1);
+}
+
+/* 回车键的折线本身偏上，视觉重心比文字高，单独往下压一点与文字对齐 */
+.hint-icon-enter {
+    position: relative;
+    top: calc(var(--tail-h) * 0.02);
+}
+
+/* 文字键帽：没有对应符号的按键（如 ESC）用带边框的小字块表示 */
+.hint-key {
+    flex: 0 0 auto;
+    padding: 0 calc(var(--tail-h) * 0.15);
+    border: 1px solid currentColor;
+    border-radius: calc(var(--tail-h) * 0.15);
+    font-size: calc(var(--tail-h) * 0.4);
+
+    position: relative;
+    top: calc(var(--tail-h) * 0.02);
+    line-height: 120%;
+}

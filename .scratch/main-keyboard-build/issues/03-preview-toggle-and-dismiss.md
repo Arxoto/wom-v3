@@ -13,5 +13,6 @@
 - [x] 结果为空时 `Preview` 自动关闭
 - [x] `Enter` / `Shift+Enter` / `ESC` 三个键阻止默认行为；其余键一律放行
 - [x] `Preview` 跟随 `Selection`，不再借用别的状态显示
+- [x] `Preview` 那套提示里也带 `↑` / `↓` 选中条目（2026-09-18 起；`↑` / `↓` 在预览打开时照常生效）
 
 依据：[spec.md](../main-keyboard/spec.md) §1 的按键表、§2 的空结果、§4.4。
