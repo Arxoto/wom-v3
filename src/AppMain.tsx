@@ -17,7 +17,7 @@ const GHOST_VALUE = "World-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy";
 
 const App = () => {
   set_page_main();
-  const { state, item_n, type_actions, input_ref, on_input_change } = useMainInteraction();
+  const { state, item_n, type_actions, input_ref } = useMainInteraction();
 
   return (
     <Box>
@@ -25,7 +25,6 @@ const App = () => {
         <Head
           value={state.input}
           ghost={GHOST_VALUE}
-          on_change={on_input_change}
           input_ref={input_ref}
           read_only={state.preview_open}>
         </Head>

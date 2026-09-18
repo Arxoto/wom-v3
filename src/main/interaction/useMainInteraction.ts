@@ -29,7 +29,7 @@ const is_select_intent = (intent: Intent) =>
 /**
  * 主窗口显示时的复位
  * 
- * 合成事件挂在同一个 input 上，所以 ref 由这里持有再传进去
+ * 输入与合成事件挂在同一个 input 上，所以 ref 由这里持有再传进去
  *
  * 触发点有两个：
  * - 每次显示窗口都会走一次（见 window_utils::emit_main_shown）；
@@ -137,23 +137,27 @@ export const useMainInteraction = () => {
         void run_item_action(item.item_index, action.id);
     }, [state.item_list, state.selection, type_actions]);
 
-    // 合成事件挂在真实 input 上（按键路径见下面那个 window 级入口）
+    // 输入与合成（IME）事件都挂在真实 input 上：Head 只留受控的 value 与一个占位处理器，
+    // 语义全在这一层（按键路径见下面那个 window 级入口）
     useEffect(() => {
         const input = input_ref.current;
         if (!input) return;
 
+        const on_input = () => on_input_change(input.value);
         const on_composition_start = () => session.begin_composition();
         // 读输入框当前值补一次；与提交之后那次 input 谁先谁后，
         // 都靠「文本没变不重发」收敛到同一个结果（见 search_session.ts）
         const on_composition_end = () => session.end_composition(input.value);
 
+        input.addEventListener("input", on_input);
         input.addEventListener("compositionstart", on_composition_start);
         input.addEventListener("compositionend", on_composition_end);
         return () => {
+            input.removeEventListener("input", on_input);
             input.removeEventListener("compositionstart", on_composition_start);
             input.removeEventListener("compositionend", on_composition_end);
         };
-    }, [session]);
+    }, [session, on_input_change]);
 
     // 按键只有一个入口：window 捕获阶段的 keydown。挂在真实 input 上会漏掉
     // 「预览打开」「鼠标点过 body 之后焦点不在 input」这些情形（见 ADR-0006）。
@@ -217,5 +221,5 @@ export const useMainInteraction = () => {
 
     useMainWindowFocus(input_ref, dispatch);
 
-    return { state, item_n, type_actions, input_ref, on_input_change };
+    return { state, item_n, type_actions, input_ref };
 }
