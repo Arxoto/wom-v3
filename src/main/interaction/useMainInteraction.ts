@@ -117,7 +117,8 @@ export const useMainInteraction = () => {
 
     const on_input_change = useCallback((value: string) => {
         dispatch({ kind: "typing", value });
-        // 合成中间态不排检索：这道判据在会话里（见 search_session.ts）
+        // 合成中间态不排检索、空输入不搜、怎么从输入切出关键字：这些判据都在会话里
+        // （见 search_session.ts）
         session.input_changed(value);
     }, [session]);
 
@@ -146,7 +147,7 @@ export const useMainInteraction = () => {
         const on_input = () => on_input_change(input.value);
         const on_composition_start = () => session.begin_composition();
         // 读输入框当前值补一次；与提交之后那次 input 谁先谁后，
-        // 都靠「文本没变不重发」收敛到同一个结果（见 search_session.ts）
+        // 都靠「关键字没变不重发」收敛到同一个结果（见 search_session.ts）
         const on_composition_end = () => session.end_composition(input.value);
 
         input.addEventListener("input", on_input);

@@ -41,8 +41,8 @@ Status: settled
 | 文件 | 职责 |
 | --- | --- |
 | `keys.ts` | 纯函数 `resolve_key(key, mod, ctx) → Intent \| null`；`Intent` 为 `select_prev / select_next / run_action / toggle_preview / dismiss`，`ctx` 只带 `{ preview_open }`（只有 `ESC` 要判它；合成判据待实测，见 §6） |
-| `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `page_loaded` / `intent` 三类 |
-| `search_session.ts` | 检索会话的时序：50ms 尾防抖、请求令牌、在飞预请求的记账、合成锁（合成期间不排检索，解锁时按读到的当前文本补一次）。非 React 模块，两个 invoke 与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
+| `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `page_loaded` / `page_appended` / `intent` / `main_shown` 五类。输入清空时结果置空也在这里 |
+| `search_session.ts` | 检索会话的时序：50ms 尾防抖、请求令牌、在飞预请求的记账、合成锁（合成期间不排检索，解锁时按读到的当前文本补一次）、从输入切关键字（第一个空格之前）与空输入不搜（在飞作废、去重记录复位）。非 React 模块，两个 invoke 与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
 | `useMainInteraction.ts` | 唯一 React 接线层：window 级 keydown、合成事件、显示重置、动作 / 退场 / 检索三类 invoke 与聚焦 |
 
 `MainState`（渲染用得上的都在这里，请求时序状态留在 hook 内部）：
@@ -60,7 +60,7 @@ Status: settled
 - **列表位置不是 `Item Index`**：`selection` 只表示行号；寻址条目一律用 `ItemDisplay.item_index`。
 - **副作用不进 reducer**，也不放 effect：`index_main.tsx` 挂着 `React.StrictMode`，dev 下 reducer / state updater 会被调用两次，一次按键就会打两枪。
 - **滚动位置是派生值**，不占状态（见 §5）。
-- **空结果**：`item_list` 为空时，所有依赖条目的意图退化成无操作（判据是列表长度，不是 `selection` 的取值）；列表区显示一行占位文案「没有匹配的条目」，Tail 保持列表模式那套提示（见 [Selection 与 Preview 的行为](issues/06-selection-and-preview.md)）。
+- **空结果**：`item_list` 为空时，所有依赖条目的意图退化成无操作（判据是列表长度，不是 `selection` 的取值）；列表区显示一行占位文案——输入为空时是「输入关键字开始搜索」，有输入但没匹配时是「没有匹配的条目」；Tail 保持列表模式那套提示（见 [Selection 与 Preview 的行为](issues/06-selection-and-preview.md)）。
 - **新结果回来**：`selection` 回到 0；当前动作恒为该 `ItemType` 动作表的第一个，不需要额外的状态。
 
 组件 props：
@@ -105,10 +105,12 @@ dismiss_main_window()
 
 **打字 → 检索**
 
-- **首屏不检索**：挂载时不发那次空关键字，列表空着，直到第一次输入。空串仍是合法输入——把输入清空到空串照常检索，后端按空关键字给出全部条目。
-- 变更后 50ms 尾防抖（`compositionend` 补的那次也走这里）；文本与上次发送相同就不重发（后端另有 `input_key` 缓存兜底）。
+- **首屏不检索**：挂载时不发那次空关键字，列表空着、列表区提示输入搜索，直到第一次输入。
+- **空输入不检索**：输入变成空串时不检索，并把结果整份清空（`Selection` 与 `Preview` 归零，列表区回到提示输入），在飞的第一页与预请求一并作废，去重记录复位——清空后重打同一个关键字会重新搜。判据是原始输入而不是关键字：只打一个空格时输入非空，照常按空关键字（全量）检索。
+- **关键字是第一个空格之前的内容**：空格之后的部分留给条目参数，不参与检索；以空格开头时关键字就是空串，也就是全量。
+- 变更后 50ms 尾防抖（`compositionend` 补的那次也走这里）；关键字与上次发送相同就不重发（后端另有 `input_key` 缓存兜底）。
 - 请求令牌只与「当前最新令牌」比相等，不比较大小；用有界环计数器（`% 256`，远大于同时在飞的请求数）。过期响应整包丢弃。
-- `compositionstart` / `compositionend` 维护 lock：合成期间 input 路径不防抖、不检索；`compositionend` 自己补一次检索（读 input 当前值），同样进 50ms 防抖——连续提交候选（每次都是一份新文本）只在停手后发一次，不绕过防抖；靠上面那条「文本没变不重发」去重，所以 `compositionend` 与提交后那次 input 谁先谁后都得到同一结果。
+- `compositionstart` / `compositionend` 维护 lock：合成期间 input 路径不防抖、不检索；`compositionend` 自己补一次检索（读 input 当前值），同样进 50ms 防抖——连续提交候选（每次都是一份新文本）只在停手后发一次，不绕过防抖；靠上面那条「关键字没变不重发」去重，所以 `compositionend` 与提交后那次 input 谁先谁后都得到同一结果。
 - 不做「窗口显示时清 lock」的兜底（判为罕见情形，见 §6）。
 
 **预请求**

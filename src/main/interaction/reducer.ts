@@ -80,7 +80,11 @@ const step_selection = (state: MainState, delta: number): number => {
 export const reduce_main = (state: MainState, action: MainAction): MainState => {
     switch (action.kind) {
         case "typing":
-            return { ...state, input: action.value };
+            // 空输入等于回到起点：结果整份清空（列表区换成提示输入），Selection 与 Preview
+            // 跟着归零。清空之后的检索与在飞请求的作废由会话处理（见 search_session.ts）
+            return action.value === ""
+                ? { ...state, input: "", item_list: [], total: 0, selection: 0, preview_open: false }
+                : { ...state, input: action.value };
         case "page_loaded":
             // 新结果回到第一条；空结果没有可预览的条目，Preview 自动关闭
             return {

@@ -30,6 +30,8 @@ interface Props {
     item_n: number,
     show_preview: boolean,
     type_actions: ItemTypeActions,
+    /** 输入是不是空的：空输入不检索、列表已清空，占位文案换成提示输入 */
+    input_empty: boolean,
 }
 
 /**
@@ -40,7 +42,7 @@ interface Props {
  * 下面确实没有更多结果时才继续下移到可见区最后一行（见 spec §5）。
  * 预览是否打开由外部传入（AppMain），这样它与 Tail 的提示是同一个状态。
  */
-const Body = ({ item_list, selection, item_n, show_preview, type_actions }: Props) => {
+const Body = ({ item_list, selection, item_n, show_preview, type_actions, input_empty }: Props) => {
     const preview_item = item_list[selection];
 
     // 倒数第二行是滚动触发线；可见行数不足两行时没有这条线，退化成高亮到哪滚到哪
@@ -53,7 +55,9 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions }: Prop
         <div className="body-box">
             <div className="body-items">
                 {item_list.length === 0
-                    ? <div className="body-empty">没有匹配的条目</div>
+                    ? <div className="body-empty">
+                        {input_empty ? "输入关键字开始搜索" : "没有匹配的条目"}
+                    </div>
                     // 整条轨道一起位移做滚动，可见区还是外面那层 overflow: hidden；
                     // 位移挂在行高变量上，px 不在这里算
                     : <div

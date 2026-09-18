@@ -36,7 +36,8 @@ const App = () => {
           selection={state.selection}
           item_n={item_n}
           show_preview={state.preview_open}
-          type_actions={type_actions}>
+          type_actions={type_actions}
+          input_empty={state.input === ""}>
         </Body>
       </Elastic>
       <DividerBottom></DividerBottom>
