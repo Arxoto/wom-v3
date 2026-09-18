@@ -13,11 +13,12 @@ Selection 怎么移动？新结果回来落在哪？鼠标 hover 算不算选中
 - 鼠标 hover 本 effort 只保留现有 CSS 效果，不写入 `Selection`。
 - `Preview` 跟随 `Selection`（结果变了就换条），结果为空时自动关闭。
 - **结果为空**：列表区显示一行占位文案「没有匹配的条目」，Tail 保持列表模式那套提示；依赖条目的按键（Enter）无操作。
-- `Preview` 打开时：↑/↓ 不动 `Selection`，也不做别的（不滚预览内容，预览内容的滚动属于 Note 渲染那条线）；`←` / `→` 放行（见 [Item Action 与触发命令](07-item-action-and-command.md)），Enter 行为与未打开时一致。
+- `Preview` 打开时：↑/↓ 照常移动 `Selection`（`Preview` 跟着换条；不滚预览内容，预览内容的滚动属于 Note 渲染那条线）；`←` / `→` 放行（见 [Item Action 与触发命令](07-item-action-and-command.md)），Enter 行为与未打开时一致。
 - `Preview` 打开时 input 不接受输入：落在 `readOnly` 上，焦点不动（主动 `blur()` 会打断可能正在进行的合成），所以不存在「预览打开时打字」这一情形。关闭 `Preview` 时不做额外动作，输入自然恢复。
 - ESC 在 `Preview` 打开时只关 `Preview`，再按一次才退场（见 [退场与窗口模式](08-dismiss-and-window-mode.md)）。
 
 ## Comments
 
+- ~~原文「↑/↓ 不动 `Selection`」~~ 2026-09-18 改为「预览打开时 ↑/↓ 照常移动 `Selection`」：预览跟随 `Selection`，锁住上下键只会让人先在列表模式选好再开预览，多一次来回。
 - 「↑/↓ 也不做别的」与「input 不接受输入」是 2026-09-14 讨论补的：原文只写了「↑/↓ 不动 Selection」，没交代预览打开时输入这条路还通不通。
 - 「空结果」那条与「input 不接受输入」是 2026-09-14 补的：前者原文只定了 Preview 自动关闭，后者原文只写了「↑/↓ 不动 Selection」，没交代预览打开时输入这条路还通不通。

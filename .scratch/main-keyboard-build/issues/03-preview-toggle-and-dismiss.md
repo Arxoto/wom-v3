@@ -9,7 +9,7 @@
 - [x] `Shift+Enter` 切换 `Preview`；`Preview` 打开时再按一次关掉
 - [x] `ESC` 在预览打开时关预览、**不**隐藏窗口；再按一次才隐藏
 - [x] 新增无条件隐藏主窗口的命令，与 `main_window_mode` 无关（`ESC` 是显式意图，不吃配置）
-- [x] `Preview` 打开时输入框只读，`↑` / `↓` 与 `←` / `→` 都不产生意图；输入内容保留
+- [x] `Preview` 打开时输入框只读，`←` / `→` 不产生意图；`↑` / `↓` 照常移动 `Selection`（2026-09-18 起，见 [spec.md](../main-keyboard/spec.md) §1）；输入内容保留
 - [x] 结果为空时 `Preview` 自动关闭
 - [x] `Enter` / `Shift+Enter` / `ESC` 三个键阻止默认行为；其余键一律放行
 - [x] `Preview` 跟随 `Selection`，不再借用别的状态显示

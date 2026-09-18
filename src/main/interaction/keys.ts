@@ -23,24 +23,24 @@ export interface KeyMod {
 
 /** 判定意图时用得上的状态 */
 export interface KeyContext {
-    /** Preview 打开时列表不接受移动，ESC 也只关它（见 spec §1 的按键表） */
+    /** Preview 打开时 ESC 只关它（见 spec §1 的按键表） */
     preview_open: boolean,
 }
 
 /**
  * 一次 keydown 的意图；未识别与本层放行的键返回 `null`
  *
- * `↑` / `↓` 产生意图但不阻止默认行为：单行输入框里光标被顶到首尾是接受的副作用。
+ * `↑` / `↓` 在两种模式下都移动 `Selection`：`Preview` 跟随 `Selection`，预览开着时也要能
+ * 直接上下换条目。它们产生意图但不阻止默认行为：单行输入框里光标被顶到首尾是接受的副作用。
  * `←` / `→` 与其余未识别的键一律放行，光标照常移动——本 effort 没有切换 Item Action 的键位。
  * `ESC` 在预览打开时只关预览，所以那时它映射成 `toggle_preview`，而不是 `dismiss`。
  */
 export const resolve_key = (key: string, mod: KeyMod, ctx: KeyContext): Intent | null => {
     switch (key) {
         case "ArrowUp":
-            // 预览打开时列表不接受移动，也不做别的
-            return ctx.preview_open ? null : "select_prev";
+            return "select_prev";
         case "ArrowDown":
-            return ctx.preview_open ? null : "select_next";
+            return "select_next";
         case "Enter":
             // 预览打开时 Enter 与列表模式一致，都是跑动作
             return mod.shift ? "toggle_preview" : "run_action";

@@ -19,13 +19,13 @@ Status: settled
 
 | 键 | 列表模式（Preview 关） | 预览打开 |
 | --- | --- | --- |
-| `↑` / `↓` | `select_prev` / `select_next` | 无意图 |
+| `↑` / `↓` | `select_prev` / `select_next` | `select_prev` / `select_next`（`Preview` 跟随 `Selection`） |
 | `Enter` | 跑当前动作（默认动作） | 与列表模式一致 |
 | `Shift+Enter` | 打开 `Preview` | 关闭 `Preview` |
 | `ESC` | 隐藏主窗口 | 关闭 `Preview`（不隐藏），再按一次隐藏 |
 | 其他（含 `←` / `→`） | 放行 | 放行 |
 
-- `select_prev` / `select_next`：`Selection` 移动一行，边界 clamp 不环绕；按住连发限流 100ms（写成常量），首次按键立即响应。
+- `select_prev` / `select_next`：`Selection` 移动一行，边界 clamp 不环绕；两种模式都生效——`Preview` 跟随 `Selection`，预览开着时上下键直接换条目；按住连发限流 100ms（写成常量），首次按键立即响应。
 - **`←` / `→` 不拦**：没法判断用户想移动光标还是换动作，所以这两个键完全放行——不产生意图、不 `preventDefault()`，光标照常移动。代价是本 effort 没有「切换 `Item Action`」的键位，每个条目只用它的默认动作（动作表第一个）；切换动作留给将来的动作菜单那条线。
 - `run_action`：跑当前条目的默认 `Item Action`；没有可执行的动作（条目没有动作、或结果为空）则整个流程都不发生——不关 `Preview`、不隐藏窗口。
 - `dismiss`：无条件隐藏主窗口（`ESC` 那条显式意图，见 §4.4）。
@@ -40,7 +40,7 @@ Status: settled
 
 | 文件 | 职责 |
 | --- | --- |
-| `keys.ts` | 纯函数 `resolve_key(key, mod, ctx) → Intent \| null`；`Intent` 为 `select_prev / select_next / run_action / toggle_preview / dismiss`，`ctx` 只带 `{ preview_open }`（合成判据待实测，见 §6） |
+| `keys.ts` | 纯函数 `resolve_key(key, mod, ctx) → Intent \| null`；`Intent` 为 `select_prev / select_next / run_action / toggle_preview / dismiss`，`ctx` 只带 `{ preview_open }`（只有 `ESC` 要判它；合成判据待实测，见 §6） |
 | `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `page_loaded` / `intent` 三类 |
 | `useMainInteraction.ts` | 唯一接线层：window 级 keydown、50ms 防抖、请求令牌、预请求、动作 / 退场 / 检索三类 invoke |
 
