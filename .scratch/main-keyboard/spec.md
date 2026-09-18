@@ -42,7 +42,8 @@ Status: settled
 | --- | --- |
 | `keys.ts` | 纯函数 `resolve_key(key, mod, ctx) → Intent \| null`；`Intent` 为 `select_prev / select_next / run_action / toggle_preview / dismiss`，`ctx` 只带 `{ preview_open }`（只有 `ESC` 要判它；合成判据待实测，见 §6） |
 | `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `page_loaded` / `intent` 三类 |
-| `useMainInteraction.ts` | 唯一接线层：window 级 keydown、50ms 防抖、请求令牌、预请求、动作 / 退场 / 检索三类 invoke |
+| `search_session.ts` | 检索会话的时序：50ms 尾防抖、请求令牌、在飞预请求的记账。非 React 模块，两个 invoke 与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
+| `useMainInteraction.ts` | 唯一 React 接线层：window 级 keydown、合成事件、显示重置、动作 / 退场 / 检索三类 invoke 与聚焦 |
 
 `MainState`（渲染用得上的都在这里，请求时序状态留在 hook 内部）：
 
@@ -114,7 +115,7 @@ dismiss_main_window()
 - 每次 `↓` 移动之后判断：`selection >= 已加载条数 - 10`（余量写死 10，不跟随 `main_item_n`）且 `已加载条数 < total`，满足就请求下一页。
 - `search_page` 的 `index` 参数是**结果集里的起始位置**，不是页码；预请求传已加载条数。
 - 预请求是纯异步的列表追加：只影响 `item_list`，`Selection` 与滚动位置不因它的成败改变；失败静默，Rust 记 warn，前端不打日志也不提示；只要指针还在后 10 位，下一次 `↓` 会再试。
-- in-flight 表挡同一页的重复请求；新检索到来时整体作废（同一套令牌规则）。
+- 同一时间最多一页在飞（起始下标恒等于已加载条数，而它只在上一页落账之后才增长），所以用单槽记账就够：挡同一页的重复请求，新检索到来时清掉这一笔（同一套令牌规则）。
 
 **显示 / 退场**
 
