@@ -26,7 +26,10 @@ const App = () => {
           value={state.input}
           ghost={GHOST_VALUE}
           input_ref={input_ref}
-          read_only={state.preview_open}>
+          read_only={state.preview_open}
+          input_empty={state.input === ""}
+          total={state.total}
+          selection={state.selection}>
         </Head>
       </Static>
       <DividerTop></DividerTop>
