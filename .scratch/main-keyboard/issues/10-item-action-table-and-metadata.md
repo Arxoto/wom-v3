@@ -30,3 +30,7 @@ Status: resolved
 | `Scan` | `open_path`, `reveal`, `copy` | 与 File 同类行为 |
 
 动作 id 全集：`copy` / `open_url` / `open_path` / `reveal` / `open_note`。真实执行不在这批决策范围内，只保留一条最小动作用于验证链路（见 [Destination 与范围](03-destination-and-scope.md)）；用哪一条待确认，倾向 `copy`（见 [spec.md](../spec.md) §4.3）。
+
+## Comments
+
+- 2026-09-19（依代码订正）：Answer 末尾那条不再「待确认」——链路由 `copy` 打通（`action.rs` 的 `run` 写剪贴板，其余动作只出现在表里），见 `spec.md` §4.2 / §4.3 与 [构建票据 06](../main-keyboard-build/issues/06-run-item-action.md)。

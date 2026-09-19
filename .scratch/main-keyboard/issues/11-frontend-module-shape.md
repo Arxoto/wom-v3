@@ -29,6 +29,7 @@ props：
 
 ## Comments
 
+- 2026-09-19（依代码订正）：Answer 里与现状不符的几处——文件是五个（多一个 `search_session.ts` 收检索时序，见 [打字到检索的时序](05-typing-search-and-ime.md) 与 [spec.md](../spec.md) §2）；`MainState` 是 `{ input, conclusion, selection, preview_open }`，动作来源五类（`typing` / `settled` / `page_appended` / `intent` / `main_shown`）；`Head` 收 `{ value, ghost, input_ref, read_only, empty, total, selection }`，没有 `on_change`；`Body` 多收一个 `empty`；滚动偏移是 `Body` 自己的状态，不是 `Selection` 的派生值。
 - 2026-09-18：合成锁搬进 `search_session.ts`（`begin_composition` / `end_composition`）——它是「这一刻的文本能不能搜」的一部分，与防抖 / 去重 / 令牌同族；原先是 hook 里的 `composing` ref，写者在 DOM 事件、读者在输入路径，是 hook 内唯一的跨簇共享状态。`useMainInteraction.ts` 仍然只留 DOM 监听与 `schedule` 的调用。
 - 2026-09-18：检索的时序从接线层拆到 `search_session.ts`——令牌 / 去重 / 在飞预请求 / 尾防抖互相咬合（令牌一前进就要清空在飞页，响应又要拿令牌判过期），散在 hook 的各个闭包里会变成一份看不见的共享状态。`useMainInteraction.ts` 仍是唯一 React 接线层，对外接口不变（见 [spec.md](../main-keyboard/spec.md) §2）。
 - 2026-09-18：`Tail` 的 props 从 `hint: TailHint` 改成 `preview_open: boolean`——形态是 `preview_open` 的派生值，在派发点现算；提示条内容拆到 `src/main/hint_bar/`，图标收进 `src/main/icons/`（见 [spec.md](../main-keyboard/spec.md) §2）。

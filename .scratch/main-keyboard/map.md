@@ -23,13 +23,13 @@ Status: resolved
 
 - [四类动作的插件覆盖](issues/02-research-item-action-apis.md)：四类动作都有官方路径；ACL 只拦前端 IPC，动作在 Rust 里执行时只需依赖 + 注册插件。
 - [Destination 与范围](issues/03-destination-and-scope.md)：只产决策，spec 为终点；Rust 与前端都可改，四类动作的真实执行不在范围内。
-- [按键层与状态归属](issues/04-key-layering-and-state-ownership.md)：window 级单个 keydown 入口 + 纯意图模块 + reducer + 一个交互 hook；滚动位置是 Selection 的派生值；只有 `Enter` / `Shift+Enter` / `ESC` 调 `preventDefault()`。
+- [按键层与状态归属](issues/04-key-layering-and-state-ownership.md)：window 级单个 keydown 入口 + 纯意图模块 + reducer + 一个交互 hook；只有 `Enter` / `Shift+Enter` / `ESC` 调 `preventDefault()`。（2026-09-19 依代码订正：滚动偏移不再是 `Selection` 的派生值，改成 `Body` 自己的状态，见 [分页与滚动](issues/09-paging-and-scroll.md) 与 `spec.md` §5。）
 - [打字到检索的时序](issues/05-typing-search-and-ime.md)：合成期间所有键放行；50ms 尾防抖 + 有界环令牌丢弃过期响应；按住 ↑/↓ 限流；检索关键字取第一个空格之前的内容，输入清空到空串不检索并把结果置空。
-- [Selection 与 Preview 的行为](issues/06-selection-and-preview.md)：新结果回到第一条、边界 clamp 不环绕；鼠标 hover 只保留 CSS 效果、不写 Selection；Preview 跟随 Selection，空结果自动关闭并给一行占位（输入为空时「输入关键字开始搜索」，有输入没匹配时「没有匹配的条目」）；打开时 input 用 `readOnly`，↑/↓ 照常移动 Selection，`←` / `→` 放行给光标。
+- [Selection 与 Preview 的行为](issues/06-selection-and-preview.md)：新结果回到第一条、边界 clamp 不环绕；鼠标 hover 只保留 CSS 效果、不写 Selection；Preview 跟随 Selection，空结果自动关闭；列表区只在结论确实没匹配时说一行「没有匹配的条目」（输入为空时提示在 `Head` 的 ghost 里，列表区留白）；打开时 input 用 `readOnly`，↑/↓ 照常移动 Selection，`←` / `→` 放行给光标。
 - [Item Action 与触发命令](issues/07-item-action-and-command.md)：动作表在 Rust 写死、经元数据下发、带 ASCII 标签键；一条通用 `run_item_action` 命令；`←` / `→` 放行给光标，本 effort 不切动作。
 - [退场与窗口模式](issues/08-dismiss-and-window-mode.md)：不再销毁窗口；`Always` / `HideAndShow` 只决定失焦与触发动作后是否隐藏；ESC 一律隐藏；每次显示先强制关掉 Preview 再聚焦全选 input。
-- [分页与滚动](issues/09-paging-and-scroll.md)：预请求余量写死 10、Selection 落到已加载列表后 10 位就发（失败静默，Rust 记日志）；高亮停在可见区往下 60% 那一行、列表整体上移，下面没有更多结果才移到末行。（2026-09-19 修订：偏移改为 `Body` 自己的状态，上下各留 40% 行数的余量，高亮踏进哪一侧的余量带才挪窗口，见 `spec.md` §5。）
-- [前端接缝的形状](issues/11-frontend-module-shape.md)：新增 `src/main/interaction/`（纯意图 / reducer / 接线 hook 三个文件）；hook 持有 input ref；副作用只在事件回调里做（绕开 StrictMode 双调用）；滚动偏移由 `Body` 现算；`ItemDisplay` 带 `item_index`，列表位置不是 `Item Index`；行内动作是图标（选中行跟着 ←/→ 换），详细文案在 Tail。
+- [分页与滚动](issues/09-paging-and-scroll.md)：预请求余量写死 10、Selection 落到已加载列表后 10 位就发；高亮停在可见区往下 60% 那一行、列表整体上移，下面没有更多结果才移到末行。（2026-09-19 修订：偏移改成 `Body` 自己的状态，余量按 `margin = floor(item_n * 0.4)` 算，两侧余量带各 `margin - 1` 行，高亮踏进哪一侧才挪窗口，见 `spec.md` §5；失败都在控制台留痕——Rust 记 warn，前端捕获到的自己 `console.error`，见 [预请求下一页](../main-keyboard-build/issues/07-prefetch-next-page.md)。）
+- [前端接缝的形状](issues/11-frontend-module-shape.md)：新增 `src/main/interaction/`（纯意图 / reducer / 检索会话 / 接线 hook）；hook 持有 input ref；副作用只在事件回调里做（绕开 StrictMode 双调用）；滚动偏移是 `Body` 自己的状态；`ItemDisplay` 带 `item_index`，列表位置不是 `Item Index`；行内动作是图标（固定是该行的默认动作，`←` / `→` 放行给光标），详细文案在 Tail。
 - [显示时的聚焦与全选](issues/12-focus-and-select-all-trigger.md)：Rust 在显示分支发事件，前端监听后聚焦并全选；挂载时再做一次，覆盖「启动即显示」。
 - [滚动与翻页的术语](issues/13-glossary-scroll-and-paging.md)：滚动 / 翻页 / 预请求不进术语表；新增 `List Position`，与 `Item Index` 分开。
 - [Item Action 映射表与元数据](issues/10-item-action-table-and-metadata.md)：命令 `fetch_item_type_actions` 返回 `ItemType` → 动作表；文案键按 `ItemType` + 动作分套；`System` 无动作、`Note` 只有占位的 `open_note`；不做平台剔除。

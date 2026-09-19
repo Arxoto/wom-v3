@@ -16,4 +16,5 @@ Status: resolved
 
 ## Comments
 
+- 2026-09-19（依代码订正）：Answer 里两条已不成立——**滚动偏移不是派生值**，是 `Body` 自己的状态（余量模型见 [分页与滚动](09-paging-and-scroll.md) 与 [spec.md](../spec.md) §5）；**`Head` 不收回调**，它只收 `value` / `ghost` / `input_ref` / `read_only` 与两个展示判据，输入与合成事件由 `useMainInteraction` 挂在同一个 input 上（见 [spec.md](../spec.md) §2）。
 - `preventDefault()` 的清单（2026-09-14）：只有 `Enter` / `Shift+Enter` / `ESC` 调；`↑` / `↓` 产生意图但不阻止浏览器默认行为（单行 input 里会把光标顶到首尾，接受这个副作用），`←` / `→` 干脆不产生意图（见 [Item Action 与触发命令](07-item-action-and-command.md)）。
