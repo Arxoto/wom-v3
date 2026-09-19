@@ -37,8 +37,8 @@ export interface PrefetchContext {
 export interface SearchSessionDeps {
     /** 按关键字检索第一页 */
     search: (key: string) => Promise<ItemSearchPage>;
-    /** 请求下一页，参数是起始位置 */
-    search_page: (page_start: number) => Promise<ItemSearchPage>;
+    /** 请求下一页：起始位置 + 这一页是替哪个关键字的列表翻的（Rust 会比对缓存） */
+    search_page: (page_start: number, key: string) => Promise<ItemSearchPage>;
     /** 检索结果落定：`null` 表示没有查询（输入为空） */
     on_conclusion: (page: ItemSearchPage | null) => void;
     /** 预请求续上的一页回来了 */
@@ -68,6 +68,8 @@ export interface SearchSession {
 const create_search_state = () => {
     /** 上一次请求的关键字；`null` 表示上一次没有请求 */
     let last_sent: string | null = null;
+    /** 屏上那份结论属于哪个关键字；`null` = 屏上还没有结论 */
+    let settled_key: string | null = null;
     /** 检索请求令牌；响应拿自己的令牌跟它比，不等就是过期响应；翻页请求也同样保证令牌一致 */
     let search_token = 0;
     /** 预请求页是否在飞 */
@@ -78,6 +80,10 @@ const create_search_state = () => {
         is_same_key: (key: string | null) => key === last_sent,
         is_current_round: (current_token: number) => current_token === search_token,
         get_current_token: () => search_token,
+        /** 屏上那份结论属于哪个关键字（`null` = 屏上还没有结论） */
+        get_settled_key: () => settled_key,
+        /** 结论换了一份（或清空）时记下它属于哪个关键字 */
+        set_settled_key: (key: string | null) => settled_key = key,
         is_prefetch_in_flight: () => prefetch_in_flight,
         set_prefetch: (in_flight: boolean) => prefetch_in_flight = in_flight,
         /**
@@ -108,6 +114,8 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
         const token = search_state.get_current_token();
         deps.search(key).then(page => {
             if (search_state.is_current_round(token)) {
+                // 屏上换成了这一份结论，它属于这个关键字
+                search_state.set_settled_key(key);
                 deps.on_conclusion(page);
             }
         });
@@ -145,6 +153,8 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
             
             debounce_cancel();
             search_state.next_round(null);
+            // 结论清空，屏上没有东西可翻页
+            search_state.set_settled_key(null);
             deps.on_conclusion(null);
             return;
         }
@@ -173,6 +183,9 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
         const page_start = ctx.loaded_count;
         // 结果已经全部加载（或还没有结论，`total` 是 0）：没有下一页可续
         if (page_start >= ctx.total) return;
+        // 替屏上那份结论续页：它的关键字要跟着请求一起走，Rust 拿它比对缓存
+        const settled_key = search_state.get_settled_key();
+        if (settled_key === null) return;
         // 在余量内才进行获取
         if (ctx.selection < page_start - PREFETCH_MARGIN) return;
         // 已经在飞，不重复发
@@ -180,7 +193,7 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
 
         search_state.set_prefetch(true);
         const token = search_state.get_current_token();
-        deps.search_page(page_start).then(
+        deps.search_page(page_start, settled_key).then(
             page => {
                 if (!search_state.is_current_round(token)) return;
                 search_state.set_prefetch(false);

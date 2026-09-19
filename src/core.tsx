@@ -187,9 +187,10 @@ export const search = async (k: string) => {
  * 取检索结果的一页
  *
  * `index` 是这一页在结果集里的起始位置（不是页码）：预请求传已加载条数。
+ * `k` 是前端正在展示的结论所属的关键字，与后端缓存对不上就会报错。
  */
-export const search_page = async (index: number) => {
-    return (await invoke('search_page', { index })) as ItemSearchPage;
+export const search_page = async (index: number, k: string) => {
+    return (await invoke('search_page', { index, k })) as ItemSearchPage;
 }
 
 /**

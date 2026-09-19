@@ -76,16 +76,25 @@ pub fn search(builtin_stat: &BuiltinStat, k: &str) -> ItemSearchPage {
 
 /// 对检索结果进行翻页
 ///
-/// 预请求传的是已加载条数，所以下标正常不会超出结果集；真超了说明前端的已加载列表
-/// 与结果集对不上，给空页并记 warn —— 前端静默丢弃，指针还在区间里时下一次 ↓ 会再试。
-pub fn search_page(builtin_stat: &BuiltinStat, index: usize) -> ItemSearchPage {
+/// `k` 是前端正在展示的那份结论所属的关键字；与缓存对不上说明它已经过期，直接报错。
+///
+/// 关键字对得上时，下标正常不会超出结果集（预请求传的是已加载条数）；真超了说明前端的
+/// 已加载列表与结果集对不上，给空页并记 warn —— 前端静默丢弃，指针还在区间里时下一次 ↓ 会再试。
+pub fn search_page(builtin_stat: &BuiltinStat, index: usize, k: &str) -> Result<ItemSearchPage, String> {
     let stat = builtin_stat.0.lock().unwrap();
+
+    if !stat.item_search_result.is_current_result(k) {
+        let cached = stat.item_search_result.input_key.as_deref().unwrap_or("<none>");
+        let err = format!("search page for stale key: requested {k:?}, cached {cached:?}");
+        log::warn!("{err}");
+        return Err(err);
+    }
 
     if index > stat.item_search_result.item_indexes.len() {
         log::warn!("search page out of range: {index}");
     }
 
-    stat.item_search_result.page(index, &stat.item_collection)
+    Ok(stat.item_search_result.page(index, &stat.item_collection))
 }
 
 /// 按下标取出条目并跑它的一个 Item Action，返回动作是否真的执行了
