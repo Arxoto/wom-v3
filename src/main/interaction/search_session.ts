@@ -6,7 +6,14 @@ const SEARCH_DEBOUNCE_MS = 50;
 /** 请求令牌的模：远大于同时在飞的请求数，环形递增就够 */
 const TOKEN_MOD = 256;
 
-/** 预请求的余量：指针落到已加载列表的后 10 位就续下一页。写死 10，不跟随 main_item_n */
+/**
+ * 预请求的余量：指针落到已加载列表的后 10 位就续下一页。写死 10，不跟随 main_item_n
+ *
+ * `PREFETCH_MARGIN` 同时是后端的时间预算：
+ * 请求在指针站上倒数第 10 行时发出，往下再走 n 次就会使高亮行下移，具体见 `Body` 里的计算。
+ * 按住 ↓ 时 `SELECT_REPEAT_MS` 限流到最快 100ms 一次（见 useMainInteraction），
+ * 所以后端得在 `(10 - n) * 100ms` 内返回，否则高亮行提前下移，等预请求的结果返回会有跳变。
+ */
 const PREFETCH_MARGIN = 10;
 
 /**
