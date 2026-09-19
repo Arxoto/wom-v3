@@ -45,9 +45,11 @@ Rust 后端 `src-tauri/src/`：
 
 ## 构建 / 运行
 
-- 开发：`pnpm tauri dev`，或 `scripts/run_dev.ps1`（先用 fnm 切到 `.node-version` 指定的 Node）
-- 打包：`pnpm tauri build`，或 `scripts/run_build.ps1`
+- Node 环境由用户预先切好：agent 直接执行 `pnpm` / `node`，不要自行调用 `fnm` 或另找 Node。
+- 开发：`pnpm tauri dev`
+- 打包：`pnpm tauri build`
 - 前端单独：`pnpm dev`（1420）、`pnpm build`（tsc + vite build）
+- 前端类型检查：`pnpm exec tsc --noEmit`
 - Rust 测试：`cargo test --manifest-path src-tauri/Cargo.toml`
 - 包管理器用 pnpm
 
