@@ -31,7 +31,7 @@ interface Props {
     item_n: number,
     show_preview: boolean,
     type_actions: ItemTypeActions,
-    /** 空态：还没输入，或结果还在路上——列表区留白 */
+    /** 空态：还没有结论（没输入过、输入为空，或查询还没回来）——列表区留白 */
     empty: boolean,
 }
 

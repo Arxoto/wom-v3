@@ -24,8 +24,8 @@ const App = () => {
   
   const { state, item_n, type_actions, input_ref } = useMainInteraction();
 
-  /** 空态：还没输入，或结果还在路上 */
-  const empty = state.input === "" || state.searching;
+  /** 空态：还没有结论（没输入过、输入为空，或这一次查询还没回来） */
+  const empty = state.conclusion === null;
 
   return (
     <Box>
@@ -36,14 +36,14 @@ const App = () => {
           input_ref={input_ref}
           read_only={state.preview_open}
           empty={empty}
-          total={state.total}
+          total={state.conclusion?.total ?? 0}
           selection={state.selection}>
         </Head>
       </Static>
       <DividerTop></DividerTop>
       <Elastic>
         <Body
-          item_list={state.item_list}
+          item_list={state.conclusion?.item_list ?? []}
           selection={state.selection}
           item_n={item_n}
           show_preview={state.preview_open}
@@ -55,7 +55,7 @@ const App = () => {
       <Static>
         <Tail
           preview_open={state.preview_open}
-          action_desc={default_action_label(type_actions, state.item_list[state.selection])}>
+          action_desc={default_action_label(type_actions, state.conclusion?.item_list[state.selection])}>
         </Tail>
       </Static>
     </Box>

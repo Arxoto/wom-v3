@@ -249,8 +249,6 @@ const set_layout_px = (k: string, v: number) => {
  * 颜色本身留在 css 的调色板里，这里只给透明度，由 index_main.css 的 body::before 用 opacity 消费。
  */
 const set_page_config_data = async () => {
-    console.log("qqqqqqqqqqqq");
-
     const config = await get_config();
     set_layout_px('--head-h', config.main_head_h);
     set_layout_px('--tail-h', config.main_tail_h);

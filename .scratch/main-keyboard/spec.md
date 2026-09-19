@@ -41,8 +41,9 @@ Status: settled
 | 文件 | 职责 |
 | --- | --- |
 | `keys.ts` | 纯函数 `resolve_key(key, mod, ctx) → Intent \| null`；`Intent` 为 `select_prev / select_next / run_action / toggle_preview / dismiss`，`ctx` 只带 `{ preview_open }`（只有 `ESC` 要判它；合成判据待实测，见 §6） |
-| `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `page_loaded` / `page_appended` / `intent` / `main_shown` / `search_pending` 六类。`page_loaded` 的 `page` 为 `undefined` 表示这一轮没进行搜索，那时结果整份清空；两路都把 `searching` 复位（结果落定），`search_pending` 则把会话报来的「结果还在路上」记进去 |
-| `search_session.ts` | 检索会话的时序：50ms 尾防抖、请求令牌、在飞预请求的记账、合成锁（合成期间不排检索，解锁时按读到的当前文本补一次）；搜不搜（空输入不搜、关键字没变不重发）与关键字怎么切（第一个空格之前）都在内部的 `send` 里收口，不搜时直接回调 `on_page_loaded(undefined)`（在飞作废、去重记录复位）。列表壳空态的判据之一（结果还在路上）也由它报：`send` 里 `deps.search` 之前挂上，失败与「到点却没发新的」自己收（`on_search_pending(false)`），结果回来那一路由 reducer 的 `page_loaded` 收。非 React 模块，两个 invoke、一个在飞状态与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
+| `debounce.ts` | 尾防抖本身：`schedule` / `cancel` / `pending`。到点先销账再跑（`run` 里问 `pending()` 一定是假）、排自带取消这两条标准动作固定在这里；`search_session` 只管什么时候排、排什么、以及「还在防抖窗口里」对阶段意味着什么 |
+| `reducer.ts` | `MainState` + 纯函数 `reduce(state, action)`；动作来源只有 `typing` / `settled` / `page_appended` / `intent` / `main_shown` 五类。`settled` 整份换掉 `conclusion`（`page` 为 `null` 表示这一轮没有查询，结论清空），`page_appended` 只在结论后面接一页 |
+| `search_session.ts` | 检索会话的时序，一个三阶段状态机（完成 / 输入阶段 / 搜索阶段）：50ms 尾防抖、请求令牌、预请求与第一页在飞的记账、合成锁（合成期间不排检索，解锁时按读到的当前文本补一次）；搜不搜（空输入不搜、关键字没变不重发）与关键字怎么切（第一个空格之前）都在内部的 `send` 里收口。阶段是会话里存着的一份状态，只有一处给它赋值：`advance_phase(事件)` 先由纯函数 `next_phase(事件)` 算出目标阶段，再交给该阶段的入场处理（`enter_typing` / `enter_searching` / `enter_settled`，各自负责把该阶段的账清干净）；事件是四个有限的字符串（`input` → 输入阶段、`search_pending` → 搜索阶段、`search_settled` / `reply` → 完成阶段），不带判据、也不读当前阶段——该报哪一条、该不该报，由调用侧按手里的变量挑（这次输入有没有留下一笔要搜的、还有没有答复在路上、还在不在等这一笔）。唯一的读点是翻页判据（只有完成阶段才翻页）。上报只有两件事：结论落定（`on_conclusion`，`null` = 这一轮没有查询）与预请求续上了一页——「结果还在路上」不上报，渲染只认最后一份结论。非 React 模块，两个 invoke、在飞状态的记账与两个派发回调由接线层注入，判据（已加载条数 / `Selection` / `total`）也从外面传 |
 | `useMainInteraction.ts` | 唯一 React 接线层：window 级 keydown、合成事件、显示重置、动作 / 退场 / 检索三类 invoke 与聚焦 |
 
 `MainState`（渲染用得上的都在这里，请求时序状态留在会话 / hook 内部）：
@@ -50,26 +51,24 @@ Status: settled
 | 字段 | 含义 |
 | --- | --- |
 | `input` | 输入框的值（受控） |
-| `item_list` | 已加载的结果，分页追加 |
-| `total` | 结果总数，用来判断还有没有下一页 |
+| `conclusion` | 最后一份落定的结论（`item_list` + `total`），分页往后追加；`null` = 还没有结论（没输入过，或输入为空，或这份输入的答复还没回来）。整份替换（只有 `settled` 一处写），所以画面只在结论落定时改变 |
 | `selection` | `List Position`，即已加载列表里的行号 |
 | `preview_open` | `Preview` 是否打开 |
-| `searching` | 结果还在路上：第一页发出去还没落定（由会话报，见 `on_search_pending`；AppMain 拿它和空输入合成 `empty`） |
 
 不变量：
 
 - **列表位置不是 `Item Index`**：`selection` 只表示行号；寻址条目一律用 `ItemDisplay.item_index`。
 - **副作用不进 reducer**，也不放 effect：`index_main.tsx` 挂着 `React.StrictMode`，dev 下 reducer / state updater 会被调用两次，一次按键就会打两枪。
 - **滚动位置不进 `MainState`**：它是 `Body` 自己的状态（见 §5）。
-- **空结果**：`item_list` 为空时，所有依赖条目的意图退化成无操作（判据是列表长度，不是 `selection` 的取值）；列表区显示一行占位文案——空态（还没输入，或结果还在路上）留白，输入为空的提示在 `Head` 的 ghost 里，落到确实没匹配才是「没有匹配的条目」；Tail 保持列表模式那套提示（见 [Selection 与 Preview 的行为](issues/06-selection-and-preview.md)）。
+- **空结果**：已加载列表为空时，所有依赖条目的意图退化成无操作（判据是列表长度，不是 `selection` 的取值）；列表区显示一行占位文案——没有结论（`conclusion` 为 `null`）留白，输入为空的提示在 `Head` 的 ghost 里，落到确实没匹配才是「没有匹配的条目」；Tail 保持列表模式那套提示（见 [Selection 与 Preview 的行为](issues/06-selection-and-preview.md)）。
 - **新结果回来**：`selection` 回到 0；当前动作恒为该 `ItemType` 动作表的第一个，不需要额外的状态。
 
 组件 props：
 
 | 组件 | props |
 | --- | --- |
-| `Head` | `{ value, ghost, input_ref, read_only, empty, total, selection }`（ref 归 hook，聚焦与全选要用；`ghost` 沿用现状的占位串，本 effort 不实现补全；`empty` 见 §3 的「空态」） |
-| `Body` | `{ item_list, selection, item_n, show_preview, type_actions, empty }`（滚动偏移是组件自己的状态；`empty` 决定列表为空时那句占位文案） |
+| `Head` | `{ value, ghost, input_ref, read_only, empty, total, selection }`（ref 归 hook，聚焦与全选要用；`ghost` 沿用现状的占位串，本 effort 不实现补全；`empty` 见 §3 的「空态与画面」） |
+| `Body` | `{ item_list, selection, item_n, show_preview, type_actions, empty }`（滚动偏移是组件自己的状态；`empty` 见 §3 的「空态与画面」，决定列表为空时那句占位文案） |
 | `Item` | `{ item, action_id, is_selected }`（图标按 `action_id` 查；没有动作时传 `null`，整块不渲染） |
 | `Tail` | `{ preview_open, action_desc }`（当前 `ItemType` + 动作对应的文案，先用动作名占位；条目没有动作时为 `null`，动作栏整块不渲染） |
 
@@ -107,9 +106,9 @@ dismiss_main_window()
 **打字 → 检索**
 
 - **首屏不检索**：挂载时不发那次空关键字，列表空着、列表区提示输入搜索，直到第一次输入。
-- **空输入不检索**：尾防抖到点后 `send` 看到原始输入是空串，就不发请求，直接回调 `on_page_loaded(undefined)`——reducer 把结果整份清空（`Selection` 与 `Preview` 归零，列表区回到提示输入）。同时在飞的第一页与预请求一并作废，去重记录复位，清空后重打同一个关键字会重新搜。判据是原始输入而不是关键字：只打一个空格时输入非空，照常按空关键字（全量）检索。
+- **空输入不检索**：输入变空是**当场落定**的（没有要合并的击键，不必等防抖）：不发请求，直接回调 `on_conclusion(null)`——reducer 把结论清空（`Selection` 与 `Preview` 归零，列表区回到提示输入）。同时在飞的第一页与预请求一并作废，去重记录复位，清空后重打同一个关键字会重新搜。判据是原始输入而不是关键字：只打一个空格时输入非空，照常按空关键字（全量）检索。
 - **关键字是第一个空格之前的内容**：空格之后的部分留给条目参数，不参与检索；以空格开头时关键字就是空串，也就是全量。
-- **空态**：还没输入、或结果还在路上（`searching`），列表区与右上角标签都留白——两者是同一副样子，所以合成一个 `empty` 由 `AppMain` 现算，`Head` / `Body` 各只收这一个判据。这样结果**发出去之后**到它落定之间不会先说一句「没有匹配的条目」或报一个 `N/A`（那会儿 `item_list` / `total` 还是上一条关键字的值：「没有结果」是这一次查询的结论，得等它落定）。列表区唯一「有话说」的空是查完确实没匹配。`searching` 从 `send` 里 `deps.search` 之前挂上（`on_search_pending(true)`），落在结果回来（reducer 的 `page_loaded`）、失败、或「到点却没发新的」（`send` 早退那一支：令牌已经前进，在飞那一笔的响应会被丢弃）时收掉。**那 50ms 防抖不在其中**——那时还没发出去，界面照旧显示上一条的结论（空列表就是那句「没有匹配的条目」/ `N/A`）。`Head` 的 ghost 提示不跟空态走——它画在已输入的文字后面，只有真没输入时才成立。
+- **空态与画面**：列表区与右上角标签共用一条判据——**有没有落定的结论**（`MainState.conclusion` 为 `null`），阶段不参与。`null` 时两处都留白；有结论时标签是 `N/A`（这一次查询确实 0 条）或「当前选中项的序号 / 结果总数」，列表区只在那份结论确实没匹配时才说「没有匹配的条目」。所以**输入阶段与搜索阶段都保持上一份结论的样子**：打字过程中画面一次都不变，首屏第一次输入不会先说「没有匹配的条目」或闪一个 `N/A`（那会儿还没有结论），上一条结论是 `N/A` 时它也会稳定留着，直到新结论落定才换。`empty` 由 `AppMain` 现算（`conclusion === null`）交给 `Head` / `Body`，两者各只收这一个判据。`Head` 的 ghost 提示不跟它走——它画在已输入的文字后面，只有真没输入时才成立。（2026-09-19 修订：早先「空态 = 输入为空或结果还在路上」与「那 50ms 防抖不在其中」的口径作废，见 [05 号 ticket](issues/05-typing-search-and-ime.md)。）
 - 变更后 50ms 尾防抖（`compositionend` 补的那次也走这里）；关键字与上次发送相同就不重发（后端另有 `input_key` 缓存兜底）。
 - 请求令牌只与「当前最新令牌」比相等，不比较大小；用有界环计数器（`% 256`，远大于同时在飞的请求数）。过期响应整包丢弃。
 - `compositionstart` / `compositionend` 维护 lock：合成期间 input 路径不防抖、不检索；`compositionend` 自己补一次检索（读 input 当前值），同样进 50ms 防抖——连续提交候选（每次都是一份新文本）只在停手后发一次，不绕过防抖；靠上面那条「关键字没变不重发」去重，所以 `compositionend` 与提交后那次 input 谁先谁后都得到同一结果。
@@ -121,6 +120,7 @@ dismiss_main_window()
 - `search_page` 的 `index` 参数是**结果集里的起始位置**，不是页码；预请求传已加载条数。
 - 预请求是纯异步的列表追加：只影响 `item_list`，`Selection` 与滚动位置不因它的成败改变；失败静默，Rust 记 warn，前端不打日志也不提示；只要指针还在后 10 位，下一次 `↓` 会再试。
 - 同一时间最多一页在飞（起始下标恒等于已加载条数，而它只在上一页落账之后才增长），所以用单槽记账就够：挡同一页的重复请求，新检索到来时清掉这一笔（同一套令牌规则）。
+- 只有完成阶段才发预请求：输入阶段与搜索阶段里，列表都还是上一条关键字的结果，翻它的下一页要么被令牌丢掉，要么在新结论落定之后接错到新列表上。
 
 **显示 / 退场**
 

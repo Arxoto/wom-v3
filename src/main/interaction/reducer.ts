@@ -1,34 +1,36 @@
 import type { ItemDisplay, ItemSearchPage } from "../../core";
 import type { Intent } from "./keys";
 
-/**
- * 主窗口的交互状态
- *
- * 渲染用得上的都在这里；请求时序（令牌、在飞的请求、防抖定时器）留在检索会话里，只有
- * 「结果还在路上」这一个渲染要用的结果镜像进来。
- */
-export interface MainState {
-    /** 输入框的值（受控） */
-    input: string,
+/** 一份落定的结论：查询有了结果 */
+export interface Conclusion {
     /** 已加载的结果，翻页时往后追加 */
     item_list: ItemDisplay[],
     /** 结果总数，用来判断还有没有下一页 */
     total: number,
+}
+
+/**
+ * 主窗口的交互状态
+ *
+ * 渲染用得上的都在这里；请求时序（三个阶段、令牌、在飞的请求、防抖定时器）留在检索会话里，
+ * 渲染侧只镜像一份「结论」。
+ */
+export interface MainState {
+    /** 输入框的值（受控） */
+    input: string,
+    /** 当前展示的结论；`null` = 还没有结论（没输入过，或输入为空，或答复还在路上） */
+    conclusion: Conclusion | null,
     /** List Position：Selection 落在已加载列表的第几行，不是 Item Index */
     selection: number,
     /** Preview 是否打开 */
     preview_open: boolean,
-    /** 结果还在路上：第一页发出去还没落定 */
-    searching: boolean,
 }
 
 export const MAIN_STATE_INIT: MainState = {
     input: "",
-    item_list: [],
-    total: 0,
+    conclusion: null,
     selection: 0,
     preview_open: false,
-    searching: false,
 }
 
 /**
@@ -36,11 +38,11 @@ export const MAIN_STATE_INIT: MainState = {
  */
 export type MainAction =
     | { kind: "typing", value: string }
-    | { kind: "page_loaded", page: ItemSearchPage | undefined }
+    /** 结论落定：`page` 为 `null` 表示这一轮没有查询（输入为空） */
+    | { kind: "settled", page: ItemSearchPage | null }
     | { kind: "page_appended", page: ItemSearchPage }
     | { kind: "intent", intent: Intent }
-    | { kind: "main_shown" }
-    | { kind: "search_pending", pending: boolean };
+    | { kind: "main_shown" };
 
 /**
  * 意图怎么改状态
@@ -53,7 +55,10 @@ const apply_intent = (state: MainState, intent: Intent): MainState => {
             return { ...state, selection: step_selection(state, 1) };
         case "toggle_preview":
             // 空结果没有可预览的条目
-            return { ...state, preview_open: state.item_list.length > 0 && !state.preview_open };
+            return {
+                ...state,
+                preview_open: (state.conclusion?.item_list.length ?? 0) > 0 && !state.preview_open,
+            };
         case "run_action":
             // 触发动作只关掉 Preview：动作本身由 Rust 执行，窗口要不要隐藏也由 Rust 决定。
             return state.preview_open ? { ...state, preview_open: false } : state;
@@ -64,8 +69,9 @@ const apply_intent = (state: MainState, intent: Intent): MainState => {
 
 /** 移动一行，边界 clamp 不环绕；空结果没有可指的条目，不动 */
 const step_selection = (state: MainState, delta: number): number => {
-    if (state.item_list.length === 0) return state.selection;
-    return Math.min(Math.max(state.selection + delta, 0), state.item_list.length - 1);
+    const loaded = state.conclusion?.item_list.length ?? 0;
+    if (loaded === 0) return state.selection;
+    return Math.min(Math.max(state.selection + delta, 0), loaded - 1);
 }
 
 /**
@@ -78,34 +84,31 @@ export const reduce_main = (state: MainState, action: MainAction): MainState => 
     switch (action.kind) {
         case "typing":
             return { ...state, input: action.value };
-        case "page_loaded":
-            // 没进行搜索（输入为空）：结果整份清空，列表区换成提示输入
-            if (action.page === undefined) return {
-                ...state,
-                item_list: [],
-                total: 0,
-                selection: 0,
-                preview_open: false,
-                searching: false,
-            };
-            // 新结果回到第一条；关闭 Preview ；搜索结果落地
+        case "settled":
+            // 结论整份换掉：`null` 是「这一轮没有查询」，别的就是这一次查询的答案
             return {
                 ...state,
-                item_list: action.page.item_list,
-                total: action.page.total,
+                conclusion: action.page === null ? null : {
+                    item_list: action.page.item_list,
+                    total: action.page.total,
+                },
                 selection: 0,
                 preview_open: false,
-                searching: false,
             };
         case "page_appended":
-            // 预请求是纯追加，不影响展示
-            return { ...state, item_list: [...state.item_list, ...action.page.item_list] };
+            // 预请求是纯追加：结论还是那一份，只在后面接一页
+            if (state.conclusion === null) return state;
+            return {
+                ...state,
+                conclusion: {
+                    ...state.conclusion,
+                    item_list: [...state.conclusion.item_list, ...action.page.item_list],
+                },
+            };
         case "intent":
             return apply_intent(state, action.intent);
         case "main_shown":
             // 唤出等于重新开始：强制关掉 Preview；输入内容与已加载的结果都留着
             return state.preview_open ? { ...state, preview_open: false } : state;
-        case "search_pending":
-            return { ...state, searching: action.pending };
     }
 }

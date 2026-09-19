@@ -8,7 +8,7 @@ interface Props {
     ghost: string,
     input_ref: RefObject<HTMLInputElement | null>,
     read_only: boolean,
-    /** 空态：还没输入，或结果还在路上——标签留白 */
+    /** 空态：还没有结论（没输入过、输入为空，或查询还没回来）——标签留白 */
     empty: boolean,
     /** 当前结果集的总数（不是已加载条数） */
     total: number,
@@ -29,9 +29,9 @@ const keep_editable = () => { };
  * 右上角标签显示什么
  */
 const tag_text = (empty: boolean, total: number, selection: number) => {
-    // 空态（还没输入，或结果还在路上）
+    // 空态（还没有结论）
     if (empty) return "";
-    // 查询无结果
+    // 这一份结论是「没有结果」
     if (total === 0) return "N/A";
     // 有结果显示 「当前选中项的序号 / 结果总数」
     return `${selection + 1}/${total}`;

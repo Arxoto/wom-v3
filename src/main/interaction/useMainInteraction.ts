@@ -93,10 +93,17 @@ export const useMainInteraction = () => {
 
     // 检索会话不随每次渲染重建：时序状态都在它里面，重建就等于丢掉在飞的请求
     const [session] = useState(() => create_search_session({
-        search,
-        search_page,
-        on_search_pending: pending => dispatch({ kind: "search_pending", pending }),
-        on_page_loaded: page => dispatch({ kind: "page_loaded", page }),
+        search: (key: string, token: number) => {
+            search(key).then(page => {
+                session.search_reply(token, page);
+            })
+        },
+        search_page: (page_start: number, token: number) => {
+            search_page(page_start).then(page => {
+                session.prefetch_reply(token, page);
+            })
+        },
+        on_conclusion: page => dispatch({ kind: "settled", page }),
         on_page_appended: page => dispatch({ kind: "page_appended", page }),
     }));
 
@@ -109,16 +116,16 @@ export const useMainInteraction = () => {
     const prefetch_next_page = useCallback(() => {
         session.prefetch({
             // 已加载条数就是下一页的起始下标：列表按顺序追加，中间没有空洞
-            loaded_count: state.item_list.length,
+            loaded_count: state.conclusion?.item_list.length ?? 0,
             selection: state.selection,
-            total: state.total,
+            total: state.conclusion?.total ?? 0,
         });
-    }, [session, state.item_list.length, state.selection, state.total]);
+    }, [session, state.conclusion, state.selection]);
 
     const on_input_change = useCallback((value: string) => {
         dispatch({ kind: "typing", value });
-        // 合成中间态不排检索、空输入不搜、怎么从输入切出关键字：这些判据都在会话的 send 里
-        // （见 search_session.ts）
+        // 阶段怎么走（合成中间态不排检索、空输入当场落定、关键字怎么切出）全在会话里，
+        // 这里只报「输入变了」（见 search_session.ts）
         session.input_changed(value);
     }, [session]);
 
@@ -130,13 +137,13 @@ export const useMainInteraction = () => {
      * 要不要隐藏窗口由 Rust 按 `main_window_mode` 决定（见 spec §3 / §4.3）。
      */
     const run_current_action = useCallback(() => {
-        const item = state.item_list[state.selection];
+        const item = state.conclusion?.item_list[state.selection];
         const action = item ? default_action(type_actions, item.the_type) : null;
         if (!item || !action) return;
 
         dispatch({ kind: "intent", intent: "run_action" });
         void run_item_action(item.item_index, action.id);
-    }, [state.item_list, state.selection, type_actions]);
+    }, [state.conclusion, state.selection, type_actions]);
 
     // 输入与合成（IME）事件都挂在真实 input 上：Head 只留受控的 value 与一个占位处理器，
     // 语义全在这一层（按键路径见下面那个 window 级入口）
