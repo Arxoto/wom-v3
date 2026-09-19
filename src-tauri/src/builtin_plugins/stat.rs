@@ -77,9 +77,7 @@ pub fn search(builtin_stat: &BuiltinStat, k: &str) -> ItemSearchPage {
 /// 对检索结果进行翻页
 ///
 /// `k` 是前端正在展示的那份结论所属的关键字；与缓存对不上说明它已经过期，直接报错。
-///
-/// 关键字对得上时，下标正常不会超出结果集（预请求传的是已加载条数）；真超了说明前端的
-/// 已加载列表与结果集对不上，给空页并记 warn —— 前端静默丢弃，指针还在区间里时下一次 ↓ 会再试。
+/// 下标超界说明前端的已加载列表与结果集对不上，给空页并记 warn。
 pub fn search_page(builtin_stat: &BuiltinStat, index: usize, k: &str) -> Result<ItemSearchPage, String> {
     let stat = builtin_stat.0.lock().unwrap();
 
