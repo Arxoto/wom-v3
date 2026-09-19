@@ -13,7 +13,7 @@ import "./core.css";
  *
  * 本 effort 不实现补全，先沿用样式阶段那条假建议。
  */
-const GHOST_VALUE = "World-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy";
+const GHOST_PLACEHOLDER = "输入关键字开始搜索，空格分割参数";
 
 const App = () => {
   set_page_main();
@@ -24,7 +24,7 @@ const App = () => {
       <Static>
         <Head
           value={state.input}
-          ghost={GHOST_VALUE}
+          ghost={GHOST_PLACEHOLDER}
           input_ref={input_ref}
           read_only={state.preview_open}
           input_empty={state.input === ""}

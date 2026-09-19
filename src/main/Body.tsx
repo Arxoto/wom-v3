@@ -72,7 +72,7 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions, input_
             <div className="body-items">
                 {item_list.length === 0
                     ? <div className="body-empty">
-                        {input_empty ? "输入关键字开始搜索" : "没有匹配的条目"}
+                        {input_empty ? "" : "没有匹配的条目"}
                     </div>
                     : item_show_list.map((item, index) => (
                         // 用窗口内的下标作 key：翻页时同一槽位的 DOM 保持复用（见 AppMain.tsx 的 todo）
