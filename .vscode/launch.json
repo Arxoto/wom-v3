@@ -8,13 +8,13 @@
             "name": "Run dev",
             "request": "launch",
             "type": "PowerShell",
-            "script": "${workspaceFolder}/build_scripts/run_dev.ps1",
+            "script": "${workspaceFolder}/scripts/run_dev.ps1",
         },
         {
             "name": "Run build",
             "request": "launch",
             "type": "PowerShell",
-            "script": "${workspaceFolder}/build_scripts/run_build.ps1",
+            "script": "${workspaceFolder}/scripts/run_build.ps1",
         },
     ]
 }

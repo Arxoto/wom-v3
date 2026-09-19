@@ -2,11 +2,11 @@
 
 ## How to dev
 
-use [pnpm tauri dev (注意 node 和 pnpm 版本)](./build_scripts/run_dev.ps1)
+use [pnpm tauri dev (注意 node 和 pnpm 版本)](./scripts/run_dev.ps1)
 
 ## How to build&bundle
 
-use [pnpm tauri build (注意 node 和 pnpm 版本)](./build_scripts/run_build.ps1)
+use [pnpm tauri build (注意 node 和 pnpm 版本)](./scripts/run_build.ps1)
 
 如果因为网络原因打包失败（下载部分工具失败），可以手动下载
 
