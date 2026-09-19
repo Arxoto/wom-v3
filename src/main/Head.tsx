@@ -30,8 +30,8 @@ const keep_editable = () => { };
  * 没有查询（空输入不检索）时不显示；查询无结果时是 `N/A`；有结果时是
  * 「当前选中项的序号 / 结果总数」。序号用 `List Position` 而不是 `Item Index`。
  *
- * 没有查询时元素仍在、只是内容为空：标签宽是定值，连元素一起消失会让输入框的右边界
- * 在第一个字符落下时跳一下。
+ * 没有查询时元素仍在、只是内容为空：`.input-tag` 的 padding 还占着位置，输入框的右边界
+ * 不会在第一个字符落下时整块塌掉（宽度随标签文字走，见 Head.css）。
  */
 const tag_text = (input_empty: boolean, total: number, selection: number) => {
     if (input_empty) return "";

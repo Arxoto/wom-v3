@@ -92,7 +92,6 @@
 .input-tag {
     margin: 0;
     padding: 0 calc(var(--head-h) * 0.1) 0 calc(var(--head-h) * 0.2);
-    width: calc(var(--head-h) * 0.8);
     height: calc(var(--head-h) * 0.8);
     line-height: calc(var(--head-h) * 0.8);
     text-align: center;
