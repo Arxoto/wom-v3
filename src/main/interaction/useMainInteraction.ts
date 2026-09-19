@@ -93,16 +93,8 @@ export const useMainInteraction = () => {
 
     // 检索会话不随每次渲染重建：时序状态都在它里面，重建就等于丢掉在飞的请求
     const [session] = useState(() => create_search_session({
-        search: (key: string, token: number) => {
-            search(key).then(page => {
-                session.search_reply(token, page);
-            })
-        },
-        search_page: (page_start: number, token: number) => {
-            search_page(page_start).then(page => {
-                session.prefetch_reply(token, page);
-            })
-        },
+        search: search,
+        search_page: search_page,
         on_conclusion: page => dispatch({ kind: "settled", page }),
         on_page_appended: page => dispatch({ kind: "page_appended", page }),
     }));
