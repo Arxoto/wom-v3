@@ -29,6 +29,7 @@ export interface PrefetchContext {
     loaded_count: number;
     /** 当前选中项的索引 */
     selection: number;
+    /** 结果总数；用来判断还有没有下一页 */
     total: number;
 }
 
@@ -170,6 +171,8 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
     const prefetch = (ctx: PrefetchContext) => {
         // 下一页的起始下标恒等于已加载条数（见 prefetch_in_flight 的说明）
         const page_start = ctx.loaded_count;
+        // 结果已经全部加载（或还没有结论，`total` 是 0）：没有下一页可续
+        if (page_start >= ctx.total) return;
         // 在余量内才进行获取
         if (ctx.selection < page_start - PREFETCH_MARGIN) return;
         // 已经在飞，不重复发
@@ -177,12 +180,18 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
 
         search_state.set_prefetch(true);
         const token = search_state.get_current_token();
-        deps.search_page(page_start).then(page => {
-            if (search_state.is_current_round(token)) {
+        deps.search_page(page_start).then(
+            page => {
+                if (!search_state.is_current_round(token)) return;
                 search_state.set_prefetch(false);
                 deps.on_page_appended(page);
-            }
-        });
+            },
+            // 失败捕获，允许手动重试
+            err => {
+                console.error("search_page failed:", err);
+                if (search_state.is_current_round(token)) search_state.set_prefetch(false);
+            },
+        );
     };
 
     return { input_changed, begin_composition, end_composition, prefetch, dispose: debounce_cancel };
