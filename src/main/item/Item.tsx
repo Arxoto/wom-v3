@@ -14,7 +14,7 @@ interface Props {
  *
  * 图标先用纯色块占位，后期换成 svg / ico。
  * 动作与 Item 数据无关（来自动作表），所以由外部传入；哪个动作是默认动作也由外部决定。
- * is_selected 是键盘选中的那一行，与鼠标悬停各走一套配色（见 Item.css）。
+ * is_selected 是键盘选中的那一行，与鼠标悬停共用同一套高亮样式（见 Item.css）。
  */
 const Item = ({ item, action_id, is_selected }: Props) => {
     return (

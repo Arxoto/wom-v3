@@ -71,44 +71,29 @@
 }
 
 /* 高亮效果：整行换底色，文字与动作换成高亮色并加发光
-   鼠标悬停与键盘选中是两套语义，各用一套配色：悬停偏亮、选中偏深
+   鼠标悬停与键盘选中共用同一套配色，选择器并列写
    发光半径挂在 --item-h 上，跟着行高缩放 */
-.item-box:hover {
+.item-box:hover,
+.item-box.is-selected {
     background-color: var(--color-hover-back);
     border-radius: calc(var(--item-h) * 0.2);
 }
 
 .item-box:hover .item-name,
-.item-box:hover .item-desc {
+.item-box:hover .item-desc,
+.item-box.is-selected .item-name,
+.item-box.is-selected .item-desc {
     color: var(--color-hover-inner);
     text-shadow: 0 0 4px var(--color-hover-outer);
 }
 
-.item-box:hover .item-action {
+.item-box:hover .item-action,
+.item-box.is-selected .item-action {
     color: var(--color-hover-front);
 }
 
 /* 图标不是文字，发光得用 filter；半径与文字的 text-shadow 对齐 */
-.item-box:hover .item-action-icon {
-    filter: drop-shadow(0 0 4px var(--color-hover-outer));
-}
-
-/* 键盘选中的那一行。写在悬停之后：两个选择器同权重，选中压过悬停 */
-.item-box.is-selected {
-    background-color: var(--color-active-back);
-    border-radius: calc(var(--item-h) * 0.2);
-}
-
-.item-box.is-selected .item-name,
-.item-box.is-selected .item-desc {
-    color: var(--color-active-inner);
-    text-shadow: 0 0 4px var(--color-active-outer);
-}
-
-.item-box.is-selected .item-action {
-    color: var(--color-active-front);
-}
-
+.item-box:hover .item-action-icon,
 .item-box.is-selected .item-action-icon {
-    filter: drop-shadow(0 0 4px var(--color-active-outer));
+    filter: drop-shadow(0 0 4px var(--color-hover-outer));
 }

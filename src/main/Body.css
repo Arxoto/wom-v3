@@ -1,5 +1,6 @@
 /* 让 flex 把容器宽度减去 padding 当作内容宽度 */
 .body-box {
+    position: relative;
     display: flex;
     flex-flow: row nowrap;
     justify-content: space-between;
