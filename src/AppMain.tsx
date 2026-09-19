@@ -9,9 +9,10 @@ import { default_action_label } from "./main/interaction/action_labels";
 import "./core.css";
 
 /**
- * 补全建议的占位串
+ * 空输入时的占位文案
  *
- * 本 effort 不实现补全，先沿用样式阶段那条假建议。
+ * 真实输入为空（没有检索）时显示在输入框位置，一旦有输入就清空——它不是建议文本，
+ * 不参与输入值的计算，只负责提示用法（见 Head 的 ghost）。
  */
 const GHOST_PLACEHOLDER = "输入关键字开始搜索，空格分割参数";
 
@@ -24,7 +25,7 @@ const App = () => {
       <Static>
         <Head
           value={state.input}
-          ghost={GHOST_PLACEHOLDER}
+          ghost={state.input === "" ? GHOST_PLACEHOLDER : ""}
           input_ref={input_ref}
           read_only={state.preview_open}
           input_empty={state.input === ""}

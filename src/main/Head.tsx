@@ -4,6 +4,7 @@ import "./Head.css";
 
 interface Props {
     value: string,
+    /** 真实输入为空时显示的提示文案，有输入时传空串（见 AppMain） */
     ghost: string,
     input_ref: RefObject<HTMLInputElement | null>,
     read_only: boolean,
@@ -40,7 +41,7 @@ const tag_text = (input_empty: boolean, total: number, selection: number) => {
 }
 
 /**
- * 顶部输入框：真实 input 收字符，下面同宽的一层只负责显示 ghost 建议
+ * 顶部输入框：真实 input 收字符，下面同宽的一层只负责显示 ghost 提示
  *
  * 本组件只负责显示与受控回写：输入与合成（IME）事件都由接线层挂在同一个 input 上
  * （见 useMainInteraction），值往外转交后由受控的 `value` 落回来。
