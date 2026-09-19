@@ -51,7 +51,6 @@ const useMainWindowFocus = (
         const input = input_ref.current;
         if (!input) return;
         input.focus();
-        input.select();
     }, [input_ref, dispatch]);
 
     useEffect(() => {
@@ -96,6 +95,7 @@ export const useMainInteraction = () => {
     const [session] = useState(() => create_search_session({
         search,
         search_page,
+        on_search_pending: pending => dispatch({ kind: "search_pending", pending }),
         on_page_loaded: page => dispatch({ kind: "page_loaded", page }),
         on_page_appended: page => dispatch({ kind: "page_appended", page }),
     }));
@@ -146,17 +146,19 @@ export const useMainInteraction = () => {
 
         const on_input = () => on_input_change(input.value);
         const on_composition_start = () => session.begin_composition();
-        // 读输入框当前值补一次；与提交之后那次 input 谁先谁后，
-        // 都靠「关键字没变不重发」收敛到同一个结果（见 search_session.ts）
         const on_composition_end = () => session.end_composition(input.value);
+        // 输入框获得焦点就全选
+        const on_focus = () => input.select();
 
         input.addEventListener("input", on_input);
         input.addEventListener("compositionstart", on_composition_start);
         input.addEventListener("compositionend", on_composition_end);
+        input.addEventListener("focus", on_focus);
         return () => {
             input.removeEventListener("input", on_input);
             input.removeEventListener("compositionstart", on_composition_start);
             input.removeEventListener("compositionend", on_composition_end);
+            input.removeEventListener("focus", on_focus);
         };
     }, [session, on_input_change]);
 

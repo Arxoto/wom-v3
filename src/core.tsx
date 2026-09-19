@@ -2,30 +2,29 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 export const set_page_main = () => {
-    set_near_native();
     set_page_config_data();
+    return set_near_native();
 }
 
 export const set_page_config = () => {
-    set_near_native();
+    return set_near_native();
 }
 
-/**
- * 类原生应用设置
- *
- * 只挂一次：这些监听是全局的，页面每次重渲染都会调到这里，
- * 多挂一次就等于多一个监听（主窗口每次输入都会重渲染）。
- */
-let near_native_ready = false;
-
 const set_near_native = () => {
-    if (near_native_ready) return;
-    near_native_ready = true;
-
     // 禁用右键菜单
-    window.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-    });
+    const on_ctx_menu = (e: PointerEvent) => e.preventDefault();
+    window.addEventListener("contextmenu", on_ctx_menu);
+
+    // 禁用 Alt 菜单栏
+    const on_key_down = (e: KeyboardEvent) => {
+        if (e.altKey) e.preventDefault();
+    };
+    window.addEventListener("keydown", on_key_down);
+
+    return () => {
+        window.removeEventListener("contextmenu", on_ctx_menu);
+        window.removeEventListener("keydown", on_key_down);
+    }
 }
 
 /**
@@ -250,6 +249,8 @@ const set_layout_px = (k: string, v: number) => {
  * 颜色本身留在 css 的调色板里，这里只给透明度，由 index_main.css 的 body::before 用 opacity 消费。
  */
 const set_page_config_data = async () => {
+    console.log("qqqqqqqqqqqq");
+
     const config = await get_config();
     set_layout_px('--head-h', config.main_head_h);
     set_layout_px('--tail-h', config.main_tail_h);

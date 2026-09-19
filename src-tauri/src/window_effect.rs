@@ -72,7 +72,7 @@ pub fn alpha(effect: WindowEffect) -> f64 {
     match effect {
         WindowEffect::Solid | WindowEffect::Framed => 1.0,
         WindowEffect::Mica => 0.35,
-        WindowEffect::Acrylic => 0.55,
+        WindowEffect::Acrylic => 0.8,
         WindowEffect::Vibrancy => 0.6,
     }
 }

@@ -16,10 +16,6 @@ export const Elastic = ({ children }: Props) => {
     return <div className="elastic">{children}</div>
 }
 
-export const Divider = () => {
-    return <div className="divider"></div>
-}
-
 export const DividerTop = () => {
     return <div className="divider-top"></div>
 }

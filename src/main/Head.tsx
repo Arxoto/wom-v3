@@ -8,8 +8,8 @@ interface Props {
     ghost: string,
     input_ref: RefObject<HTMLInputElement | null>,
     read_only: boolean,
-    /** 输入是不是空的：空输入不检索，标签不显示 */
-    input_empty: boolean,
+    /** 空态：还没输入，或结果还在路上——标签留白 */
+    empty: boolean,
     /** 当前结果集的总数（不是已加载条数） */
     total: number,
     /** List Position：`Selection` 落在已加载列表的第几行 */
@@ -27,27 +27,23 @@ const keep_editable = () => { };
 
 /**
  * 右上角标签显示什么
- *
- * 没有查询（空输入不检索）时不显示；查询无结果时是 `N/A`；有结果时是
- * 「当前选中项的序号 / 结果总数」。序号用 `List Position` 而不是 `Item Index`。
- *
- * 没有查询时元素仍在、只是内容为空：`.input-tag` 的 padding 还占着位置，输入框的右边界
- * 不会在第一个字符落下时整块塌掉（宽度随标签文字走，见 Head.css）。
  */
-const tag_text = (input_empty: boolean, total: number, selection: number) => {
-    if (input_empty) return "";
+const tag_text = (empty: boolean, total: number, selection: number) => {
+    // 空态（还没输入，或结果还在路上）
+    if (empty) return "";
+    // 查询无结果
     if (total === 0) return "N/A";
+    // 有结果显示 「当前选中项的序号 / 结果总数」
     return `${selection + 1}/${total}`;
 }
 
 /**
  * 顶部输入框：真实 input 收字符，下面同宽的一层只负责显示 ghost 提示
  *
- * 本组件只负责显示与受控回写：输入与合成（IME）事件都由接线层挂在同一个 input 上
- * （见 useMainInteraction），值往外转交后由受控的 `value` 落回来。
- * 预览打开时只读：焦点不动（主动 blur 会打断可能正在进行的合成），输入内容保留。
+ * 本组件只负责显示与受控回写：输入事件等由接线层处理后通过 `value` 回落（ useMainInteraction ）。
+ * 预览打开时只读：焦点不动，输入内容保留。
  */
-const Head = ({ value, ghost, input_ref, read_only, input_empty, total, selection }: Props) => {
+const Head = ({ value, ghost, input_ref, read_only, empty, total, selection }: Props) => {
     return (
         <div className="head-box">
             <div className="head-space"></div>
@@ -66,7 +62,7 @@ const Head = ({ value, ghost, input_ref, read_only, input_empty, total, selectio
                     spellCheck="false"
                 />
             </div>
-            <div className="input-tag head-static">{tag_text(input_empty, total, selection)}</div>
+            <div className="input-tag head-static">{tag_text(empty, total, selection)}</div>
             <img className='wom-icon head-static' src={undefined} alt="" data-tauri-drag-region />
         </div>
     );

@@ -7,6 +7,7 @@ import { useMainInteraction } from "./main/interaction/useMainInteraction";
 import { default_action_label } from "./main/interaction/action_labels";
 
 import "./core.css";
+import { useEffect } from "react";
 
 /**
  * 空输入时的占位文案
@@ -17,8 +18,14 @@ import "./core.css";
 const GHOST_PLACEHOLDER = "输入关键字开始搜索，空格分割参数";
 
 const App = () => {
-  set_page_main();
+  useEffect(() => {
+    return set_page_main();
+  }, []);
+  
   const { state, item_n, type_actions, input_ref } = useMainInteraction();
+
+  /** 空态：还没输入，或结果还在路上 */
+  const empty = state.input === "" || state.searching;
 
   return (
     <Box>
@@ -28,7 +35,7 @@ const App = () => {
           ghost={state.input === "" ? GHOST_PLACEHOLDER : ""}
           input_ref={input_ref}
           read_only={state.preview_open}
-          input_empty={state.input === ""}
+          empty={empty}
           total={state.total}
           selection={state.selection}>
         </Head>
@@ -41,7 +48,7 @@ const App = () => {
           item_n={item_n}
           show_preview={state.preview_open}
           type_actions={type_actions}
-          input_empty={state.input === ""}>
+          empty={empty}>
         </Body>
       </Elastic>
       <DividerBottom></DividerBottom>

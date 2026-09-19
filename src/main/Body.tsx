@@ -31,8 +31,8 @@ interface Props {
     item_n: number,
     show_preview: boolean,
     type_actions: ItemTypeActions,
-    /** 输入是不是空的：空输入不检索、列表已清空，占位文案换成提示输入 */
-    input_empty: boolean,
+    /** 空态：还没输入，或结果还在路上——列表区留白 */
+    empty: boolean,
 }
 
 /**
@@ -44,8 +44,10 @@ interface Props {
  * 
  * 预览是否打开由外部传入（AppMain），这样它与 Tail 的提示是同一个状态。
  */
-const Body = ({ item_list, selection, item_n, show_preview, type_actions, input_empty }: Props) => {
+const Body = ({ item_list, selection, item_n, show_preview, type_actions, empty }: Props) => {
     const preview_item = item_list[selection];
+
+    const empty_text = empty ? "" : "没有匹配的条目";
 
     // 窗口的滚动位置。Selection 一起存着，只在它真的变了之后才看窗口要不要挪
     const [scroll, set_scroll] = useState({ selection, offset: 0 });
@@ -71,9 +73,7 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions, input_
         <div className="body-box">
             <div className="body-items">
                 {item_list.length === 0
-                    ? <div className="body-empty">
-                        {input_empty ? "" : "没有匹配的条目"}
-                    </div>
+                    ? <div className="body-empty">{empty_text}</div>
                     : item_show_list.map((item, index) => (
                         // 用窗口内的下标作 key：翻页时同一槽位的 DOM 保持复用（见 AppMain.tsx 的 todo）
                         <Item

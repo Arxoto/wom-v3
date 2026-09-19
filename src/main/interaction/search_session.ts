@@ -32,12 +32,14 @@ export interface PrefetchContext {
     total: number;
 }
 
-/** 检索会话要的外部能力：两个 invoke 与两个结果派发，全部注入 */
+/** 检索会话要的外部能力注入 */
 export interface SearchSessionDeps {
     /** 按关键字检索第一页 */
     search: (key: string) => Promise<ItemSearchPage>;
     /** 取结果集里第 `page_start` 条起的一页，参数是起始位置不是页码 */
     search_page: (page_start: number) => Promise<ItemSearchPage>;
+    /** 修改状态为搜索结果在路上（列表壳空态的判据之一） */
+    on_search_pending: (pending: boolean) => void;
     /** 新检索的第一页回来了；`undefined` 表示这一轮没有进行搜索（输入为空） */
     on_page_loaded: (page: ItemSearchPage | undefined) => void;
     /** 预请求续上的一页回来了 */
@@ -77,6 +79,9 @@ export interface SearchSession {
  * 互相咬合——令牌一前进就要清掉在飞那一笔、响应又要拿令牌判过期、合成一开始已排上的防抖
  * 要作废——散进 hook 的各个闭包就会变成一份看不见的共享状态（见 spec §2 / §3）。
  * 依赖全部注入，所以这个文件不碰 React、不碰 invoke。
+ *
+ * 列表壳空态的「结果还在路上」也由这里报（`on_search_pending`），但不在这里存：挂上是
+ * 发检索那一刻，收掉是结果回来（reducer 的 `page_loaded` 顺手复位）、失败、或到点却没发新的。
  *
  * 「关键字没变不重发」是这里的判据：`compositionend` 补的那次与提交之后那次 input
  * 谁先谁后，都收敛到同一个结果。
@@ -125,25 +130,23 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
      * 同时在飞的那一笔作废、去重记录复位。
      */
     const send = (value: string) => {
-        const current_token = (latest_token + 1) % TOKEN_MOD;
-        latest_token = current_token;
+        const key = search_key(value);
+        if (value && key === last_sent) return;
 
-        // 新检索作废在飞的预请求：它回来时令牌对不上，整包丢弃
+        last_sent = key;
         in_flight_page = undefined;
+        latest_token = (latest_token + 1) % TOKEN_MOD;
+        const current_token = latest_token;
 
-        // 空输入不搜：把输入清空后列表整份清掉，等有内容再检索。
-        // 判据是原始输入而不是关键字——以空格开头时关键字是空串，那次照常搜
+        // 空输入，不搜索，清空列表
         if (value === "") {
-            // 去重记录复位：清空后重打同一个关键字要能重新搜（列表此时是空的）
+            // 去重记录复位
             last_sent = null;
             deps.on_page_loaded(undefined);
             return;
         }
 
-        const key = search_key(value);
-        // 关键字没变不重发：后端另有 input_key 缓存兜底，这里省掉一次往返
-        if (key === last_sent) return;
-        last_sent = key;
+        deps.on_search_pending(true);
 
         deps.search(key)
             .then(page => {
@@ -151,8 +154,11 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
                 if (latest_token !== current_token) return;
                 deps.on_page_loaded(page);
             })
-            // 检索失败不打断输入，列表保持上一次的样子
-            .catch(() => { });
+            // 检索失败，复位 pending 状态
+            .catch(() => {
+                if (latest_token !== current_token) return;
+                deps.on_search_pending(false);
+            });
     };
 
     const input_changed = (value: string) => {

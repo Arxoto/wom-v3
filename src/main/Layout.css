@@ -24,26 +24,43 @@
 }
 
 /* 分割线 */
-.layout-box>.divider {
-    flex-shrink: 0;
-    height: 1px;
-    width: 100%;
-    margin: 3px 0 4px 0;
-    background-color: var(--color-comm-magical);
-}
-
 .layout-box>.divider-top {
+    position: relative;
     flex-shrink: 0;
     height: 1px;
     width: 100%;
     margin: 0 0 7px 0;
+    background-color: var(--color-comm-general);
+}
+
+/* 紧贴下沿的辅助线，绝对定位所以不占布局 */
+.layout-box>.divider-top::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 1px;
     background-color: var(--color-comm-magical);
 }
 
+/* 分割线 */
 .layout-box>.divider-bottom {
+    position: relative;
     flex-shrink: 0;
     height: 1px;
     width: 100%;
     margin: 7px 0 0 0;
+    background-color: var(--color-comm-general);
+}
+
+/* 紧贴上沿的辅助线，绝对定位所以不占布局 */
+.layout-box>.divider-bottom::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 100%;
+    height: 1px;
     background-color: var(--color-comm-magical);
 }
