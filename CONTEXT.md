@@ -39,7 +39,7 @@ The position of an Item in the set loaded from the settings file; it rides along
 _Avoid_: id, item_id, key
 
 **List Position**:
-The row of the loaded result list that the Selection currently occupies; the list's scroll offset is derived from it. It is not the Item Index.
+The row of the loaded result list that the Selection currently occupies. It is not the Item Index.
 _Avoid_: index, position, row number, 列表下标
 
 **Hint Bar**:

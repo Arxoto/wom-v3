@@ -18,6 +18,7 @@ Status: resolved
 
 ## Comments
 
+- 2026-09-19（同日追加）：滚动偏移改成 `Body` 自己的状态，模型换成「余量」：`margin = floor(item_n * 0.4)` 行上下各留一份，高亮只在中间剩下的那几条里走，踏进哪一侧的余量带就把窗口往那一侧挪、让高亮回到带外（`last_row = item_n - margin - 1`）。原实现把偏移当成 `Selection` 的派生值（`offset = clamp(selection - trigger, 0, loaded_len - item_n)`），上下共用一条触发线，于是往回走时列表立刻跟着下移；现在往上走先让高亮自己爬，踏进上面的余量带才动窗口。Selection 不动时（翻页追加、显示复位）偏移不动。`spec.md` §5 与代码（`src/main/Body.tsx`）同步改了。
 - 2026-09-19：滚动触发线从「倒数第二行」（`item_n - 2`）改成可见区的 60%（`item_n * 0.6`，取整到行并夹在可见区内），下方的预览留白从 1 行变成 40% 可见区。`spec.md` §5 与代码（`src/main/Body.tsx` 的 `trigger` / `offset`）同步改了。
 - 2026-09-18：in-flight 表改成单槽记账——同一时间最多一页在飞（请求的起始下标恒等于已加载条数，而它只在上一页落账之后才增长；`Selection` 又被 clamp 在已加载范围内），所以不需要按页下标建表。判据与三条前提写在 `search_session.ts` 的 `in_flight_page` 上。
 - 预请求的触发条件与失败反馈在 2026-09-14 的讨论里收紧过一次：原文写的是「选中索引 = 已加载条数 - 10 时发起」，也没说失败怎么办。

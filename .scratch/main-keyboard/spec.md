@@ -59,7 +59,7 @@ Status: settled
 
 - **列表位置不是 `Item Index`**：`selection` 只表示行号；寻址条目一律用 `ItemDisplay.item_index`。
 - **副作用不进 reducer**，也不放 effect：`index_main.tsx` 挂着 `React.StrictMode`，dev 下 reducer / state updater 会被调用两次，一次按键就会打两枪。
-- **滚动位置是派生值**，不占状态（见 §5）。
+- **滚动位置不进 `MainState`**：它是 `Body` 自己的状态（见 §5）。
 - **空结果**：`item_list` 为空时，所有依赖条目的意图退化成无操作（判据是列表长度，不是 `selection` 的取值）；列表区显示一行占位文案——输入为空时是「输入关键字开始搜索」，有输入但没匹配时是「没有匹配的条目」；Tail 保持列表模式那套提示（见 [Selection 与 Preview 的行为](issues/06-selection-and-preview.md)）。
 - **新结果回来**：`selection` 回到 0；当前动作恒为该 `ItemType` 动作表的第一个，不需要额外的状态。
 
@@ -68,7 +68,7 @@ Status: settled
 | 组件 | props |
 | --- | --- |
 | `Head` | `{ value, ghost, on_change, input_ref }`（ref 归 hook，聚焦与全选要用；`ghost` 沿用现状的占位串，本 effort 不实现补全） |
-| `Body` | `{ item_list, selection, item_n, show_preview, type_actions }`（滚动偏移自己现算） |
+| `Body` | `{ item_list, selection, item_n, show_preview, type_actions }`（滚动偏移是组件自己的状态） |
 | `Item` | `{ item, action_id, is_selected }`（图标按 `action_id` 查；没有动作时传 `null`，整块不渲染） |
 | `Tail` | `{ preview_open, action_desc }`（当前 `ItemType` + 动作对应的文案，先用动作名占位；条目没有动作时为 `null`，动作栏整块不渲染） |
 
@@ -169,16 +169,23 @@ dismiss_main_window()
 
 ## 5. 滚动模型
 
-可见行数 = `main_item_n`；滚动偏移是 `Selection` 的派生值，不占状态：
+可见行数 = `main_item_n`；滚动偏移是 `Body` 自己的状态——高亮在中间那几条里自己走时窗口不动，得记住上一帧停在哪才知道它有没有踏进上下的余量带：
 
 ```text
-trigger = min(round(item_n * 0.6), item_n - 1)
-offset  = clamp(selection - trigger, 0, loaded_len - item_n)
+margin   = floor(item_n * 0.4)   // 高亮上下各留的余量（行数）
+last_row = item_n - margin - 1   // 高亮允许占的最后一行
+row      = selection - offset    // 高亮落在屏幕的第几行
+
+row < margin   → offset -= margin - row         // 踏进上面的余量带：窗口上移
+row > last_row → offset += row - last_row       // 踏进下面的余量带：窗口下移
+否则窗口不动
+
+offset = clamp(offset, 0, loaded_len - item_n)  // 列表顶 / 最后一屏
 ```
 
-效果就是 09 号 ticket 定的：触发线落在可见区往下 60% 那一行（10 行时是屏幕第 7 行、也就是倒数第 4 行），高亮走到它之后再按 `↓`，列表整体上移一行、高亮停在同一屏幕行，触发线以下始终留出后面 40% 的可见区；只有下面确实没有更多结果时，高亮才继续下移到可见区最后一行。`↑` 对称（越过触发线往上走时整体下移一行，回到列表顶部后才继续上移到首行）。
+效果：可见区上下各留 40% 的行数当余量（10 行时上下各 4 行），高亮平时只在中间剩下那几条里走（10 行时是屏幕第 5、6 行）。往下走到可见区 60% 那一行（第 7 行）就踏进下面的余量带，窗口整体上移一行、高亮回到第 6 行；往上越过 40% 那一行（第 5 行）就踏进上面的余量带，窗口整体下移、高亮回到第 5 行。两条带都够不着时窗口一动不动、高亮自己走——这就是消掉「高亮在线上反复横跳、列表跟着抖」的死区。
 
-触发线要取整到行、也要留在可见区内：行号是拿去跟 `Selection` 比相等的（小数行永远比不中，高亮会丢），而 `item_n` 为 1 时 `round` 出来是 1、落在唯一的可见行之外，所以夹到 `item_n - 1`。滚动偏移一律不小于 0，所以 `loaded_len` 那一端不用再取一次 `max(0, …)`。本 effort 只做最简单的滚动，不含过渡动画。
+余量要取整到行（行号是拿去跟 `Selection` 比相等的，小数行永远比不中、高亮会丢），而且上下用同一个 `margin`：`item_n` 为 1、2 时是 0（本来也留不出余量），为 3 时两侧各 1 行、中间只剩第 2 行。`margin <= last_row` 恒成立，所以两条带不会重叠，判据谁先谁后都得到同一个结果。偏移两端夹住：`offset = 0`（列表顶）与 `offset = loaded_len - item_n`（最后一屏）之后窗口挪不动了，高亮继续走到首行 / 末行，也就是「直至到顶 / 直至到底」。偏移一律不小于 0，所以 `loaded_len` 那一端不用再取一次 `max(0, …)`；已加载不足一屏时右端是负数，被 0 兜住，整份列表都露着。Selection 不动（翻页追加、显示复位）时这一笔整段不发生，偏移也就跟着不动。本 effort 只做最简单的滚动，不含过渡动画。
 
 ## 6. 已知待实测
 

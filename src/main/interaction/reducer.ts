@@ -100,8 +100,7 @@ export const reduce_main = (state: MainState, action: MainAction): MainState => 
                 preview_open: action.page.item_list.length > 0 && state.preview_open,
             };
         case "page_appended":
-            // 预请求是纯追加：Selection 与滚动位置（Selection 的派生值）都不因为
-            // 这一页的成败动一下，只剩列表变长
+            // 预请求是纯追加，不影响展示
             return { ...state, item_list: [...state.item_list, ...action.page.item_list] };
         case "intent":
             return apply_intent(state, action.intent);

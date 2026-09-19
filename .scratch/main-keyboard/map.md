@@ -28,7 +28,7 @@ Status: resolved
 - [Selection 与 Preview 的行为](issues/06-selection-and-preview.md)：新结果回到第一条、边界 clamp 不环绕；鼠标 hover 只保留 CSS 效果、不写 Selection；Preview 跟随 Selection，空结果自动关闭并给一行占位（输入为空时「输入关键字开始搜索」，有输入没匹配时「没有匹配的条目」）；打开时 input 用 `readOnly`，↑/↓ 照常移动 Selection，`←` / `→` 放行给光标。
 - [Item Action 与触发命令](issues/07-item-action-and-command.md)：动作表在 Rust 写死、经元数据下发、带 ASCII 标签键；一条通用 `run_item_action` 命令；`←` / `→` 放行给光标，本 effort 不切动作。
 - [退场与窗口模式](issues/08-dismiss-and-window-mode.md)：不再销毁窗口；`Always` / `HideAndShow` 只决定失焦与触发动作后是否隐藏；ESC 一律隐藏；每次显示先强制关掉 Preview 再聚焦全选 input。
-- [分页与滚动](issues/09-paging-and-scroll.md)：预请求余量写死 10、Selection 落到已加载列表后 10 位就发（失败静默，Rust 记日志）；高亮停在可见区往下 60% 那一行、列表整体上移，下面没有更多结果才移到末行。
+- [分页与滚动](issues/09-paging-and-scroll.md)：预请求余量写死 10、Selection 落到已加载列表后 10 位就发（失败静默，Rust 记日志）；高亮停在可见区往下 60% 那一行、列表整体上移，下面没有更多结果才移到末行。（2026-09-19 修订：偏移改为 `Body` 自己的状态，上下各留 40% 行数的余量，高亮踏进哪一侧的余量带才挪窗口，见 `spec.md` §5。）
 - [前端接缝的形状](issues/11-frontend-module-shape.md)：新增 `src/main/interaction/`（纯意图 / reducer / 接线 hook 三个文件）；hook 持有 input ref；副作用只在事件回调里做（绕开 StrictMode 双调用）；滚动偏移由 `Body` 现算；`ItemDisplay` 带 `item_index`，列表位置不是 `Item Index`；行内动作是图标（选中行跟着 ←/→ 换），详细文案在 Tail。
 - [显示时的聚焦与全选](issues/12-focus-and-select-all-trigger.md)：Rust 在显示分支发事件，前端监听后聚焦并全选；挂载时再做一次，覆盖「启动即显示」。
 - [滚动与翻页的术语](issues/13-glossary-scroll-and-paging.md)：滚动 / 翻页 / 预请求不进术语表；新增 `List Position`，与 `Item Index` 分开。
