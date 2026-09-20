@@ -1,4 +1,4 @@
-import { Dispatch, RefObject, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Dispatch, RefObject, useCallback, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
 import {
     EMPTY_ITEM_TYPE_ACTIONS,
@@ -80,6 +80,9 @@ const useMainWindowFocus = (
  * - 检索的时序交给 [`create_search_session`]
  * - 窗口显示时的复位与聚焦交给 [`useMainWindowFocus`]
  * - 本身只负责事件注册、invoke 与触发时机
+ *
+ * 按下按键要读的是「最新一次渲染的状态」，而监听又不该跟着状态重挂，两个诉求同时成立靠
+ * `useEffectEvent`：它给出的处理器身份稳定、内部永远指向最新一次渲染的闭包。
  */
 export const useMainInteraction = () => {
     /** 主状态 */
@@ -102,21 +105,14 @@ export const useMainInteraction = () => {
     }));
 
     /** 静默续下一页 */
-    const prefetch_next_page = useCallback(() => {
+    const prefetch_next_page = () => {
         session.prefetch({
             // 已加载条数就是下一页的起始下标：列表按顺序追加，中间没有空洞
             loaded_count: state.conclusion?.item_list.length ?? 0,
             selection: state.selection,
             total: state.conclusion?.total ?? 0,
         });
-    }, [session, state.conclusion, state.selection]);
-
-    const on_input_change = useCallback((value: string) => {
-        dispatch({ kind: "typing", value });
-        // 阶段怎么走（合成中间态不排检索、空输入当场落定、关键字怎么切出）全在会话里，
-        // 这里只报「输入变了」（见 search_session.ts）
-        session.input_changed(value);
-    }, [session]);
+    };
 
     /**
      * 跑当前条目的默认动作
@@ -125,17 +121,77 @@ export const useMainInteraction = () => {
      * 有动作时先关掉 Preview（Selection 与输入内容都不动），再把它交给 Rust——
      * 要不要隐藏窗口由 Rust 按 `main_window_mode` 决定（见 spec §3 / §4.3）。
      */
-    const run_current_action = useCallback(() => {
+    const run_current_action = () => {
         const item = state.conclusion?.item_list[state.selection];
         const action = item ? default_action(type_actions, item.the_type) : null;
         if (!item || !action) return;
 
         dispatch({ kind: "intent", intent: "run_action" });
         void run_item_action(item.item_index, action.id);
-    }, [state.conclusion, state.selection, type_actions]);
+    };
+
+    /**
+     * 按键只有一个入口：window 捕获阶段的 keydown。挂在真实 input 上会漏掉
+     * 「预览打开」「鼠标点过 body 之后焦点不在 input」这些情形（见 ADR-0006）。
+     *
+     * 已知风险：合成（IME 候选框打开）期间按键会不会到达这里还没实测（见 spec §6），
+     * 真到了页面，几下 ↑/↓ 会移动 Selection、Enter 会跑动作、ESC 会关预览或隐藏窗口，
+     * 所以这里暂时不做合成判断。
+     */
+    const on_key_down = useEffectEvent((event: KeyboardEvent) => {
+        const intent = resolve_key(
+            event.key,
+            { shift: event.shiftKey },
+            { preview_open: state.preview_open },
+        );
+        if (intent === null) return;
+
+        // 只有移动选中的键保留浏览器默认行为（单行输入框里光标顶到首尾），
+        // Enter / Shift+Enter / ESC 一律拦下来（见 spec §1）
+        if (!is_select_intent(intent)) event.preventDefault();
+
+        // 退场交给 Rust：它无条件隐藏主窗口，不看 main_window_mode
+        if (intent === "dismiss") {
+            void dismiss_main_window();
+            return;
+        }
+
+        // 跑动作也交给 Rust，只是先由接线层确认这一次真的有事可做
+        if (intent === "run_action") {
+            run_current_action();
+            return;
+        }
+
+        // 按住连发的限流：首次按键立即响应，其余最快 100ms 一次。
+        // 只有移动 Selection 的意图限流，其他按键各管各的。
+        if (is_select_intent(intent)) {
+            const now = performance.now();
+            if (now - last_select_at.current < SELECT_REPEAT_MS) return;
+            last_select_at.current = now;
+
+            // 朝后走才看一眼要不要续下一页；预请求是纯追加，不挡这次移动
+            if (intent === "select_next") prefetch_next_page();
+        }
+
+        dispatch({ kind: "intent", intent });
+    });
+
+    // 监听只挂一次：处理器读的是最新状态，不必跟着 Selection / 结论重挂
+    useEffect(() => {
+        window.addEventListener("keydown", on_key_down, true);
+        return () => window.removeEventListener("keydown", on_key_down, true);
+    }, []);
+
+    /** 输入变了：受控值先回写，阶段怎么走交给会话（见 search_session.ts） */
+    const on_input_change = useEffectEvent((value: string) => {
+        dispatch({ kind: "typing", value });
+        // 阶段怎么走（合成中间态不排检索、空输入当场落定、关键字怎么切出）全在会话里，
+        // 这里只报「输入变了」（见 search_session.ts）
+        session.input_changed(value);
+    });
 
     // 输入与合成（IME）事件都挂在真实 input 上：Head 只留受控的 value 与一个占位处理器，
-    // 语义全在这一层（按键路径见下面那个 window 级入口）
+    // 语义全在这一层（按键路径见上面那个 window 级入口）
     useEffect(() => {
         const input = input_ref.current;
         if (!input) return;
@@ -156,56 +212,7 @@ export const useMainInteraction = () => {
             input.removeEventListener("compositionend", on_composition_end);
             input.removeEventListener("focus", on_focus);
         };
-    }, [session, on_input_change]);
-
-    // 按键只有一个入口：window 捕获阶段的 keydown。挂在真实 input 上会漏掉
-    // 「预览打开」「鼠标点过 body 之后焦点不在 input」这些情形（见 ADR-0006）。
-    //
-    // 已知风险：合成（IME 候选框打开）期间按键会不会到达这里还没实测（见 spec §6），
-    // 真到了页面，几下 ↑/↓ 会移动 Selection、Enter 会跑动作、ESC 会关预览或隐藏窗口，
-    // 所以这里暂时不做合成判断。
-    useEffect(() => {
-        const on_key_down = (event: KeyboardEvent) => {
-            const intent = resolve_key(
-                event.key,
-                { shift: event.shiftKey },
-                { preview_open: state.preview_open },
-            );
-            if (intent === null) return;
-
-            // 只有移动选中的键保留浏览器默认行为（单行输入框里光标顶到首尾），
-            // Enter / Shift+Enter / ESC 一律拦下来（见 spec §1）
-            if (!is_select_intent(intent)) event.preventDefault();
-
-            // 退场交给 Rust：它无条件隐藏主窗口，不看 main_window_mode
-            if (intent === "dismiss") {
-                void dismiss_main_window();
-                return;
-            }
-
-            // 跑动作也交给 Rust，只是先由接线层确认这一次真的有事可做
-            if (intent === "run_action") {
-                run_current_action();
-                return;
-            }
-
-            // 按住连发的限流：首次按键立即响应，其余最快 100ms 一次。
-            // 只有移动 Selection 的意图限流，其他按键各管各的。
-            if (is_select_intent(intent)) {
-                const now = performance.now();
-                if (now - last_select_at.current < SELECT_REPEAT_MS) return;
-                last_select_at.current = now;
-
-                // 朝后走才看一眼要不要续下一页；预请求是纯追加，不挡这次移动
-                if (intent === "select_next") prefetch_next_page();
-            }
-
-            dispatch({ kind: "intent", intent });
-        };
-
-        window.addEventListener("keydown", on_key_down, true);
-        return () => window.removeEventListener("keydown", on_key_down, true);
-    }, [state.preview_open, run_current_action, prefetch_next_page]);
+    }, [session]);
 
     // 获取配置
     useEffect(() => {
