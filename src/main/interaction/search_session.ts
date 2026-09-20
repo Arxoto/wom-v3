@@ -67,31 +67,46 @@ const create_search_state = () => {
     let last_sent: string | null = null;
     /** 当前结论的令牌，由后端随检索结果下发；`null` = 没搜索 */
     let settled_token: number | null = null;
-    /** 预请求页是否在飞 */
-    let prefetch_in_flight = false;
+    /**
+     * 预请求记账：结论页的起始索引 → 请求结果是否到达
+     *
+     * 索引不在映射里 = 这一页没请求过；`false` = 请求已发出、结果还没到；`true` = 结果已到。
+     */
+    const prefetch_arrived = new Map<number, boolean>();
 
     return {
-        /** @param key 传入想要检索的关键字，空串是合法关键字；`null` 表示上一次没有请求 */
+        /** 
+         * 关键字是「过期响应」的判据，答复到达时必须与当前关键字相同。
+         * 
+         * @param key 传入想要检索的关键字，空串是合法关键字；`null` 表示上一次没有请求
+         */
         is_same_key: (key: string | null) => key === last_sent,
+        /**
+         * 记下这一次发出的关键字，并清掉预请求记账
+         *
+         * @param key 传入新的关键字，空串是合法关键字；`null` 表示这一次没有请求
+         */
+        mark_sent: (key: string | null) => {
+            last_sent = key;
+            prefetch_arrived.clear();
+        },
+
         /** 当前结论的令牌（`null` = 没搜索） */
         get_settled_token: () => settled_token,
         /** 结论换了一份（或清空）时记下它的令牌 */
         set_settled_token: (token: number | null) => settled_token = token,
         /** 这一页还是不是屏上那份结论的；令牌由后端生成，前端只回传，不自己造 */
         is_current_token: (token: number) => token === settled_token,
-        is_prefetch_in_flight: () => prefetch_in_flight,
-        set_prefetch: (in_flight: boolean) => prefetch_in_flight = in_flight,
-        /**
-         * 记下这一次发出的关键字，并清掉在飞的预请求
-         *
-         * 关键字是「过期响应」的判据：答复回来时它还得是最新一次请求的关键字。
-         *
-         * @param key 传入新的关键字，空串是合法关键字；`null` 表示这一次没有请求
-         */
-        mark_sent: (key: string | null) => {
-            last_sent = key;
-            prefetch_in_flight = false;
-        },
+
+        /** 这一页请求过了没有：在飞与已到达都算，判据只有「索引在不在映射里」 */
+        is_prefetch_requested: (page_start: number) => prefetch_arrived.has(page_start),
+        /** 记下这一页的请求已发出，结果还没到 */
+        mark_prefetch_sent: (page_start: number) => { prefetch_arrived.set(page_start, false); },
+        /** 记下这一页的结果已到达 */
+        mark_prefetch_arrived: (page_start: number) => { prefetch_arrived.set(page_start, true); },
+        /** 撤销这一页的记账，让它能被重新请求 */
+        release_prefetch: (page_start: number) => { prefetch_arrived.delete(page_start); },
+
     }
 }
 
@@ -105,6 +120,9 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
 
     /** 发送检索 */
     const send = (key: string) => {
+        // 关键字没变，不重复发送
+        if (search_state.is_same_key(key)) return;
+
         search_state.mark_sent(key);
 
         deps.search(key).then(page => {
@@ -152,8 +170,8 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
             return;
         }
 
-        // 重复 key 不改变任何状态
         const key = search_key(value);
+        // 输入变了但是关键字没变，可能正在输入参数，不做任何事
         if (search_state.is_same_key(key)) return;
 
         debounce_search(key);
@@ -172,7 +190,7 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
 
     /** 静默续下一页 */
     const prefetch = (ctx: PrefetchContext) => {
-        // 下一页的起始下标恒等于已加载条数（见 prefetch_in_flight 的说明）
+        // 下一页的起始下标
         const page_start = ctx.loaded_count;
         // 结果已经全部加载（或还没有结论，`total` 是 0）：没有下一页可续
         if (page_start >= ctx.total) return;
@@ -181,21 +199,21 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
         if (settled_token === null) return;
         // 在余量内才进行获取
         if (ctx.selection < page_start - PREFETCH_MARGIN) return;
-        // 已经在飞，不重复发
-        if (search_state.is_prefetch_in_flight()) return;
+        // 这一页请求过（在飞或已到），不重复发
+        if (search_state.is_prefetch_requested(page_start)) return;
 
-        search_state.set_prefetch(true);
+        search_state.mark_prefetch_sent(page_start);
         deps.search_page(page_start, settled_token).then(
             page => {
                 // 已过时，丢弃
                 if (!search_state.is_current_token(settled_token)) return;
-                search_state.set_prefetch(false);
+                search_state.mark_prefetch_arrived(page_start);
                 deps.on_page_appended(page);
             },
             // 失败捕获，允许手动重试
             err => {
                 console.error("search_page failed:", err);
-                if (search_state.is_current_token(settled_token)) search_state.set_prefetch(false);
+                if (search_state.is_current_token(settled_token)) search_state.release_prefetch(page_start);
             },
         );
     };
