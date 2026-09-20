@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { ItemActionId, ItemDisplay } from "../../core";
 import { ACTION_ICONS } from "./action_icons";
 import "./Item.css";
@@ -31,4 +32,4 @@ const Item = ({ item, action_id, is_selected }: Props) => {
     );
 }
 
-export default Item;
+export default memo(Item);

@@ -33,6 +33,9 @@ export const MAIN_STATE_INIT: MainState = {
     preview_open: false,
 }
 
+export const current_item = (item_list: ItemDisplay[] | null | undefined, selection: number) =>
+    item_list?.[selection];
+
 /**
  * 状态变化的来源
  */

@@ -1,17 +1,8 @@
 import type { ItemSearchPage } from "../../core";
+import { PREFETCH_MARGIN } from "./timing";
 
 /** 打字到检索的尾防抖：停手这么久才发请求 */
 const SEARCH_DEBOUNCE_MS = 50;
-
-/**
- * 预请求的余量：指针落到已加载列表的后 10 位就续下一页。写死 10，不跟随 main_item_n
- *
- * `PREFETCH_MARGIN` 同时是后端的时间预算：
- * - 假设窗口设定余量为 n （具体见 `Body` 里的计算），即选中行在窗口的倒数第 n 行时向下时，优先尝试移动整个窗口，窗口到底后才移动选中行；
- * - 请求会在选中行上到达最后 10 行时发出，而连续按住下时 `SELECT_REPEAT_MS` 限流到最快 100ms 一次（见 `useMainInteraction` ）；
- * - 所以后端需要在 `(10 - n) * 100ms` 内返回，否则高亮行提前下移，等预请求的结果返回会有跳变。
- */
-const PREFETCH_MARGIN = 10;
 
 /**
  * 从输入里切出检索关键字：第一个空格前的内容视为关键字，之后视为参数
@@ -48,11 +39,18 @@ export interface SearchSessionDeps {
  * 方法按「事件」和「动作」命名。
  */
 export interface SearchSession {
-    /** 输入改变，内部控制防抖和检索请求 */
-    input_changed(value: string): void;
-    /** 合成会话开始：丢掉防抖请求；并且锁住输入检索 */
+    /**
+     * 输入改变，内部控制防抖和检索请求
+     *
+     * `is_composing` 由调用侧从 [`InputEvent.isComposing`] 传来，会话不自己控制开关：
+     * 若使用 `compositionstart` / `compositionend` 手动判断，可能会在合成中途遇到
+     * “失焦、隐藏窗口、输入法自己取消”的情况，没有产生 `compositionend` 事件，
+     * 标志永远停在 `true` ，输入响应跟着「假死」，无法自愈。
+     */
+    input_changed(value: string, is_composing: boolean): void;
+    /** 合成会话开始：丢掉防抖请求 */
     begin_composition(): void;
-    /** 合成会话结束：解锁，并立即进行检索请求 */
+    /** 合成会话结束：立即进行检索请求 */
     end_composition(value: string): void;
 
     /** 预请求下一页 */
@@ -151,12 +149,9 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
         }, SEARCH_DEBOUNCE_MS);
     }
 
-    /** 合成期间不请求检索 */
-    let composing = false;
-
-    const input_changed = (value: string) => {
+    const input_changed = (value: string, is_composing: boolean) => {
         // 合成中间态，不做任何事
-        if (composing) return;
+        if (is_composing) return;
 
         // 空输入，不检索
         if (value === "") {
@@ -178,14 +173,12 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
     };
 
     const begin_composition = () => {
-        composing = true;
         debounce_cancel();
     };
 
     const end_composition = (value: string) => {
-        composing = false;
         // 也触发一次，不同平台事件触发顺序不一样
-        input_changed(value);
+        input_changed(value, false);
     };
 
     /** 静默续下一页 */

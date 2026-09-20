@@ -2,9 +2,10 @@ import { Box, Static, Elastic, DividerTop, DividerBottom } from "./main/Layout";
 import Head from "./main/Head";
 import Body from "./main/Body";
 import Tail from "./main/Tail";
-import { set_page_main } from "./core";
+import { set_page_main, type ItemDisplay } from "./core";
 import { useMainInteraction } from "./main/interaction/useMainInteraction";
 import { default_action_label } from "./main/interaction/action_labels";
+import { current_item } from "./main/interaction/reducer";
 
 import "./core.css";
 import { useEffect } from "react";
@@ -16,6 +17,9 @@ import { useEffect } from "react";
  * 不参与输入值的计算，只负责提示用法（见 Head 的 ghost）。
  */
 const GHOST_PLACEHOLDER = "输入关键字开始搜索，空格分割参数";
+
+/** 还没有结论时的空列表；写成常量，`Body` 的 memo 在空态下才生效 */
+const NO_ITEMS: ItemDisplay[] = [];
 
 const App = () => {
   useEffect(() => {
@@ -43,7 +47,7 @@ const App = () => {
       <DividerTop></DividerTop>
       <Elastic>
         <Body
-          item_list={state.conclusion?.item_list ?? []}
+          item_list={state.conclusion?.item_list ?? NO_ITEMS}
           selection={state.selection}
           item_n={item_n}
           show_preview={state.preview_open}
@@ -55,7 +59,7 @@ const App = () => {
       <Static>
         <Tail
           preview_open={state.preview_open}
-          action_desc={default_action_label(type_actions, state.conclusion?.item_list[state.selection])}>
+          action_desc={default_action_label(type_actions, current_item(state.conclusion?.item_list, state.selection))}>
         </Tail>
       </Static>
     </Box>

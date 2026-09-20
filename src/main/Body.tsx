@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { ItemDisplay, ItemTypeActions } from "../core";
 import Item from "./item/Item";
 import { default_action } from "./interaction/action_labels";
+import { current_item } from "./interaction/reducer";
 import "./Body.css";
 
 interface BodyPreviewProps {
@@ -45,7 +46,7 @@ interface Props {
  * 预览是否打开由外部传入（AppMain），这样它与 Tail 的提示是同一个状态。
  */
 const Body = ({ item_list, selection, item_n, show_preview, type_actions, empty }: Props) => {
-    const preview_item = item_list[selection];
+    const preview_item = current_item(item_list, selection);
 
     const empty_text = empty ? "" : "没有匹配的条目";
 
@@ -89,4 +90,4 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions, empty 
     );
 }
 
-export default Body;
+export default memo(Body);

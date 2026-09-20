@@ -16,6 +16,10 @@ export type Intent =
     | "toggle_preview"
     | "dismiss";
 
+/** 移动 Selection 的意图：连发限流只对它们生效 */
+export const is_select_intent = (intent: Intent) =>
+    intent === "select_prev" || intent === "select_next";
+
 /** 按下时按着的修饰键 */
 export interface KeyMod {
     shift: boolean,

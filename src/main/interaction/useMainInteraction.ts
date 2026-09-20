@@ -12,19 +12,13 @@ import {
     type ItemTypeActions,
 } from "../../core";
 import { default_action } from "./action_labels";
-import { resolve_key, type Intent } from "./keys";
-import { MAIN_STATE_INIT, MainAction, reduce_main } from "./reducer";
+import { is_select_intent, resolve_key, type Intent } from "./keys";
+import { MAIN_STATE_INIT, MainAction, current_item, reduce_main } from "./reducer";
 import { create_search_session } from "./search_session";
-
-/** 按住 ↑/↓ 连发的限流间隔：首次按键立即响应，之后的连发最快 100ms 一次 */
-const SELECT_REPEAT_MS = 100;
+import { SELECT_REPEAT_MS } from "./timing";
 
 /** 还没读到配置时的兜底条数，真值来自 Config::main_item_n */
 const FALLBACK_ITEM_N = 10;
-
-/** 移动 Selection 的意图：连发限流只对它们生效 */
-const is_select_intent = (intent: Intent) =>
-    intent === "select_prev" || intent === "select_next";
 
 /**
  * 主窗口显示时的复位
@@ -122,23 +116,39 @@ export const useMainInteraction = () => {
      * 要不要隐藏窗口由 Rust 按 `main_window_mode` 决定（见 spec §3 / §4.3）。
      */
     const run_current_action = () => {
-        const item = state.conclusion?.item_list[state.selection];
-        const action = item ? default_action(type_actions, item.the_type) : null;
-        if (!item || !action) return;
+        const item = current_item(state.conclusion?.item_list, state.selection);
+        if (!item) return;
+        const action = default_action(type_actions, item.the_type);
+        if (!action) return;
 
         dispatch({ kind: "intent", intent: "run_action" });
         void run_item_action(item.item_index, action.id);
+    };
+
+    const move_selection = (intent: Intent, repeat: boolean) => {
+        // 按住连发的限流：首次按键立即响应，其余最快 SELECT_REPEAT_MS 一次；
+        // 只对自动重复（event.repeat）生效，人手连按两下不吞
+        const now = performance.now();
+        if (repeat && now - last_select_at.current < SELECT_REPEAT_MS) return;
+        last_select_at.current = now;
+
+        // 朝后走才看一眼要不要续下一页；预请求是纯追加，不挡这次移动
+        if (intent === "select_next") prefetch_next_page();
+
+        dispatch({ kind: "intent", intent });
     };
 
     /**
      * 按键只有一个入口：window 捕获阶段的 keydown。挂在真实 input 上会漏掉
      * 「预览打开」「鼠标点过 body 之后焦点不在 input」这些情形（见 ADR-0006）。
      *
-     * 已知风险：合成（IME 候选框打开）期间按键会不会到达这里还没实测（见 spec §6），
-     * 真到了页面，几下 ↑/↓ 会移动 Selection、Enter 会跑动作、ESC 会关预览或隐藏窗口，
-     * 所以这里暂时不做合成判断。
+     * 合成（IME 候选框打开）期间的按键用 `event.isComposing` 挡掉：候选框里的 ↑/↓、
+     * 提交候选的 Enter、取消候选的 ESC 都归输入法。残余风险是提交候选那一下的
+     * isComposing 取值与事件顺序（见 spec §6），要实测；不再叠 `keyCode === 229`。
      */
     const on_key_down = useEffectEvent((event: KeyboardEvent) => {
+        if (event.isComposing) return;
+
         const intent = resolve_key(
             event.key,
             { shift: event.shiftKey },
@@ -162,15 +172,9 @@ export const useMainInteraction = () => {
             return;
         }
 
-        // 按住连发的限流：首次按键立即响应，其余最快 100ms 一次。
-        // 只有移动 Selection 的意图限流，其他按键各管各的。
         if (is_select_intent(intent)) {
-            const now = performance.now();
-            if (now - last_select_at.current < SELECT_REPEAT_MS) return;
-            last_select_at.current = now;
-
-            // 朝后走才看一眼要不要续下一页；预请求是纯追加，不挡这次移动
-            if (intent === "select_next") prefetch_next_page();
+            move_selection(intent, event.repeat);
+            return;
         }
 
         dispatch({ kind: "intent", intent });
@@ -183,20 +187,21 @@ export const useMainInteraction = () => {
     }, []);
 
     /** 输入变了：受控值先回写，阶段怎么走交给会话（见 search_session.ts） */
-    const on_input_change = useEffectEvent((value: string) => {
+    const on_input_change = useEffectEvent((value: string, is_composing: boolean) => {
         dispatch({ kind: "typing", value });
         // 阶段怎么走（合成中间态不排检索、空输入当场落定、关键字怎么切出）全在会话里，
         // 这里只报「输入变了」（见 search_session.ts）
-        session.input_changed(value);
+        session.input_changed(value, is_composing);
     });
 
     // 输入与合成（IME）事件都挂在真实 input 上：Head 只留受控的 value 与一个占位处理器，
-    // 语义全在这一层（按键路径见上面那个 window 级入口）
+    // 语义全在这一层（按键路径见上面那个 window 级入口）；合成判据取事件自带的
+    // isComposing，不另存开关（理由见 search_session.ts 的 input_changed）
     useEffect(() => {
         const input = input_ref.current;
         if (!input) return;
 
-        const on_input = () => on_input_change(input.value);
+        const on_input = (event: InputEvent) => on_input_change(input.value, event.isComposing);
         const on_composition_start = () => session.begin_composition();
         const on_composition_end = () => session.end_composition(input.value);
         // 输入框获得焦点就全选
