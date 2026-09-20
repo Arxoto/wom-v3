@@ -12,6 +12,10 @@ use crate::builtin_plugins::{common::Item, persistence::load::ItemCollection};
 /// 由 [`crate::builtin_plugins::stat::BuiltinStat`] 持有
 #[derive(Debug, Default)]
 pub struct ItemSearchResult {
+    /// 这一份结果的身份令牌
+    ///
+    /// 前端翻页时校验是否与当前后端结果一致
+    pub token: u32,
     /// 产生该结果的检索输入
     ///
     /// `None` 表示尚未进行过检索
@@ -33,6 +37,8 @@ pub const PAGE_SIZE: usize = 100;
 /// 搜索结果（前端）
 #[derive(Debug, Serialize)]
 pub struct ItemSearchPage {
+    /// 这一页属于哪一份结果（见 [`ItemSearchResult::token`]）
+    pub token: u32,
     pub total: usize,
     pub index: usize,
     pub item_list: Vec<ItemDisplay>,
@@ -44,8 +50,12 @@ pub struct ItemSearchPage {
 }
 
 impl ItemSearchResult {
-    pub fn is_current_result(&self, k: &str) -> bool {
+    pub fn is_current_key(&self, k: &str) -> bool {
         self.input_key.as_deref() == Some(k)
+    }
+
+    pub fn is_current_token(&self, token: u32) -> bool {
+        self.token == token
     }
 
     pub fn page(&self, index: usize, item_collection: &ItemCollection) -> ItemSearchPage {
@@ -62,6 +72,7 @@ impl ItemSearchResult {
             .collect();
 
         ItemSearchPage {
+            token: self.token,
             total: self.item_indexes.len(),
             index: start_index,
             item_list,
@@ -159,7 +170,9 @@ mod algorithm {
         /// 依次按照 精确 > 前缀 > 包含 > 子序列 检索
         ///
         /// 遍历全部关键字，只保留优先级最高的那次匹配对应的分组
-        pub fn search(&self, k: &str) -> ItemSearchResult {
+        ///
+        /// `token` 由调用方给出：令牌是「哪一份结果」这件运行时的事，检索本身不产生它
+        pub fn search(&self, k: &str, token: u32) -> ItemSearchResult {
             let item_list = &self.item_list;
 
             // 四种匹配模式分别收集下标，既保证输出分组，又避免收集时克隆 [`Item`]
@@ -202,6 +215,7 @@ mod algorithm {
 
             ItemSearchResult {
                 input_key: Some(k.to_string()),
+                token,
                 item_indexes,
                 index_eq,
                 index_starts_with,
@@ -250,7 +264,7 @@ mod algorithm {
                 ],
             };
 
-            let result = item_collection.search("abc");
+            let result = item_collection.search("abc", 1);
 
             assert_eq!(result.item_indexes, vec![0, 1, 2, 3]);
             assert_eq!(result.index_eq, 0);
@@ -272,7 +286,7 @@ mod algorithm {
                 ],
             };
 
-            let result = item_collection.search("abc");
+            let result = item_collection.search("abc", 1);
 
             assert_eq!(result.item_indexes, vec![0, 2, 1]);
             assert_eq!(result.index_eq, 0);
@@ -287,7 +301,7 @@ mod algorithm {
                 item_list: vec![item(&["a"]), item(&["b"])],
             };
 
-            let result = item_collection.search("");
+            let result = item_collection.search("", 1);
 
             assert_eq!(result.item_indexes, vec![0, 1]);
             assert_eq!(result.index_eq, 0);
@@ -300,15 +314,15 @@ mod algorithm {
         #[test]
         fn empty_key_word_is_not_cached() {
             let result = ItemSearchResult::default();
-            assert!(!result.is_current_result(""));
-            assert!(!result.is_current_result("abc"));
+            assert!(!result.is_current_key(""));
+            assert!(!result.is_current_key("abc"));
 
             let result = ItemCollection {
                 item_list: vec![item(&["a"])],
             }
-            .search("");
-            assert!(result.is_current_result(""));
-            assert!(!result.is_current_result("a"));
+            .search("", 1);
+            assert!(result.is_current_key(""));
+            assert!(!result.is_current_key("a"));
         }
 
         #[test]
@@ -316,7 +330,7 @@ mod algorithm {
             let item_collection = ItemCollection {
                 item_list: vec![item(&["abc"]), item(&["abcd"]), item(&["xabc"])],
             };
-            let result = item_collection.search("abc");
+            let result = item_collection.search("abc", 1);
 
             let page = result.page(0, &item_collection);
             assert_eq!(page.total, 3);

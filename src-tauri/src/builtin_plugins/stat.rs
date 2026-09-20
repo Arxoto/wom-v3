@@ -66,9 +66,10 @@ pub fn search(builtin_stat: &BuiltinStat, k: &str) -> ItemSearchPage {
     let mut stat = builtin_stat.0.lock().unwrap(); // 无法处理异常
 
     // cache
-    if !stat.item_search_result.is_current_result(k) {
-        let new_search_result = stat.item_collection.search(k);
-        stat.item_search_result = new_search_result;
+    if !stat.item_search_result.is_current_key(k) {
+        // 令牌只由后端生成：每重新生成一份结果就在上一份的基础上 +1 （溢出回绕）
+        let token = stat.item_search_result.token.wrapping_add(1);
+        stat.item_search_result = stat.item_collection.search(k, token);
     }
 
     stat.item_search_result.page(0, &stat.item_collection)
@@ -76,20 +77,23 @@ pub fn search(builtin_stat: &BuiltinStat, k: &str) -> ItemSearchPage {
 
 /// 对检索结果进行翻页
 ///
-/// `k` 是前端正在展示的那份结论所属的关键字；与缓存对不上说明它已经过期，直接报错。
-/// 下标超界说明前端的已加载列表与结果集对不上，给空页并记 warn。
-pub fn search_page(builtin_stat: &BuiltinStat, index: usize, k: &str) -> Result<ItemSearchPage, String> {
+/// 校验 `token` ，过期报错
+pub fn search_page(
+    builtin_stat: &BuiltinStat,
+    index: usize,
+    token: u32,
+) -> Result<ItemSearchPage, String> {
     let stat = builtin_stat.0.lock().unwrap();
 
-    if !stat.item_search_result.is_current_result(k) {
-        let cached = stat.item_search_result.input_key.as_deref().unwrap_or("<none>");
-        let err = format!("search page for stale key: requested {k:?}, cached {cached:?}");
-        log::warn!("{err}");
+    if !stat.item_search_result.is_current_token(token) {
+        let cached = stat.item_search_result.token;
+        let err = format!("search page for stale token: requested {token}, cached {cached}");
         return Err(err);
     }
 
     if index > stat.item_search_result.item_indexes.len() {
-        log::warn!("search page out of range: {index}");
+        let err = format!("search page out of range: {index}");
+        return Err(err);
     }
 
     Ok(stat.item_search_result.page(index, &stat.item_collection))

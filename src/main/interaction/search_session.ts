@@ -3,9 +3,6 @@ import type { ItemSearchPage } from "../../core";
 /** 打字到检索的尾防抖：停手这么久才发请求 */
 const SEARCH_DEBOUNCE_MS = 50;
 
-/** 请求令牌的模：远大于同时在飞的请求数，环形递增就够 */
-const TOKEN_MOD = 256;
-
 /**
  * 预请求的余量：指针落到已加载列表的后 10 位就续下一页。写死 10，不跟随 main_item_n
  *
@@ -37,8 +34,8 @@ export interface PrefetchContext {
 export interface SearchSessionDeps {
     /** 按关键字检索第一页 */
     search: (key: string) => Promise<ItemSearchPage>;
-    /** 请求下一页：起始位置 + 这一页是替哪个关键字的列表翻的（Rust 会比对缓存） */
-    search_page: (page_start: number, key: string) => Promise<ItemSearchPage>;
+    /** 请求下一页：起始位置 + 当前令牌 */
+    search_page: (page_start: number, token: number) => Promise<ItemSearchPage>;
     /** 检索结果落定：`null` 表示没有查询（输入为空） */
     on_conclusion: (page: ItemSearchPage | null) => void;
     /** 预请求续上的一页回来了 */
@@ -68,32 +65,31 @@ export interface SearchSession {
 const create_search_state = () => {
     /** 上一次请求的关键字；`null` 表示上一次没有请求 */
     let last_sent: string | null = null;
-    /** 屏上那份结论属于哪个关键字；`null` = 屏上还没有结论 */
-    let settled_key: string | null = null;
-    /** 检索请求令牌；响应拿自己的令牌跟它比，不等就是过期响应；翻页请求也同样保证令牌一致 */
-    let search_token = 0;
+    /** 当前结论的令牌，由后端随检索结果下发；`null` = 没搜索 */
+    let settled_token: number | null = null;
     /** 预请求页是否在飞 */
     let prefetch_in_flight = false;
 
     return {
         /** @param key 传入想要检索的关键字，空串是合法关键字；`null` 表示上一次没有请求 */
         is_same_key: (key: string | null) => key === last_sent,
-        is_current_round: (current_token: number) => current_token === search_token,
-        get_current_token: () => search_token,
-        /** 屏上那份结论属于哪个关键字（`null` = 屏上还没有结论） */
-        get_settled_key: () => settled_key,
-        /** 结论换了一份（或清空）时记下它属于哪个关键字 */
-        set_settled_key: (key: string | null) => settled_key = key,
+        /** 当前结论的令牌（`null` = 没搜索） */
+        get_settled_token: () => settled_token,
+        /** 结论换了一份（或清空）时记下它的令牌 */
+        set_settled_token: (token: number | null) => settled_token = token,
+        /** 这一页还是不是屏上那份结论的；令牌由后端生成，前端只回传，不自己造 */
+        is_current_token: (token: number) => token === settled_token,
         is_prefetch_in_flight: () => prefetch_in_flight,
         set_prefetch: (in_flight: boolean) => prefetch_in_flight = in_flight,
         /**
-         * 关键字改变，步进令牌至下一轮
-         * 
-         * @param key 传入新的关键字，空串是合法关键字；`null` 表示上一次没有请求
+         * 记下这一次发出的关键字，并清掉在飞的预请求
+         *
+         * 关键字是「过期响应」的判据：答复回来时它还得是最新一次请求的关键字。
+         *
+         * @param key 传入新的关键字，空串是合法关键字；`null` 表示这一次没有请求
          */
-        next_round: (key: string | null) => {
+        mark_sent: (key: string | null) => {
             last_sent = key;
-            search_token = (search_token + 1) % TOKEN_MOD;
             prefetch_in_flight = false;
         },
     }
@@ -102,22 +98,20 @@ const create_search_state = () => {
 /**
  * 建一次检索会话
  *
- * 内部通过令牌规避并发请求问题，修改数据等副作用通过外部注入。
+ * 通过令牌保证一致性，修改数据等副作用通过外部注入。
  */
 export const create_search_session = (deps: SearchSessionDeps): SearchSession => {
     const search_state = create_search_state();
 
     /** 发送检索 */
     const send = (key: string) => {
-        search_state.next_round(key);
+        search_state.mark_sent(key);
 
-        const token = search_state.get_current_token();
         deps.search(key).then(page => {
-            if (search_state.is_current_round(token)) {
-                // 屏上换成了这一份结论，它属于这个关键字
-                search_state.set_settled_key(key);
-                deps.on_conclusion(page);
-            }
+            // 输入修改，丢弃
+            if (!search_state.is_same_key(key)) return;
+            search_state.set_settled_token(page.token);
+            deps.on_conclusion(page);
         });
     };
 
@@ -152,9 +146,8 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
             if (search_state.is_same_key(null)) return;
             
             debounce_cancel();
-            search_state.next_round(null);
-            // 结论清空，屏上没有东西可翻页
-            search_state.set_settled_key(null);
+            search_state.mark_sent(null);
+            search_state.set_settled_token(null);
             deps.on_conclusion(null);
             return;
         }
@@ -183,26 +176,26 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
         const page_start = ctx.loaded_count;
         // 结果已经全部加载（或还没有结论，`total` 是 0）：没有下一页可续
         if (page_start >= ctx.total) return;
-        // 替屏上那份结论续页：它的关键字要跟着请求一起走，Rust 拿它比对缓存
-        const settled_key = search_state.get_settled_key();
-        if (settled_key === null) return;
+        // 替屏上那份结论续页：它的令牌要跟着请求一起走，Rust 拿它比对缓存
+        const settled_token = search_state.get_settled_token();
+        if (settled_token === null) return;
         // 在余量内才进行获取
         if (ctx.selection < page_start - PREFETCH_MARGIN) return;
         // 已经在飞，不重复发
         if (search_state.is_prefetch_in_flight()) return;
 
         search_state.set_prefetch(true);
-        const token = search_state.get_current_token();
-        deps.search_page(page_start, settled_key).then(
+        deps.search_page(page_start, settled_token).then(
             page => {
-                if (!search_state.is_current_round(token)) return;
+                // 已过时，丢弃
+                if (!search_state.is_current_token(settled_token)) return;
                 search_state.set_prefetch(false);
                 deps.on_page_appended(page);
             },
             // 失败捕获，允许手动重试
             err => {
                 console.error("search_page failed:", err);
-                if (search_state.is_current_round(token)) search_state.set_prefetch(false);
+                if (search_state.is_current_token(settled_token)) search_state.set_prefetch(false);
             },
         );
     };

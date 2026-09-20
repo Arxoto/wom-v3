@@ -120,12 +120,12 @@ pub fn dismiss_main_window(app: tauri::AppHandle) -> Result<(), String> {
 
 /// 对检索结果进行翻页（实现见 [`stat::search_page`]）
 ///
-/// `k` 是前端正在展示的那份结论所属的关键字（见 spec §3 的「预请求」）。
+/// `token` 是后端在检索结果里下发的令牌：前端原样回传，不自己造（见 spec §3 的「预请求」）。
 #[tauri::command]
 pub async fn search_page(
     builtin_stat: State<'_, BuiltinStat>,
     index: usize,
-    k: &str,
+    token: u32,
 ) -> Result<ItemSearchPage, String> {
-    stat::search_page(&builtin_stat, index, k)
+    stat::search_page(&builtin_stat, index, token)
 }

@@ -26,9 +26,6 @@ pub fn load_data(app: &tauri::AppHandle) {
 }
 
 /// 重新读取配置文件，返回配置是否发生变化
-///
-/// 只更新运行时配置；要不要重建窗口由触发方决定（见 [`crate::window_utils::recreate_main_window`]），
-/// 免得 configs 反向依赖 window_utils。
 pub fn reload_data(app: &tauri::AppHandle) -> bool {
     let config = Config::load(app).expect("load config failed");
     let previous = get_data();

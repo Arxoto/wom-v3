@@ -127,9 +127,11 @@ export const EMPTY_ITEM_TYPE_ACTIONS: ItemTypeActions = {
  * 检索结果的一页（对应 Rust 侧 search::ItemSearchPage）
  *
  * `index` 是这一页在结果集里的起始位置（不是页码），
- * 三个分组边界用来在列表里画匹配模式的分割线。
+ * 三个分组边界用来在列表里画匹配模式的分割线；
+ * `token` 是后端下发的结果令牌，翻页时原样回传，前端不自己造。
  */
 export interface ItemSearchPage {
+    token: number,
     total: number,
     index: number,
     item_list: ItemDisplay[],
@@ -186,11 +188,11 @@ export const search = async (k: string) => {
 /**
  * 取检索结果的一页
  *
- * `index` 是这一页在结果集里的起始位置（不是页码）：预请求传已加载条数。
- * `k` 是前端正在展示的结论所属的关键字，与后端缓存对不上就会报错。
+ * - `index` 是这一页在结果集里的起始位置（不是页码）：预请求传已加载条数。
+ * - `token` 是从后端拿到的、屏上那份结论的令牌：原样回传，不自己造；与后端缓存对不上就会报错。
  */
-export const search_page = async (index: number, k: string) => {
-    return (await invoke('search_page', { index, k })) as ItemSearchPage;
+export const search_page = async (index: number, token: number) => {
+    return (await invoke('search_page', { index, token })) as ItemSearchPage;
 }
 
 /**

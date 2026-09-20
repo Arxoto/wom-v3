@@ -75,9 +75,11 @@ const useMainWindowFocus = (
 /**
  * 主窗口交互的接线层
  *
- * 每次按键与每次输入都从这里进：状态变化交给 [`reduce_main`]，检索的时序（防抖、令牌、
- * 在飞页、合成锁）交给 [`create_search_session`]，窗口显示时的复位与聚焦交给
- * [`useMainWindowFocus`]，这里只剩事件注册、invoke 与「什么时候做」。
+ * 每次按键与每次输入都从这里进：
+ * - 状态变化交给 [`reduce_main`]
+ * - 检索的时序交给 [`create_search_session`]
+ * - 窗口显示时的复位与聚焦交给 [`useMainWindowFocus`]
+ * - 本身只负责事件注册、invoke 与触发时机
  */
 export const useMainInteraction = () => {
     /** 主状态 */
@@ -99,12 +101,7 @@ export const useMainInteraction = () => {
         on_page_appended: page => dispatch({ kind: "page_appended", page }),
     }));
 
-    /**
-     * 静默续下一页
-     *
-     * 判据用的都是当前状态，由这里现算后交给检索会话；在飞的记账与令牌在会话里
-     * （见 search_session.ts / spec §3 的「预请求」）。
-     */
+    /** 静默续下一页 */
     const prefetch_next_page = useCallback(() => {
         session.prefetch({
             // 已加载条数就是下一页的起始下标：列表按顺序追加，中间没有空洞

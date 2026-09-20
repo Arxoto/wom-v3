@@ -106,13 +106,16 @@ mod tray {
                 }
                 "re_plugin" => {
                     builtin_plugins::reload_setting(app);
+                    if let Err(e) = window_utils::recreate_main_window(app) {
+                        warn!("recreate main window failed: {}", e);
+                    }
                 }
                 "reload" => {
                     info!("try reload config data");
-                    if configs::reload_data(app) {
-                        if let Err(e) = window_utils::recreate_main_window(app) {
-                            warn!("recreate main window failed: {}", e);
-                        }
+                    let _ = configs::reload_data(app);
+                    // 这里是显式触发，因此无论如何都重建窗口，否则可能认为没有触发
+                    if let Err(e) = window_utils::recreate_main_window(app) {
+                        warn!("recreate main window failed: {}", e);
                     }
                 }
                 "quit" => {
