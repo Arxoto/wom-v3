@@ -178,6 +178,8 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
 
     const end_composition = (value: string) => {
         // 也触发一次，不同平台事件触发顺序不一样
+        // 导致同样的操作输入，但是最后一次 InputEvent.isComposing 的结果不同
+        // 因此为了跨平台一致性，最后手动调一下
         input_changed(value, false);
     };
 

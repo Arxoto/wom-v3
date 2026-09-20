@@ -9,12 +9,7 @@ export interface Conclusion {
     total: number,
 }
 
-/**
- * 主窗口的交互状态
- *
- * 渲染用得上的都在这里；请求时序（三个阶段、令牌、在飞的请求、防抖定时器）留在检索会话里，
- * 渲染侧只镜像一份「结论」。
- */
+/** 主窗口的交互状态（渲染相关） */
 export interface MainState {
     /** 输入框的值（受控） */
     input: string,

@@ -10,12 +10,7 @@ import { current_item } from "./main/interaction/reducer";
 import "./core.css";
 import { useEffect } from "react";
 
-/**
- * 空输入时的占位文案
- *
- * 真实输入为空（没有检索）时显示在输入框位置，一旦有输入就清空——它不是建议文本，
- * 不参与输入值的计算，只负责提示用法（见 Head 的 ghost）。
- */
+/** 空输入时的占位文案 */
 const GHOST_PLACEHOLDER = "输入关键字开始搜索，空格分割参数";
 
 /** 还没有结论时的空列表；写成常量，`Body` 的 memo 在空态下才生效 */
