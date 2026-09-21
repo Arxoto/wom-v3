@@ -11,13 +11,13 @@
     overflow: hidden;
 }
 
-/* 图标：纯色块占位，后期换成 svg / ico */
+/* 图标：纯线条，尺寸跟着行高缩放；颜色由 currentColor 跟随整行状态 */
 .item-icon {
+    display: block;
     flex: 0 0 auto;
     width: calc(var(--item-h) * 0.7);
     height: calc(var(--item-h) * 0.7);
-    border-radius: calc(var(--item-h) * 0.2);
-    background-color: var(--color-comm-magical);
+    color: var(--color-diff);
 }
 
 /* 中间列：flex-basis 0 让它随父元素宽度弹性伸缩（预览显示时变窄）
@@ -95,5 +95,12 @@
 /* 图标不是文字，发光得用 filter；半径与文字的 text-shadow 对齐 */
 .item-box:hover .item-action-icon,
 .item-box.is-selected .item-action-icon {
+    filter: drop-shadow(0 0 4px var(--color-hover-outer));
+}
+
+/* 左侧图标同样随整行换色加发光 */
+.item-box:hover .item-icon,
+.item-box.is-selected .item-icon {
+    color: var(--color-hover-inner);
     filter: drop-shadow(0 0 4px var(--color-hover-outer));
 }

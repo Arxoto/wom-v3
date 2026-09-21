@@ -1,6 +1,7 @@
 import { memo, useState } from "react";
 import type { ItemDisplay, ItemTypeActions } from "../core";
 import Item from "./item/Item";
+import { ITEM_ICONS } from "./item/item_icons";
 import { default_action } from "./interaction/action_labels";
 import { current_item } from "./interaction/reducer";
 import "./Body.css";
@@ -17,7 +18,7 @@ const BodyPreview = ({ item }: BodyPreviewProps) => {
         <div className="body-divider"></div>
         <div className="body-preview">
             <div className="body-preview-icon">
-                <div className="body-preview-icon-block"></div>
+                <div className="body-preview-icon-block">{ITEM_ICONS[item.the_type]}</div>
             </div>
             <div className="body-preview-title">{item.name}</div>
             <div className="body-preview-divider"></div>
