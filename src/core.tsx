@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { debug, info, warn } from '@tauri-apps/plugin-log';
 
 export const set_page_main = () => {
     set_page_config_data();
@@ -160,20 +161,33 @@ export interface ScanBaseOption {
     label: string,
 }
 
+const invoke_backend = async (cmd: string, args?: Record<string, unknown>): Promise<unknown> => {
+    const start = performance.now();
+    void info(`invoke ${cmd} start`);
+    try {
+        const value = await invoke(cmd, args);
+        void debug(`invoke ${cmd} done in ${Math.round(performance.now() - start)}ms`);
+        return value;
+    } catch (err) {
+        void warn(`invoke ${cmd} failed in ${Math.round(performance.now() - start)}ms`);
+        throw err;
+    }
+}
+
 export const get_config = async () => {
-    return (await invoke('fetch_config')) as Config;
+    return (await invoke_backend('fetch_config')) as Config;
 }
 
 export const set_config = async (config: Config) => {
-    await invoke('set_config', { config });
+    await invoke_backend('set_config', { config });
 }
 
 export const get_effect_info = async () => {
-    return (await invoke('fetch_effect_info')) as EffectInfo;
+    return (await invoke_backend('fetch_effect_info')) as EffectInfo;
 }
 
 export const get_scan_base_options = async () => {
-    return (await invoke('fetch_scan_base_options')) as ScanBaseOption[];
+    return (await invoke_backend('fetch_scan_base_options')) as ScanBaseOption[];
 }
 
 /**
@@ -182,7 +196,7 @@ export const get_scan_base_options = async () => {
  * 空串是合法输入：后端按「空关键字匹配所有」给出全部条目。
  */
 export const search = async (k: string) => {
-    return (await invoke('search', { k })) as ItemSearchPage;
+    return (await invoke_backend('search', { k })) as ItemSearchPage;
 }
 
 /**
@@ -192,7 +206,7 @@ export const search = async (k: string) => {
  * - `token` 是从后端拿到的、屏上那份结论的令牌：原样回传，不自己造；与后端缓存对不上就会报错。
  */
 export const search_page = async (index: number, token: number) => {
-    return (await invoke('search_page', { index, token })) as ItemSearchPage;
+    return (await invoke_backend('search_page', { index, token })) as ItemSearchPage;
 }
 
 /**
@@ -201,7 +215,7 @@ export const search_page = async (index: number, token: number) => {
  * 前端只在挂载时拉一次：配置重载会重建窗口，不需要热更新。
  */
 export const get_item_type_actions = async () => {
-    return (await invoke('fetch_item_type_actions')) as ItemTypeActions;
+    return (await invoke_backend('fetch_item_type_actions')) as ItemTypeActions;
 }
 
 /**
@@ -211,7 +225,7 @@ export const get_item_type_actions = async () => {
  * 并记日志。跑完之后要不要隐藏主窗口由 Rust 按 `main_window_mode` 决定，前端不参与。
  */
 export const run_item_action = async (item_index: number, action: ItemActionId) => {
-    await invoke('run_item_action', { itemIndex: item_index, action });
+    await invoke_backend('run_item_action', { itemIndex: item_index, action });
 }
 
 /**
@@ -221,7 +235,7 @@ export const run_item_action = async (item_index: number, action: ItemActionId) 
  * 这两条被动隐藏规则。
  */
 export const dismiss_main_window = async () => {
-    await invoke('dismiss_main_window');
+    await invoke_backend('dismiss_main_window');
 }
 
 /** 主窗口被显示时后端发来的事件名（对应 Rust 侧 constants::EVENT_MAIN_SHOWN） */

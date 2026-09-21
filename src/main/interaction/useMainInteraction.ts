@@ -1,5 +1,7 @@
 import { Dispatch, RefObject, useCallback, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
+import { debug, info } from "@tauri-apps/plugin-log";
+
 import {
     EMPTY_ITEM_TYPE_ACTIONS,
     dismiss_main_window,
@@ -38,16 +40,21 @@ const useMainWindowFocus = (
 
         const input = input_ref.current;
         if (!input) return;
+        void info("focus the main input");
         input.focus();
     }, [input_ref, dispatch]);
 
     useEffect(() => {
+        void debug("main window reset on mount");
         reset();
 
         let unlisten: (() => void) | undefined;
         let cancelled = false;
 
-        void on_main_shown(reset).then(stop => {
+        void on_main_shown(() => {
+            void debug("main window reset on main_shown");
+            reset();
+        }).then(stop => {
             // 注册还没回来就卸载了，就地退订
             if (cancelled) stop();
             else unlisten = stop;
@@ -105,6 +112,7 @@ export const useMainInteraction = () => {
         const action = default_action(type_actions, item.the_type);
         if (!action) return;
 
+        void info(`run action item_index=${item.item_index} action=${action.id}`);
         dispatch({ kind: "intent", intent: "run_action" });
         void run_item_action(item.item_index, action.id);
     };

@@ -1,3 +1,5 @@
+import { debug, info, warn } from "@tauri-apps/plugin-log";
+
 import type { ItemSearchPage } from "../../core";
 import { PREFETCH_MARGIN } from "./timing";
 
@@ -122,11 +124,16 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
         if (search_state.is_same_key(key)) return;
 
         search_state.mark_sent(key);
+        void debug(`search send key="${key}"`);
 
         deps.search(key).then(page => {
             // 输入修改，丢弃
-            if (!search_state.is_same_key(key)) return;
+            if (!search_state.is_same_key(key)) {
+                void info(`search drop stale response key="${key}"`);
+                return;
+            }
             search_state.set_settled_token(page.token);
+            void info(`search settle key="${key}" token=${page.token} total=${page.total}`);
             deps.on_conclusion(page);
         });
     };
@@ -161,6 +168,7 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
             debounce_cancel();
             search_state.mark_sent(null);
             search_state.set_settled_token(null);
+            void debug("search clear: empty input");
             deps.on_conclusion(null);
             return;
         }
@@ -198,17 +206,27 @@ export const create_search_session = (deps: SearchSessionDeps): SearchSession =>
         if (search_state.is_prefetch_requested(page_start)) return;
 
         search_state.mark_prefetch_sent(page_start);
+        void debug(`prefetch send page_start=${page_start} token=${settled_token}`);
         deps.search_page(page_start, settled_token).then(
             page => {
                 // 已过时，丢弃
-                if (!search_state.is_current_token(settled_token)) return;
+                if (!search_state.is_current_token(settled_token)) {
+                    void info(`prefetch drop stale token=${settled_token} page_start=${page_start}`);
+                    return;
+                }
                 search_state.mark_prefetch_arrived(page_start);
+                void debug(`prefetch append page_start=${page_start} items=${page.item_list.length}`);
                 deps.on_page_appended(page);
             },
             // 失败捕获，允许手动重试
-            err => {
-                console.error("search_page failed:", err);
-                if (search_state.is_current_token(settled_token)) search_state.release_prefetch(page_start);
+            (err: Error) => {
+                void warn(`prefetch failed page_start=${page_start}: ${err.message}`);
+                if (!search_state.is_current_token(settled_token)) {
+                    void info(`prefetch drop stale token=${settled_token} page_start=${page_start}`);
+                    return;
+                }
+                void info(`prefetch release page_start=${page_start}, allow retry`);
+                search_state.release_prefetch(page_start);
             },
         );
     };
