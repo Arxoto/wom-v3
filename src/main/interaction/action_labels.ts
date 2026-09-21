@@ -25,13 +25,31 @@ const LABELS: Record<string, string> = {
 /** 文案键对应的中文；查不到就显示键本身 */
 export const action_label = (label_key: string): string => LABELS[label_key] ?? label_key;
 
-/** 某个类型的默认动作（动作表第一个）；该类型没有动作时为 `null` */
-export const default_action = (type_actions: ItemTypeActions, the_type: ItemType): ItemAction | null =>
-    type_actions[the_type]?.[0] ?? null;
+/** 某个类型的动作表；`ItemTypeActions` 是七个键齐全的 `Record`，取出来必定有值 */
+export const actions_of = (type_actions: ItemTypeActions, the_type: ItemType): ItemAction[] =>
+    type_actions[the_type];
 
-/** 条目默认动作的文案；没有条目、或它没有动作时为 `null`（调用方整块不渲染） */
-export const default_action_label = (type_actions: ItemTypeActions, item: ItemDisplay | undefined): string | null => {
+/**
+ * 条目当前动作：按下标取，下标越界时夹到最后一个
+ *
+ * 下标是每个条目自己记的（见 `MainState.action_indices`），越界只可能来自动作表本身的变化。
+ */
+export const current_action = (
+    type_actions: ItemTypeActions,
+    the_type: ItemType,
+    action_index: number,
+): ItemAction | null => {
+    const actions = actions_of(type_actions, the_type);
+    return actions[Math.min(action_index, actions.length - 1)] ?? null;
+}
+
+/** 条目当前动作的文案；没有条目、或它没有动作时为 `null`（调用方整块不渲染） */
+export const current_action_label = (
+    type_actions: ItemTypeActions,
+    item: ItemDisplay | undefined,
+    action_index: number,
+): string | null => {
     if (!item) return null;
-    const action = default_action(type_actions, item.the_type);
+    const action = current_action(type_actions, item.the_type, action_index);
     return action ? action_label(action.label_key) : null;
 }

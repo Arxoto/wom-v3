@@ -31,8 +31,12 @@ The side panel of the main window that shows the Selection in full; ⇧+Enter to
 _Avoid_: detail view, panel, 预览页面
 
 **Item Action**:
-One of the things an Item can be made to do; an Item carries the list of Item Actions it offers in priority order, and Enter runs the first — its default, the one the list row shows.
+One of the things an Item can be made to do; an Item carries the list of Item Actions it offers in priority order.
 _Avoid_: command, operation, verb, 触发动作
+
+**Current Action**:
+The Item Action an Item is left at, remembered per Item; it starts as the Item's first, its default, and it is the one the list row shows. ←/→ move it through that Item's list, Enter runs the Selection's, and the Hint Bar names the Selection's.
+_Avoid_: selected action, primary action, 当前动作
 
 **Item Index**:
 The position of an Item in the set loaded from the settings file; it rides along with the Item Display and addresses that Item when running an Item Action.

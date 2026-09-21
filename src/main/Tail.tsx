@@ -4,7 +4,7 @@ import "./Tail.css";
 interface Props {
     /** 预览是否打开：提示条的形态由它现算，不另存一份状态 */
     preview_open: boolean,
-    /** 当前条目的默认动作文案；没有条目或条目没有动作时为 null，动作栏整块不渲染 */
+    /** 当前条目的当前动作文案；没有条目或条目没有动作时为 null，动作栏整块不渲染 */
     action_desc: string | null,
 }
 

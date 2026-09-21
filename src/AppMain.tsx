@@ -4,8 +4,8 @@ import Body from "./main/Body";
 import Tail from "./main/Tail";
 import { set_page_main, type ItemDisplay } from "./core";
 import { useMainInteraction } from "./main/interaction/useMainInteraction";
-import { default_action_label } from "./main/interaction/action_labels";
-import { current_item } from "./main/interaction/reducer";
+import { current_action_label } from "./main/interaction/action_labels";
+import { action_index_of, current_item } from "./main/interaction/reducer";
 
 import "./core.css";
 import { useEffect } from "react";
@@ -25,6 +25,9 @@ const App = () => {
 
   /** 空态：还没有结论（没输入过、输入为空，或这一次查询还没回来） */
   const empty = state.conclusion === null;
+
+  const selected_item = current_item(state.conclusion?.item_list, state.selection);
+  const selected_action_index = selected_item ? action_index_of(state, selected_item.item_index) : 0;
 
   return (
     <Box>
@@ -47,6 +50,7 @@ const App = () => {
           item_n={item_n}
           show_preview={state.preview_open}
           type_actions={type_actions}
+          action_indices={state.action_indices}
           empty={empty}>
         </Body>
       </Elastic>
@@ -54,7 +58,7 @@ const App = () => {
       <Static>
         <Tail
           preview_open={state.preview_open}
-          action_desc={default_action_label(type_actions, current_item(state.conclusion?.item_list, state.selection))}>
+          action_desc={current_action_label(type_actions, selected_item, selected_action_index)}>
         </Tail>
       </Static>
     </Box>

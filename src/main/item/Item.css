@@ -59,8 +59,30 @@
 /* 动作栏：行内动作是图标，宽度由图标决定，不参与中间列的伸缩 */
 .item-action {
     flex: 0 0 auto;
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
     padding-right: calc(var(--item-h) * 0.2);
     color: var(--color-diff-general);
+}
+
+/* 切换三角：位置常驻，换动作时动作图标不跟着位移；不露的那一侧只留白 */
+.item-action-arrow {
+    display: block;
+    flex: 0 0 auto;
+    width: calc(var(--item-h) * 0.25);
+    height: calc(var(--item-h) * 0.25);
+}
+
+.item-action[data-switch-prev="false"]>.item-action-arrow:first-child,
+.item-action[data-switch-next="false"]>.item-action-arrow:last-child {
+    visibility: hidden;
+}
+
+/* 三角与动作图标之间留一点缝（用相邻兄弟的 margin，见 HintBar.css 的同类写法） */
+.item-action-arrow+.item-action-icon,
+.item-action-icon+.item-action-arrow {
+    margin-left: calc(var(--item-h) * 0.12);
 }
 
 /* 动作图标：1 单位见方，跟着行高缩放；颜色由 currentColor 跟随整行的状态 */

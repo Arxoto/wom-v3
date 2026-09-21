@@ -9,6 +9,23 @@ import type { ItemActionId } from "../../core";
  * 图标是行内的一部分，所以尺寸与颜色都由 Item.css 决定（跟着 --item-h 缩放、currentColor 跟随整行状态）。
  */
 
+/* 两侧的切换三角：哪一侧还有动作就露哪一侧，样式见 Item.css 的 .item-action-arrow */
+const IconSwitchPrev = () => {
+    return (
+        <svg className="item-action-arrow" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+            <path d="M11 3.2 5.2 8 11 12.8z"></path>
+        </svg>
+    );
+}
+
+const IconSwitchNext = () => {
+    return (
+        <svg className="item-action-arrow" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+            <path d="M5 3.2 10.8 8 5 12.8z"></path>
+        </svg>
+    );
+}
+
 const IconCopy = () => {
     return (
         <svg className="item-action-icon" viewBox="0 0 16 16" aria-hidden="true"
@@ -72,4 +89,10 @@ export const ACTION_ICONS: Record<ItemActionId, ReactNode> = {
     open_path: <IconOpenPath></IconOpenPath>,
     reveal: <IconReveal></IconReveal>,
     open_note: <IconOpenNote></IconOpenNote>,
+};
+
+/** 动作图标两侧的切换三角：`prev` 朝左、`next` 朝右，位置常驻、由 Item 决定露不露 */
+export const ACTION_SWITCH_MARKS: Record<"prev" | "next", ReactNode> = {
+    prev: <IconSwitchPrev></IconSwitchPrev>,
+    next: <IconSwitchNext></IconSwitchNext>,
 };

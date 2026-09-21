@@ -13,9 +13,9 @@ import {
     search_page,
     type ItemTypeActions,
 } from "../../core";
-import { default_action } from "./action_labels";
-import { is_select_intent, resolve_key, type Intent } from "./keys";
-import { MAIN_STATE_INIT, MainAction, current_item, reduce_main } from "./reducer";
+import { actions_of, current_action } from "./action_labels";
+import { is_action_intent, is_select_intent, resolve_key, type Intent } from "./keys";
+import { MAIN_STATE_INIT, MainAction, action_index_of, current_item, reduce_main } from "./reducer";
 import { create_search_session } from "./search_session";
 import { SELECT_REPEAT_MS } from "./timing";
 
@@ -109,12 +109,24 @@ export const useMainInteraction = () => {
     const run_current_action = () => {
         const item = current_item(state.conclusion?.item_list, state.selection);
         if (!item) return;
-        const action = default_action(type_actions, item.the_type);
+        const action = current_action(type_actions, item.the_type, action_index_of(state, item.item_index));
         if (!action) return;
 
         void info(`run action item_index=${item.item_index} action=${action.id}`);
         dispatch({ kind: "intent", intent: "run_action" });
         void run_item_action(item.item_index, action.id);
+    };
+
+    /** 左右切换当前动作；返回这次按键有没有真的切换（挪不动那一侧就让给输入框挪光标） */
+    const switch_action = (delta: number): boolean => {
+        const item = current_item(state.conclusion?.item_list, state.selection);
+        if (!item) return false;
+
+        const action_index = action_index_of(state, item.item_index) + delta;
+        if (action_index < 0 || action_index >= actions_of(type_actions, item.the_type).length) return false;
+
+        dispatch({ kind: "action_selected", item_index: item.item_index, action_index });
+        return true;
     };
 
     const move_selection = (intent: Intent, repeat: boolean) => {
@@ -148,6 +160,13 @@ export const useMainInteraction = () => {
             { preview_open: state.preview_open },
         );
         if (intent === null) return;
+
+        if (is_action_intent(intent)) {
+            // 这一侧没有动作可切时不吞左右键：留给输入框挪光标
+            if (!switch_action(intent === "action_next" ? 1 : -1)) return;
+            event.preventDefault();
+            return;
+        }
 
         if (!is_select_intent(intent)) event.preventDefault();
 

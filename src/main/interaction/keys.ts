@@ -2,6 +2,8 @@
 export type Intent =
     | "select_prev"
     | "select_next"
+    | "action_prev"
+    | "action_next"
     | "run_action"
     | "toggle_preview"
     | "dismiss";
@@ -9,6 +11,10 @@ export type Intent =
 /** 移动 Selection 的意图：连发限流只对它们生效 */
 export const is_select_intent = (intent: Intent) =>
     intent === "select_prev" || intent === "select_next";
+
+/** 左右切换当前 Item Action 的意图：要不要拦下按键取决于这一侧还有没有动作 */
+export const is_action_intent = (intent: Intent) =>
+    intent === "action_prev" || intent === "action_next";
 
 /** 按下时按着的修饰键 */
 export interface KeyMod {
@@ -30,6 +36,10 @@ export const resolve_key = (key: string, mod: KeyMod, ctx: KeyContext): Intent |
             return "select_prev";
         case "ArrowDown":
             return "select_next";
+        case "ArrowLeft":
+            return "action_prev";
+        case "ArrowRight":
+            return "action_next";
         case "Enter":
             return mod.shift ? "toggle_preview" : "run_action";
         case "Escape":

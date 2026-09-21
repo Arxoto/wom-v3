@@ -17,6 +17,8 @@ export interface MainState {
     conclusion: Conclusion | null,
     /** List Position：Selection 落在已加载列表的第几行，不是 Item Index */
     selection: number,
+    /** 每个条目记住的当前动作（按 Item Index 记）；没记过的条目走默认动作 */
+    action_indices: Record<number, number>,
     /** Preview 是否打开 */
     preview_open: boolean,
 }
@@ -25,11 +27,16 @@ export const MAIN_STATE_INIT: MainState = {
     input: "",
     conclusion: null,
     selection: 0,
+    action_indices: {},
     preview_open: false,
 }
 
 export const current_item = (item_list: ItemDisplay[] | null | undefined, selection: number) =>
     item_list?.[selection];
+
+/** 条目记住的动作下标；没记过就是 0，也就是动作表第一个 */
+export const action_index_of = (state: MainState, item_index: number): number =>
+    state.action_indices[item_index] ?? 0;
 
 /**
  * 状态变化的来源
@@ -40,10 +47,15 @@ export type MainAction =
     | { kind: "settled", page: ItemSearchPage | null }
     | { kind: "page_appended", page: ItemSearchPage }
     | { kind: "intent", intent: Intent }
+    /** 记下某个条目切到了哪个动作：往哪一边还挪得动由接线层按动作表算 */
+    | { kind: "action_selected", item_index: number, action_index: number }
     | { kind: "close_preview" };
 
 /**
  * 意图怎么改状态
+ *
+ * 切换动作要先知道当前条目有几个动作，而那是动作表里的事：接线层把它折算成
+ * `action_selected` 派发。这两个意图不会真的走到这里，留着只为覆盖全 Intent。
  */
 const apply_intent = (state: MainState, intent: Intent): MainState => {
     switch (intent) {
@@ -51,6 +63,9 @@ const apply_intent = (state: MainState, intent: Intent): MainState => {
             return { ...state, selection: step_selection(state, -1) };
         case "select_next":
             return { ...state, selection: step_selection(state, 1) };
+        case "action_prev":
+        case "action_next":
+            return state;
         case "toggle_preview":
             // 空结果没有可预览的条目
             return {
@@ -105,6 +120,11 @@ export const reduce_main = (state: MainState, action: MainAction): MainState => 
             };
         case "intent":
             return apply_intent(state, action.intent);
+        case "action_selected":
+            return {
+                ...state,
+                action_indices: { ...state.action_indices, [action.item_index]: action.action_index },
+            };
         case "close_preview":
             return state.preview_open ? { ...state, preview_open: false } : state;
     }

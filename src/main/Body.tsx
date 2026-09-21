@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import type { ItemDisplay, ItemTypeActions } from "../core";
 import Item from "./item/Item";
 import { ITEM_ICONS } from "./item/item_icons";
-import { default_action } from "./interaction/action_labels";
+import { actions_of, current_action } from "./interaction/action_labels";
 import { current_item } from "./interaction/reducer";
 import "./Body.css";
 
@@ -33,6 +33,8 @@ interface Props {
     item_n: number,
     show_preview: boolean,
     type_actions: ItemTypeActions,
+    /** 每个条目记住的动作下标（按 Item Index）：行内动作与两侧三角都按它画 */
+    action_indices: Record<number, number>,
     /** 空态：还没有结论（没输入过、输入为空，或查询还没回来）——列表区留白 */
     empty: boolean,
 }
@@ -46,7 +48,7 @@ interface Props {
  * 
  * 预览是否打开由外部传入（AppMain），这样它与 Tail 的提示是同一个状态。
  */
-const Body = ({ item_list, selection, item_n, show_preview, type_actions, empty }: Props) => {
+const Body = ({ item_list, selection, item_n, show_preview, type_actions, action_indices, empty }: Props) => {
     const preview_item = current_item(item_list, selection);
 
     const empty_text = empty ? "" : "没有匹配的条目";
@@ -76,15 +78,23 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions, empty 
             <div className="body-items">
                 {item_list.length === 0
                     ? <div className="body-empty">{empty_text}</div>
-                    : item_show_list.map((item, index) => (
-                        // 用窗口内的下标作 key：翻页时同一槽位的 DOM 保持复用（见 AppMain.tsx 的 todo）
-                        <Item
-                            key={index}
-                            item={item}
-                            action_id={default_action(type_actions, item.the_type)?.id ?? null}
-                            is_selected={offset + index === selection}>
-                        </Item>
-                    ))}
+                    : item_show_list.map((item, index) => {
+                        const is_selected = offset + index === selection;
+                        const actions = actions_of(type_actions, item.the_type);
+                        const action_index = action_indices[item.item_index] ?? 0;
+                        const action = current_action(type_actions, item.the_type, action_index);
+                        return (
+                            // 用窗口内的下标作 key：翻页时同一槽位的 DOM 保持复用（见 AppMain.tsx 的 todo）
+                            <Item
+                                key={index}
+                                item={item}
+                                action_id={action?.id ?? null}
+                                can_switch_prev={action_index > 0}
+                                can_switch_next={action_index < actions.length - 1}
+                                is_selected={is_selected}>
+                            </Item>
+                        );
+                    })}
             </div>
             {show_preview && preview_item ? <BodyPreview item={preview_item}></BodyPreview> : <></>}
         </div>
