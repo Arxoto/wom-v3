@@ -13,7 +13,7 @@ import { useEffect } from "react";
 /** 空输入时的占位文案 */
 const GHOST_PLACEHOLDER = "输入关键字开始搜索，空格分割参数";
 
-/** 还没有结论时的空列表；写成常量，`Body` 的 memo 在空态下才生效 */
+/** 还没有结论时的空列表；常量而不是每次新建，允许 memo(Body) bailout */
 const NO_ITEMS: ItemDisplay[] = [];
 
 const App = () => {
