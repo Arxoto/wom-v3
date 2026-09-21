@@ -1,6 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { debug, info, warn } from '@tauri-apps/plugin-log';
+import { attachConsole, debug, info, warn } from '@tauri-apps/plugin-log';
+
+if (import.meta.env.DEV) {
+    void attachConsole();
+}
 
 export const set_page_main = () => {
     set_page_config_data();
