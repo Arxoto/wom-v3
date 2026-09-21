@@ -78,15 +78,15 @@ const useMainWindowFocus = (
  * - 本身只负责事件注册、invoke 与触发时机
  */
 export const useMainInteraction = () => {
-    /** 主状态 */
+    // 主状态
     const [state, dispatch] = useReducer(reduce_main, MAIN_STATE_INIT);
-    /** 主界面显示几行 item */
+    // 主界面显示几行 item
     const [item_n, set_item_n] = useState(FALLBACK_ITEM_N);
-    /** 动作表：挂载时拉一次，拉到之前是空表（没有条目显示动作图标） */
+    // 动作表：挂载时拉一次，拉到之前是空表（没有条目显示动作图标）
     const [type_actions, set_type_actions] = useState<ItemTypeActions>(EMPTY_ITEM_TYPE_ACTIONS);
 
     const input_ref = useRef<HTMLInputElement>(null);
-    /** 上一次连续切换的时刻；初值 -Infinity 让首次切换立即响应 */
+    // 上一次连续切换的时刻；初值 -Infinity 让首次切换立即响应
     const last_step_at = useRef(Number.NEGATIVE_INFINITY);
 
     // 检索会话不随每次渲染重建：时序状态都在它里面，重建就等于丢掉在飞的请求
@@ -96,46 +96,6 @@ export const useMainInteraction = () => {
         on_conclusion: page => dispatch({ kind: "settled", page }),
         on_page_appended: page => dispatch({ kind: "page_appended", page }),
     }));
-
-    /** 静默续下一页 */
-    const prefetch_next_page = () => {
-        session.prefetch({
-            // 已加载条数就是下一页的起始下标：列表按顺序追加，中间没有空洞
-            loaded_count: state.conclusion?.item_list.length ?? 0,
-            selection: state.selection,
-            total: state.conclusion?.total ?? 0,
-        });
-    };
-
-    const run_current_action = () => {
-        const item = current_item(state.conclusion?.item_list, state.selection);
-        if (!item) return;
-        const action = current_action(type_actions, item.the_type, action_index_of(state, item.item_index));
-        if (!action) return;
-
-        void info(`run action item_index=${item.item_index} action=${action.id}`);
-        dispatch({ kind: "intent", intent: "run_action" });
-        void run_item_action(item.item_index, action.id);
-    };
-
-    const action_step_target = (delta: number): { item_index: number, action_index: number } | null => {
-        const item = current_item(state.conclusion?.item_list, state.selection);
-        if (!item) return null;
-
-        const action_index = action_index_of(state, item.item_index) + delta;
-        if (action_index < 0 || action_index >= actions_of(type_actions, item.the_type).length) return null;
-
-        return { item_index: item.item_index, action_index };
-    };
-
-    /** 切换当前条目的动作；返回这次有没有真的切换 */
-    const switch_action = (delta: number): boolean => {
-        const target = action_step_target(delta);
-        if (target === null) return false;
-
-        dispatch({ kind: "action_selected", item_index: target.item_index, action_index: target.action_index });
-        return true;
-    };
 
     /**
      * 限流逻辑，只限制长摁和滚轮，手动连摁不限制
@@ -147,9 +107,38 @@ export const useMainInteraction = () => {
         return true;
     };
 
-    /**
-     * 移动 Selection
-     */
+    /** 计算当前条目的目标动作 */
+    const action_step_target = (delta: number): { item_index: number, action_index: number } | null => {
+        const item = current_item(state.conclusion?.item_list, state.selection);
+        if (!item) return null;
+
+        const action_index = action_index_of(state, item.item_index) + delta;
+        if (action_index < 0 || action_index >= actions_of(type_actions, item.the_type).length) return null;
+
+        return { item_index: item.item_index, action_index };
+    };
+
+    /** 切换当前条目的动作 */
+    const switch_action = (delta: number, continuous: boolean) => {
+        if (!pace_step(continuous)) return;
+
+        const target = action_step_target(delta);
+        if (target === null) return;
+
+        dispatch({ kind: "action_selected", item_index: target.item_index, action_index: target.action_index });
+    };
+
+    /** 静默续下一页 */
+    const prefetch_next_page = () => {
+        session.prefetch({
+            // 已加载条数就是下一页的起始下标：列表按顺序追加，中间没有空洞
+            loaded_count: state.conclusion?.item_list.length ?? 0,
+            selection: state.selection,
+            total: state.conclusion?.total ?? 0,
+        });
+    };
+
+    /** 移动选中条目 */
     const move_selection = (intent: Intent, continuous: boolean) => {
         if (!pace_step(continuous)) return;
 
@@ -157,6 +146,17 @@ export const useMainInteraction = () => {
         if (intent === "select_next") prefetch_next_page();
 
         dispatch({ kind: "intent", intent });
+    };
+
+    const run_current_action = () => {
+        const item = current_item(state.conclusion?.item_list, state.selection);
+        if (!item) return;
+        const action = current_action(type_actions, item.the_type, action_index_of(state, item.item_index));
+        if (!action) return;
+
+        void info(`run action item_index=${item.item_index} action=${action.id}`);
+        dispatch({ kind: "intent", intent: "run_action" });
+        void run_item_action(item.item_index, action.id);
     };
 
     /**
@@ -197,7 +197,7 @@ export const useMainInteraction = () => {
 
         if (is_action_intent(intent)) {
             const delta = intent === "action_next" ? 1 : -1;
-            if (pace_step(event.repeat)) switch_action(delta);
+            switch_action(delta, event.repeat);
             return;
         }
 
@@ -218,7 +218,7 @@ export const useMainInteraction = () => {
 
         if (is_action_intent(intent)) {
             const delta = intent === "action_next" ? 1 : -1;
-            if (pace_step(true)) switch_action(delta);
+            switch_action(delta, true);
             return;
         }
 
