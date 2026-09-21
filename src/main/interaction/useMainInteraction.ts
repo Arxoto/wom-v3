@@ -18,6 +18,7 @@ import { is_action_intent, is_select_intent, resolve_key, type Intent } from "./
 import { MAIN_STATE_INIT, MainAction, action_index_of, current_item, reduce_main } from "./reducer";
 import { create_search_session } from "./search_session";
 import { SELECT_REPEAT_MS } from "./timing";
+import { resolve_wheel } from "./wheel";
 
 /** 还没读到配置时的兜底条数，真值来自 Config::main_item_n */
 const FALLBACK_ITEM_N = 10;
@@ -85,8 +86,8 @@ export const useMainInteraction = () => {
     const [type_actions, set_type_actions] = useState<ItemTypeActions>(EMPTY_ITEM_TYPE_ACTIONS);
 
     const input_ref = useRef<HTMLInputElement>(null);
-    /** 上一次移动 Selection 的时刻；初值 -Infinity 让首次按键立即响应 */
-    const last_select_at = useRef(Number.NEGATIVE_INFINITY);
+    /** 上一次连续切换的时刻；初值 -Infinity 让首次切换立即响应 */
+    const last_step_at = useRef(Number.NEGATIVE_INFINITY);
 
     // 检索会话不随每次渲染重建：时序状态都在它里面，重建就等于丢掉在飞的请求
     const [session] = useState(() => create_search_session({
@@ -117,24 +118,40 @@ export const useMainInteraction = () => {
         void run_item_action(item.item_index, action.id);
     };
 
-    /** 左右切换当前动作；返回这次按键有没有真的切换（挪不动那一侧就让给输入框挪光标） */
-    const switch_action = (delta: number): boolean => {
+    const action_step_target = (delta: number): { item_index: number, action_index: number } | null => {
         const item = current_item(state.conclusion?.item_list, state.selection);
-        if (!item) return false;
+        if (!item) return null;
 
         const action_index = action_index_of(state, item.item_index) + delta;
-        if (action_index < 0 || action_index >= actions_of(type_actions, item.the_type).length) return false;
+        if (action_index < 0 || action_index >= actions_of(type_actions, item.the_type).length) return null;
 
-        dispatch({ kind: "action_selected", item_index: item.item_index, action_index });
+        return { item_index: item.item_index, action_index };
+    };
+
+    /** 切换当前条目的动作；返回这次有没有真的切换 */
+    const switch_action = (delta: number): boolean => {
+        const target = action_step_target(delta);
+        if (target === null) return false;
+
+        dispatch({ kind: "action_selected", item_index: target.item_index, action_index: target.action_index });
         return true;
     };
 
-    const move_selection = (intent: Intent, repeat: boolean) => {
-        // 按住连发的限流：首次按键立即响应，其余最快 SELECT_REPEAT_MS 一次；
-        // 只对自动重复 `event.repeat` 生效，手动连按两下不吞
+    /**
+     * 限流逻辑，只限制长摁和滚轮，手动连摁不限制
+     */
+    const pace_step = (continuous: boolean): boolean => {
         const now = performance.now();
-        if (repeat && now - last_select_at.current < SELECT_REPEAT_MS) return;
-        last_select_at.current = now;
+        if (continuous && now - last_step_at.current < SELECT_REPEAT_MS) return false;
+        last_step_at.current = now;
+        return true;
+    };
+
+    /**
+     * 移动 Selection
+     */
+    const move_selection = (intent: Intent, continuous: boolean) => {
+        if (!pace_step(continuous)) return;
 
         // 朝后走才看一眼要不要续下一页；预请求是纯追加，不挡这次移动
         if (intent === "select_next") prefetch_next_page();
@@ -146,8 +163,8 @@ export const useMainInteraction = () => {
      * 按键触发行为
      *
      * 合成（ IME 候选框打开）期间的按键用 `event.isComposing` 挡掉：
-     * 候选框里的 ↑/↓、提交候选的 Enter、取消候选的 ESC 都归输入法。
-     * 残余风险是提交候选那一下的事件顺序与 isComposing 取值（待实测）。
+     * - 候选框里的 ↑/↓/←/→、提交候选的 Enter、取消候选的 ESC 都归输入法。
+     * - 残余风险是提交候选那一下的事件顺序与 isComposing 取值（待实测）。
      */
     const on_key_down = useEffectEvent((event: KeyboardEvent) => {
         // 部分平台 isComposing 行为【在较新版本中】仍未完全符合预期
@@ -161,14 +178,7 @@ export const useMainInteraction = () => {
         );
         if (intent === null) return;
 
-        if (is_action_intent(intent)) {
-            // 这一侧没有动作可切时不吞左右键：留给输入框挪光标
-            if (!switch_action(intent === "action_next" ? 1 : -1)) return;
-            event.preventDefault();
-            return;
-        }
-
-        if (!is_select_intent(intent)) event.preventDefault();
+        if (!is_select_intent(intent) && !is_action_intent(intent)) event.preventDefault();
 
         if (intent === "dismiss") {
             void dismiss_main_window();
@@ -185,12 +195,40 @@ export const useMainInteraction = () => {
             return;
         }
 
+        if (is_action_intent(intent)) {
+            const delta = intent === "action_next" ? 1 : -1;
+            if (pace_step(event.repeat)) switch_action(delta);
+            return;
+        }
+
         dispatch({ kind: "intent", intent });
     });
 
     useEffect(() => {
         window.addEventListener("keydown", on_key_down, true);
         return () => window.removeEventListener("keydown", on_key_down, true);
+    }, []);
+
+    /**
+     * 滚轮触发行为
+     */
+    const on_wheel = useEffectEvent((event: WheelEvent) => {
+        const intent = resolve_wheel(event, event.shiftKey);
+        if (intent === null) return;
+
+        if (is_action_intent(intent)) {
+            const delta = intent === "action_next" ? 1 : -1;
+            if (pace_step(true)) switch_action(delta);
+            return;
+        }
+
+        move_selection(intent, true);
+    });
+
+    useEffect(() => {
+        // 要 preventDefault 就不能挂被动监听
+        window.addEventListener("wheel", on_wheel, { capture: true, passive: false });
+        return () => window.removeEventListener("wheel", on_wheel, { capture: true });
     }, []);
 
     /** 输入改变，具体逻辑交给 search_session.ts 代理 */

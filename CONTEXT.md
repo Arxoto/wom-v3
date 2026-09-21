@@ -23,7 +23,7 @@ _Avoid_: ItemView, display model, item DTO
 ### Main window interaction
 
 **Selection**:
-The Item in the search results that the main window is currently aimed at; ↑/↓ move it and Enter acts on it.
+The Item in the search results that the main window is currently aimed at; ↑/↓ and the wheel move it and Enter acts on it.
 _Avoid_: 高亮, focus, cursor, 当前项
 
 **Preview**:
@@ -35,7 +35,7 @@ One of the things an Item can be made to do; an Item carries the list of Item Ac
 _Avoid_: command, operation, verb, 触发动作
 
 **Current Action**:
-The Item Action an Item is left at, remembered per Item; it starts as the Item's first, its default, and it is the one the list row shows. ←/→ move it through that Item's list, Enter runs the Selection's, and the Hint Bar names the Selection's.
+The Item Action an Item is left at, remembered per Item; it starts as the Item's first, its default, and it is the one the list row shows. ←/→ and ⇧+wheel move it through that Item's list, Enter runs the Selection's, and the Hint Bar names the Selection's.
 _Avoid_: selected action, primary action, 当前动作
 
 **Item Index**:
