@@ -34,7 +34,7 @@ const useMainWindowFocus = (
     dispatch: Dispatch<MainAction>,
 ) => {
     const reset = useCallback(() => {
-        dispatch({ kind: "main_shown" });
+        dispatch({ kind: "close_preview" });
 
         const input = input_ref.current;
         if (!input) return;

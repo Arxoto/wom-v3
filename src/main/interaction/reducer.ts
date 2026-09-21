@@ -40,7 +40,7 @@ export type MainAction =
     | { kind: "settled", page: ItemSearchPage | null }
     | { kind: "page_appended", page: ItemSearchPage }
     | { kind: "intent", intent: Intent }
-    | { kind: "main_shown" };
+    | { kind: "close_preview" };
 
 /**
  * 意图怎么改状态
@@ -105,8 +105,7 @@ export const reduce_main = (state: MainState, action: MainAction): MainState => 
             };
         case "intent":
             return apply_intent(state, action.intent);
-        case "main_shown":
-            // 唤出等于重新开始：强制关掉 Preview；输入内容与已加载的结果都留着
+        case "close_preview":
             return state.preview_open ? { ...state, preview_open: false } : state;
     }
 }
