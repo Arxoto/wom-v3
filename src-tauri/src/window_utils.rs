@@ -1,40 +1,62 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use tauri::{AppHandle, Emitter, Manager, Result, WebviewUrl, WebviewWindow};
 use tauri_plugin_log::log::{debug, warn};
+use tauri_plugin_opener::OpenerExt;
 
 use crate::{configs, constants, window_effect};
+
+static PENDING_SHOW: AtomicBool = AtomicBool::new(false);
+static PENDING_FOCUS: AtomicBool = AtomicBool::new(false);
+static REBUILDING: AtomicBool = AtomicBool::new(false);
 
 pub fn show_hide_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         if w.is_visible()? {
-            w.hide()?
-        } else {
-            w.unminimize()?;
-            w.show()?;
-            w.set_focus()?;
-            emit_main_shown(app)?;
+            return w.hide();
         }
-    } else {
-        create_main_window(app, true, true)?;
     }
-    Ok(())
+    request_show_main_window(app, true)
 }
 
-pub fn show_main_window(app: &AppHandle) -> Result<()> {
-    if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
-        w.unminimize()?;
-        w.show()?;
-        w.set_focus()?;
-        emit_main_shown(app)?;
-    } else {
-        create_main_window(app, true, true)?;
+pub fn request_show_main_window(app: &AppHandle, focus: bool) -> Result<()> {
+    if app.get_webview_window(constants::LABEL_MAIN).is_none() {
+        create_main_window(app, true, focus)?;
+        return Ok(());
     }
-    Ok(())
+
+    PENDING_SHOW.store(true, Ordering::SeqCst);
+    PENDING_FOCUS.store(focus, Ordering::SeqCst);
+    emit_main_will_show(app)
+}
+
+pub fn show_main_window_now(app: &AppHandle) -> Result<()> {
+    if !PENDING_SHOW.swap(false, Ordering::SeqCst) {
+        return Ok(());
+    }
+    let focused = PENDING_FOCUS.swap(false, Ordering::SeqCst);
+
+    let Some(w) = app.get_webview_window(constants::LABEL_MAIN) else {
+        return Ok(());
+    };
+
+    w.unminimize()?;
+    w.show()?;
+    if focused {
+        w.set_focus()?;
+    }
+    emit_main_shown(app)
+}
+
+fn emit_main_will_show(app: &AppHandle) -> Result<()> {
+    app.emit_to(constants::LABEL_MAIN, constants::EVENT_MAIN_WILL_SHOW, ())
 }
 
 /// 通知前端「主窗口刚被显示」
 ///
 /// 前端收到后关掉 Preview、聚焦并全选输入框（见 spec §4.5）。
-/// 创建窗口那条路上事件会早于前端就绪，那一步由前端挂载时兜底，所以这里不发。
+/// 想要显示时先发的是 will-show（见 [`emit_main_will_show`]）：先让前端把入场动效起好，
+/// 前端回过话来窗口才真的亮，这条在那之后才发。
 fn emit_main_shown(app: &AppHandle) -> Result<()> {
     app.emit_to(constants::LABEL_MAIN, constants::EVENT_MAIN_SHOWN, ())
 }
@@ -66,14 +88,15 @@ pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result
     let (width, height) = conf.window_size();
     debug!("create window {:}", "index.html");
 
+    let on_navigation_app = app.clone();
     let the_builder = WebviewWindow::builder(
         app,
         constants::LABEL_MAIN,
         WebviewUrl::App("index.html".into()),
     )
     .title("wom")
-    .transparent(effect.transparent()) // 窗口透明
-    .decorations(effect.window_frame()) // 原生框架
+    .transparent(true) // 窗口透明
+    .decorations(false) // 面板自己画外框
     // 尺寸固定：面板里 head / tail / item 的高度与数量都按配置算好，
     // 前端布局（尤其是列表区的高度与逐行下翻）依赖这个尺寸，拖拽改大小会把布局搞乱
     .resizable(false)
@@ -82,34 +105,51 @@ pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result
     .fullscreen(false) // 全屏
     .center() // 居中
     .always_on_top(conf.always_on_top) // 置顶
-    .visible(shown) // 初始可见
-    .focused(focused); // 获取焦点
+    .visible(false) // 等前端把页面摆好、回过话来才显示（见 show_main_window_now）
+    .focused(false)
+    .background_color(tauri::window::Color(0, 0, 0, 0))
+    .on_navigation(move |url| allow_page(&on_navigation_app, url));
 
     // Platform 跨平台特性
     let the_builder = the_builder
         .shadow(true) // 系统原生阴影
-        .skip_taskbar(!effect.window_frame()); // 在任务栏隐藏图标
+        .skip_taskbar(true); // 在任务栏隐藏图标
 
     // 类原生应用
     // 禁用右键菜单 ContextMenu 在前端实现
-    // 禁用快捷键（没有优雅实现，放开限制）
+    // 禁用快捷键：Windows 侧关掉网页加速键（见 apply_native_webview_settings），其余平台由前端兜底
     // 禁用文本选择 css 实现
     let the_builder = the_builder
         .devtools(cfg!(debug_assertions)) // 禁用开发工具
         .zoom_hotkeys_enabled(false); // 禁用页面缩放
 
+    PENDING_SHOW.store(shown, Ordering::SeqCst);
+    PENDING_FOCUS.store(focused, Ordering::SeqCst);
+
     let w = the_builder.build()?;
     // 毛玻璃效果，见 https://github.com/tauri-apps/window-vibrancy
     window_effect::apply(&w, effect);
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    apply_native_webview_settings(&w);
+    #[cfg(target_os = "macos")]
+    w.set_visible_on_all_workspaces(true)?;
 
     let w_handle = w.clone();
-    w.on_window_event(move |event| {
-        if let tauri::WindowEvent::Focused(focused) = event {
+    w.on_window_event(move |event| match event {
+        tauri::WindowEvent::CloseRequested { api, .. } => {
+            if REBUILDING.swap(false, Ordering::SeqCst) {
+                return;
+            }
+            api.prevent_close();
+            let _ = w_handle.hide();
+        }
+        tauri::WindowEvent::Focused(focused) => {
             let conf = configs::get_data();
-            if conf.hide_main_unfocused() && !focused {
+            if conf.hide_main_unfocused() && !*focused {
                 let _ = w_handle.hide();
             }
         }
+        _ => {}
     });
     Ok(w)
 }
@@ -161,16 +201,98 @@ fn rebuild_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
         }
     });
 
+    REBUILDING.store(true, Ordering::SeqCst);
     window.close()
 }
 
 pub fn create_config_window(app: &AppHandle) -> Result<()> {
-    let _ = WebviewWindow::builder(
+    let on_navigation_app = app.clone();
+    let w = WebviewWindow::builder(
         app,
         constants::LABEL_CONFIG,
         WebviewUrl::App("index_config.html".into()),
     )
     .title("wom Config")
+    .on_navigation(move |url| allow_page(&on_navigation_app, url))
     .build()?;
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    apply_native_webview_settings(&w);
     Ok(())
+}
+
+fn allow_page(app: &AppHandle, url: &tauri::Url) -> bool {
+    if url.scheme() == "tauri" || url.host_str() == Some("tauri.localhost") {
+        return true;
+    }
+    if cfg!(dev) && url.host_str() == Some("localhost") {
+        return true;
+    }
+
+    if matches!(url.scheme(), "http" | "https") {
+        if let Err(err) = app.opener().open_url(url.as_str(), None::<&str>) {
+            warn!("open url {} failed: {}", url, err);
+        }
+    }
+    false
+}
+
+#[cfg(target_os = "windows")]
+fn apply_native_webview_settings(window: &WebviewWindow) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2Settings3, ICoreWebView2Settings4, ICoreWebView2Settings5,
+        ICoreWebView2Settings6,
+    };
+    use windows_core::Interface;
+
+    let result = window.with_webview(|webview| unsafe {
+        let Ok(core) = webview.controller().CoreWebView2() else {
+            return;
+        };
+        let Ok(settings) = core.Settings() else {
+            return;
+        };
+
+        let _ = settings.SetAreDefaultContextMenusEnabled(false);
+        let _ = settings.SetIsStatusBarEnabled(false);
+        let _ = settings.SetIsZoomControlEnabled(false);
+
+        if let Ok(settings) = settings.cast::<ICoreWebView2Settings3>() {
+            let _ = settings.SetAreBrowserAcceleratorKeysEnabled(false);
+        }
+        if let Ok(settings) = settings.cast::<ICoreWebView2Settings4>() {
+            let _ = settings.SetIsPasswordAutosaveEnabled(false);
+            let _ = settings.SetIsGeneralAutofillEnabled(false);
+        }
+        if let Ok(settings) = settings.cast::<ICoreWebView2Settings5>() {
+            let _ = settings.SetIsPinchZoomEnabled(false);
+        }
+        if let Ok(settings) = settings.cast::<ICoreWebView2Settings6>() {
+            let _ = settings.SetIsSwipeNavigationEnabled(false);
+        }
+    });
+
+    if let Err(err) = result {
+        warn!("apply native webview settings failed: {}", err);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn apply_native_webview_settings(window: &WebviewWindow) {
+    use objc2_web_kit::WKWebView;
+
+    let result = window.with_webview(|webview| unsafe {
+        let view = webview.inner().cast::<WKWebView>();
+        if view.is_null() {
+            return;
+        }
+
+        let view: &WKWebView = &*view;
+        view.setAllowsMagnification(false);
+        view.setAllowsBackForwardNavigationGestures(false);
+        view.setAllowsLinkPreview(false);
+    });
+
+    if let Err(err) = result {
+        warn!("apply native webview settings failed: {}", err);
+    }
 }

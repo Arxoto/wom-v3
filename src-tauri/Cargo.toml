@@ -41,6 +41,12 @@ strip = true
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"
 
-# 窗口效果的平台探测
+# 窗口效果的平台探测与 WebView2 的原生设置
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-version = "0.1"
+windows-version = ">=0.1"
+webview2-com = ">=0.38"
+windows-core = ">=0.61"
+
+# WKWebView 的原生设置
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-web-kit = { version = ">=0.3", features = [ "objc2-app-kit", "WKWebView" ], default-features = false }

@@ -8,9 +8,12 @@ import {
     get_config,
     get_item_type_actions,
     on_main_shown,
+    on_main_will_show,
+    play_panel_show,
     run_item_action,
     search,
     search_page,
+    show_main_window,
     type ItemTypeActions,
 } from "../../core";
 import { actions_of, current_action } from "./action_labels";
@@ -24,13 +27,13 @@ import { resolve_wheel } from "./wheel";
 const FALLBACK_ITEM_N = 10;
 
 /**
- * 主窗口显示时的复位（关预览页面、输入框聚焦并全选）
+ * 主窗口显示前后的接线：要显示时先起入场动效再请后端显示，显示之后复位（关预览页面、输入框聚焦并全选）
  * 
  * 输入与合成事件挂在同一个 input 上，所以 ref 由这里持有再传进去
  *
- * 触发点有两个：
+ * 复位的触发点有两个：
  * - 每次显示窗口都会走一次（见 `window_utils::emit_main_shown`）；
- * - 启动即显示、窗口刚建出来这两种情况下事件早于前端就绪，所以挂载时也做一次。
+ * - 窗口已经存在、页面却还没挂载完就被显示（比如刚重建完又按了快捷键），那一次事件会丢，所以挂载时也做一次。
  */
 const useMainWindowFocus = (
     input_ref: RefObject<HTMLInputElement | null>,
@@ -49,21 +52,30 @@ const useMainWindowFocus = (
         void debug("main window reset on mount");
         reset();
 
-        let unlisten: (() => void) | undefined;
+        const unlisteners: (() => void)[] = [];
         let cancelled = false;
 
-        void on_main_shown(() => {
+        const subscribe = (pending: Promise<() => void>) => {
+            void pending.then(stop => {
+                // 注册还没回来就卸载了，就地退订
+                if (cancelled) stop();
+                else unlisteners.push(stop);
+            });
+        };
+
+        subscribe(on_main_shown(() => {
             void debug("main window reset on main_shown");
             reset();
-        }).then(stop => {
-            // 注册还没回来就卸载了，就地退订
-            if (cancelled) stop();
-            else unlisten = stop;
-        });
+        }));
+
+        subscribe(on_main_will_show(() => {
+            play_panel_show();
+            void show_main_window();
+        }));
 
         return () => {
             cancelled = true;
-            unlisten?.();
+            unlisteners.forEach(unlisten => unlisten());
         };
     }, [reset]);
 };

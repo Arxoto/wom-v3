@@ -53,16 +53,12 @@ _Avoid_: footer, status bar, 底部提示条
 ### Window appearance
 
 **Window Effect**:
-The native OS backdrop material rendered behind the main window's content, chosen from the effects the running platform supports. A Window Effect cannot be combined with the Window Frame.
+The native OS backdrop material rendered behind the main window's content, chosen from the effects the running platform supports; the window itself is always frameless and transparent.
 _Avoid_: 毛玻璃, blur, background color, theme
 
 **Solid Panel**:
-The window appearance used when no Window Effect is chosen; it comes in two flavours, one with the native Window Frame and one frameless.
+The window appearance used when no Window Effect is chosen: a frameless panel that draws its own Edge Border and background.
 _Avoid_: none, default window, plain window
-
-**Window Frame**:
-The native OS window decoration (title bar and system border) of the main window; when absent the window is frameless and keeps only the system shadow.
-_Avoid_: 边框, chrome, decorations
 
 **Edge Border**:
 The 1px hairline stroke along the outer edge of the window panel.

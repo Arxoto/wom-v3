@@ -60,6 +60,7 @@
     background-color: transparent;
     z-index: 2;
     color: var(--color-diff);
+    cursor: text;
 
     border: none;
     outline: none;

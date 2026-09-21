@@ -118,6 +118,11 @@ pub fn dismiss_main_window(app: tauri::AppHandle) -> Result<(), String> {
     window_utils::hide_main_window(&app).map_err(|err| err.to_string())
 }
 
+#[tauri::command]
+pub fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    window_utils::show_main_window_now(&app).map_err(|err| err.to_string())
+}
+
 /// 对检索结果进行翻页（实现见 [`stat::search_page`]）
 ///
 /// `token` 是后端在检索结果里下发的令牌：前端原样回传，不自己造（见 spec §3 的「预请求」）。

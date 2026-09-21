@@ -74,9 +74,9 @@ mod tray {
             )?)
             .on_menu_event(|app, event| match event.id.as_ref() {
                 "show_main" => {
-                    let _r = window_utils::show_main_window(app);
+                    let _r = window_utils::request_show_main_window(app, true);
                     #[cfg(debug_assertions)]
-                    debug!("show_main_window {:?}", _r);
+                    debug!("request_show_main_window {:?}", _r);
                 }
                 "reset_main" => {
                     let _r = window_utils::reset_main_window(app);
@@ -177,9 +177,13 @@ pub fn run() {
             commands::set_config,
             commands::search,
             commands::search_page,
-            commands::dismiss_main_window
+            commands::dismiss_main_window,
+            commands::show_main_window
         ])
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             // 内建条目的运行期状态：命令以 `State<BuiltinStat>` 取用，必须在创建窗口前托管
             builtin_plugins::load_stat(app.handle())?;
 

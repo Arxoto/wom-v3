@@ -45,7 +45,7 @@ const tag_text = (empty: boolean, total: number, selection: number) => {
  */
 const Head = ({ value, ghost, input_ref, read_only, empty, total, selection }: Props) => {
     return (
-        <div className="head-box">
+        <div className="head-box" data-tauri-drag-region="deep">
             <div className="head-space"></div>
             <div className="input-container head-elastic">
                 <div className="suggestion-layer input-base">
@@ -60,10 +60,13 @@ const Head = ({ value, ghost, input_ref, read_only, empty, total, selection }: P
                     onChange={keep_editable}
                     readOnly={read_only}
                     spellCheck="false"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
                 />
             </div>
             <div className="input-tag head-static">{tag_text(empty, total, selection)}</div>
-            <img className='wom-icon head-static' src={undefined} alt="" data-tauri-drag-region />
+            <img className='wom-icon head-static' src={undefined} alt="" />
         </div>
     );
 }

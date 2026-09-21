@@ -43,16 +43,25 @@
   background: lightgray;
 }
 
-/* 禁止选中 */
+/* 禁止选中与拖出 */
 * {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+  -webkit-user-drag: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* 字体清晰度和排版 */
 body {
+  cursor: default;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;

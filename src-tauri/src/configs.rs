@@ -460,7 +460,6 @@ mod tests {
     fn window_effect_round_trips_as_string() {
         for (json, effect) in [
             (r#""Solid""#, WindowEffect::Solid),
-            (r#""Framed""#, WindowEffect::Framed),
             (r#""Mica""#, WindowEffect::Mica),
         ] {
             let actual: Option<WindowEffect> = serde_json::from_str(json).unwrap();

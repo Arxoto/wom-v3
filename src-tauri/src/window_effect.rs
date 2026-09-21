@@ -4,8 +4,8 @@ use tauri_plugin_log::log::{debug, warn};
 
 /// 窗口背景与外观
 ///
-/// 原生效果与经典外观（Solid Panel）是互斥的两条路：用原生效果时窗口必须透明、无原生框架，
-/// 所以"是否使用系统原生框架"只体现在经典外观的两种形态上。
+/// 窗口一概透明、无原生框架：原生效果只有透过透明窗口才能看到，经典面板（Solid Panel）
+/// 自己画发丝线与底色。
 /// 窗口阴影一律用系统原生阴影，不做自绘。
 ///
 /// todo Liquid Glass (macOS 26+) 目前 API 不够稳定，
@@ -13,29 +13,15 @@ use tauri_plugin_log::log::{debug, warn};
 /// 待稳定再加回来：恢复 macOS 的 objc2-app-kit 依赖。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WindowEffect {
-    /// 不使用原生效果、不使用原生框架：无边框的经典面板
+    /// 不使用原生效果：无边框的经典面板
     #[default]
     Solid,
-    /// 不使用原生效果、使用系统原生框架：经典面板 + 原生标题栏
-    Framed,
     /// Windows 11：桌面壁纸着色
     Mica,
     /// Windows 10 v1809+：亚克力模糊
     Acrylic,
     /// macOS：NSVisualEffectView 毛玻璃
     Vibrancy,
-}
-
-impl WindowEffect {
-    /// 是否使用系统原生框架；使用原生效果时始终为 false
-    pub fn window_frame(&self) -> bool {
-        matches!(self, Self::Framed)
-    }
-
-    /// 窗口是否需要透明：原生效果只有透过透明窗口才能看到，经典外观跟随原生框架
-    pub fn transparent(&self) -> bool {
-        !self.window_frame()
-    }
 }
 
 /// 未做选择时的效果：跟随当前平台的推荐值
@@ -46,7 +32,7 @@ pub fn recommended() -> WindowEffect {
         .unwrap_or_default()
 }
 
-/// 当前平台与系统版本下可选的效果，末尾是经典外观的两种形态，供配置界面使用
+/// 当前平台与系统版本下可选的效果，末尾是经典外观，供配置界面使用
 pub fn available() -> Vec<WindowEffect> {
     let version = system_version();
     candidates()
@@ -70,7 +56,7 @@ pub fn resolve(configured: Option<WindowEffect>) -> WindowEffect {
 /// 面板底色的透明度，前端写入 css 变量 `--color-bg-alpha`（见 index_main.css 的底色层）
 pub fn alpha(effect: WindowEffect) -> f64 {
     match effect {
-        WindowEffect::Solid | WindowEffect::Framed => 1.0,
+        WindowEffect::Solid => 1.0,
         WindowEffect::Mica => 0.35,
         WindowEffect::Acrylic => 0.8,
         WindowEffect::Vibrancy => 0.6,
@@ -95,8 +81,8 @@ pub fn apply(window: &WebviewWindow, effect: WindowEffect) -> WindowEffect {
     WindowEffect::default()
 }
 
-/// 经典外观的两种形态：不依赖原生材质，任何平台都能用，所以排在候选链末尾兜底
-const CLASSIC_APPEARANCE: [WindowEffect; 2] = [WindowEffect::Solid, WindowEffect::Framed];
+/// 经典外观：不依赖原生材质，任何平台都能用，所以排在候选链末尾兜底
+const CLASSIC_APPEARANCE: [WindowEffect; 1] = [WindowEffect::Solid];
 
 /// 当前平台的候选链，越靠前越优先，降级时沿此顺序向下找；链尾是经典外观
 fn candidates() -> impl Iterator<Item = WindowEffect> {
@@ -141,7 +127,7 @@ fn is_available(effect: WindowEffect, version: windows_version::OsVersion) -> bo
     match effect {
         WindowEffect::Mica => version >= MICA_SINCE,
         WindowEffect::Acrylic => version >= ACRYLIC_SINCE,
-        WindowEffect::Solid | WindowEffect::Framed => true,
+        WindowEffect::Solid => true,
         _ => false,
     }
 }
@@ -150,14 +136,14 @@ fn is_available(effect: WindowEffect, version: windows_version::OsVersion) -> bo
 fn is_available(effect: WindowEffect, _version: ()) -> bool {
     matches!(
         effect,
-        WindowEffect::Vibrancy | WindowEffect::Solid | WindowEffect::Framed
+        WindowEffect::Vibrancy | WindowEffect::Solid
     )
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 fn is_available(effect: WindowEffect, _version: ()) -> bool {
     // Linux 等平台的效果由合成器决定，不做处理
-    matches!(effect, WindowEffect::Solid | WindowEffect::Framed)
+    matches!(effect, WindowEffect::Solid)
 }
 
 #[cfg(target_os = "windows")]
@@ -167,7 +153,7 @@ fn apply_one(window: &WebviewWindow, effect: WindowEffect) -> Result<(), String>
         WindowEffect::Mica => window_vibrancy::apply_mica(window, Some(false)),
         // 颜色留空，面板色调交给 css 的半透明底色（build >= 22523 时该参数会被忽略）
         WindowEffect::Acrylic => window_vibrancy::apply_acrylic(window, None),
-        WindowEffect::Solid | WindowEffect::Framed => return Ok(()),
+        WindowEffect::Solid => return Ok(()),
         _ => return Err(format!("{:?} is not supported on Windows", effect)),
     };
     result.map_err(|err| err.to_string())
@@ -183,7 +169,7 @@ fn apply_one(window: &WebviewWindow, effect: WindowEffect) -> Result<(), String>
             Some(window_vibrancy::NSVisualEffectState::Active),
             None,
         ),
-        WindowEffect::Solid | WindowEffect::Framed => return Ok(()),
+        WindowEffect::Solid => return Ok(()),
         _ => return Err(format!("{:?} is not supported on macOS", effect)),
     };
     result.map_err(|err| err.to_string())
@@ -192,7 +178,7 @@ fn apply_one(window: &WebviewWindow, effect: WindowEffect) -> Result<(), String>
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 fn apply_one(_window: &WebviewWindow, effect: WindowEffect) -> Result<(), String> {
     match effect {
-        WindowEffect::Solid | WindowEffect::Framed => Ok(()),
+        WindowEffect::Solid => Ok(()),
         _ => Err(format!("{:?} is not supported on this platform", effect)),
     }
 }
@@ -201,32 +187,9 @@ fn apply_one(_window: &WebviewWindow, effect: WindowEffect) -> Result<(), String
 mod tests {
     use super::*;
 
-    /// 原生效果必须透明且没有原生框架
-    #[test]
-    fn native_effect_has_no_window_frame() {
-        for effect in [
-            WindowEffect::Mica,
-            WindowEffect::Acrylic,
-            WindowEffect::Vibrancy,
-        ] {
-            assert!(!effect.window_frame(), "{:?}", effect);
-            assert!(effect.transparent(), "{:?}", effect);
-        }
-    }
-
-    /// 经典外观的两种形态只差原生框架
-    #[test]
-    fn classic_appearance_follows_the_variant() {
-        assert!(!WindowEffect::Solid.window_frame());
-        assert!(WindowEffect::Solid.transparent());
-
-        assert!(WindowEffect::Framed.window_frame());
-        assert!(!WindowEffect::Framed.transparent());
-    }
-
     #[test]
     fn classic_appearance_is_always_available() {
-        for effect in [WindowEffect::Solid, WindowEffect::Framed] {
+        for effect in [WindowEffect::Solid] {
             assert!(available().contains(&effect), "{:?}", effect);
             assert_eq!(resolve(Some(effect)), effect);
         }
@@ -272,7 +235,7 @@ mod tests {
         for effect in candidates() {
             let last = chain_from(effect).last().expect("chain is never empty");
             assert!(
-                matches!(last, WindowEffect::Solid | WindowEffect::Framed),
+                matches!(last, WindowEffect::Solid),
                 "{:?} ends with {:?}",
                 effect,
                 last
@@ -304,7 +267,6 @@ mod tests {
         // 原生效果之外只有经典外观可用
         assert!(!supports(WindowEffect::Vibrancy, 26100));
         assert!(supports(WindowEffect::Solid, 0));
-        assert!(supports(WindowEffect::Framed, 0));
     }
 
     #[test]
@@ -327,7 +289,6 @@ mod tests {
     #[test]
     fn classic_appearance_is_opaque() {
         assert_eq!(alpha(WindowEffect::Solid), 1.0);
-        assert_eq!(alpha(WindowEffect::Framed), 1.0);
         for effect in [
             WindowEffect::Mica,
             WindowEffect::Acrylic,

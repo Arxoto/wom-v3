@@ -5365,6 +5365,7 @@ name = "wom-v3"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "objc2-web-kit",
  "serde",
  "serde_json",
  "tauri",
@@ -5375,7 +5376,9 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "walkdir",
+ "webview2-com",
  "window-vibrancy 0.8.0",
+ "windows-core 0.61.2",
  "windows-version",
 ]
 

@@ -6,8 +6,14 @@ if (import.meta.env.DEV) {
     void attachConsole();
 }
 
+const show_page_main = async () => {
+    await set_page_config_data();
+    play_panel_show();
+    await show_main_window();
+}
+
 export const set_page_main = () => {
-    set_page_config_data();
+    void show_page_main();
     return set_near_native();
 }
 
@@ -15,20 +21,44 @@ export const set_page_config = () => {
     return set_near_native();
 }
 
+const EDIT_SHORTCUT_KEYS = new Set(["a", "c", "v", "x", "y", "z"]);
+
+const is_browser_shortcut = (e: KeyboardEvent) => {
+    if (/^F\d{1,2}$/.test(e.key)) return true;
+    if (e.altKey) return true;
+    if (!e.ctrlKey && !e.metaKey) return false;
+    return !EDIT_SHORTCUT_KEYS.has(e.key.toLowerCase());
+};
+
 const set_near_native = () => {
     // 禁用右键菜单
     const on_ctx_menu = (e: PointerEvent) => e.preventDefault();
     window.addEventListener("contextmenu", on_ctx_menu);
 
-    // 禁用 Alt 菜单栏
+    // 禁用 Alt 菜单栏与浏览器快捷键，只放行编辑类组合
     const on_key_down = (e: KeyboardEvent) => {
-        if (e.altKey) e.preventDefault();
+        if (e.isComposing) return;
+        if (is_browser_shortcut(e)) e.preventDefault();
     };
     window.addEventListener("keydown", on_key_down);
+
+    const on_mouse_down = (e: MouseEvent) => {
+        if (e.button === 1) e.preventDefault();
+    };
+    window.addEventListener("mousedown", on_mouse_down);
+
+    const on_drag = (e: Event) => e.preventDefault();
+    window.addEventListener("dragstart", on_drag);
+    window.addEventListener("dragover", on_drag);
+    window.addEventListener("drop", on_drag);
 
     return () => {
         window.removeEventListener("contextmenu", on_ctx_menu);
         window.removeEventListener("keydown", on_key_down);
+        window.removeEventListener("mousedown", on_mouse_down);
+        window.removeEventListener("dragstart", on_drag);
+        window.removeEventListener("dragover", on_drag);
+        window.removeEventListener("drop", on_drag);
     }
 }
 
@@ -38,7 +68,7 @@ const set_near_native = () => {
  * 这个类型是手写的，Rust 侧改了字段/变体名不会有编译期报错，
  * 由 src-tauri/tests/fixtures/config.golden.json 的金样本测试兜底。
  */
-export type WindowEffect = "Solid" | "Framed" | "Mica" | "Acrylic" | "Vibrancy";
+export type WindowEffect = "Solid" | "Mica" | "Acrylic" | "Vibrancy";
 
 /**
  * 主窗口模式（对应 Rust 侧 configs::MainWindowMode）
@@ -242,8 +272,14 @@ export const dismiss_main_window = async () => {
     await invoke_backend('dismiss_main_window');
 }
 
+export const show_main_window = async () => {
+    await invoke_backend('show_main_window');
+}
+
 /** 主窗口被显示时后端发来的事件名（对应 Rust 侧 constants::EVENT_MAIN_SHOWN） */
 const EVENT_MAIN_SHOWN = "main_shown";
+
+const EVENT_MAIN_WILL_SHOW = "main_will_show";
 
 /**
  * 监听主窗口被显示（每次显示都会发）
@@ -252,6 +288,24 @@ const EVENT_MAIN_SHOWN = "main_shown";
  */
 export const on_main_shown = async (handler: () => void) => {
     return await listen(EVENT_MAIN_SHOWN, handler);
+}
+
+export const on_main_will_show = async (handler: () => void) => {
+    return await listen(EVENT_MAIN_WILL_SHOW, handler);
+}
+
+const PANEL_SHOW_FRAMES: Keyframe[] = [
+    { opacity: 0, transform: "scale(0.98)" },
+    { opacity: 1, transform: "scale(1)" },
+];
+
+export const play_panel_show = () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    document.body.animate(PANEL_SHOW_FRAMES, {
+        duration: 140,
+        easing: "ease-out",
+        fill: "backwards",
+    });
 }
 
 /**
