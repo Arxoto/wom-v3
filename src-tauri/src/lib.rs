@@ -181,8 +181,7 @@ pub fn run() {
             commands::show_main_window,
         ])
         .setup(|app| {
-            // 隐藏 Dock 图标
-            // todo 这种行为是 App 级别的，正常应该是主窗口不显示，配置窗口显示，后续尝试更好的解法
+            // 隐藏 Dock 图标， App 级配置，即使是打开配置窗口也不会出现在 Dock 栏
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
