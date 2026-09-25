@@ -19,6 +19,16 @@ enum Rebuild {
     KeepPosition(PhysicalPosition<i32>),
 }
 
+impl Rebuild {
+    pub fn get_opt_position(&self) -> Option<PhysicalPosition<i32>> {
+        match self {
+            Rebuild::Idle => None,
+            Rebuild::Centered => None,
+            Rebuild::KeepPosition(physical_position) => Some(*physical_position),
+        }
+    }
+}
+
 /// 登记一次重建
 fn plan_rebuild(plan: Rebuild) {
     let mut state = REBUILD.lock().unwrap_or_else(|err| err.into_inner());
@@ -51,7 +61,7 @@ pub fn toggle_main_window(app: &AppHandle) -> Result<()> {
 /// 通知前端准备显示窗口
 pub fn request_show_main_window(app: &AppHandle) -> Result<()> {
     if app.get_webview_window(constants::LABEL_MAIN).is_none() {
-        create_main_window(app)?;
+        create_main_window(app, None)?;
     }
 
     show_main_window_now(app)
@@ -88,7 +98,10 @@ pub fn show_config_window(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
+pub fn create_main_window(
+    app: &AppHandle,
+    position: Option<PhysicalPosition<i32>>,
+) -> Result<WebviewWindow> {
     let conf = configs::get_data();
     let effect = conf.effect();
     let (width, height) = conf.window_size();
@@ -134,6 +147,11 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
     // 毛玻璃效果，见 https://github.com/tauri-apps/window-vibrancy
     window_effect::apply(&w, effect);
 
+    if let Some(position) = position {
+        // todo 位置是否准确、能否合并到 builder 中
+        w.set_position(position)?;
+    }
+
     let app_handle = app.clone();
     let w_handle = w.clone();
     w.on_window_event(move |event| match event {
@@ -146,27 +164,21 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
             let _ = w_handle.hide();
         }
         tauri::WindowEvent::Destroyed => {
-            let position = match take_rebuild() {
-                Rebuild::Idle => return,
-                Rebuild::Centered => None,
-                Rebuild::KeepPosition(position) => Some(position),
-            };
+            let rebuild_state = take_rebuild();
+            if matches!(rebuild_state, Rebuild::Idle) {
+                return;
+            }
 
-            match create_main_window(&app_handle) {
-                Ok(window) => {
-                    if let Some(position) = position {
-                        let _ = window.set_position(position);
-                    }
-                }
+            let position = rebuild_state.get_opt_position();
+            match create_main_window(&app_handle, position) {
+                Ok(_) => {}
                 Err(err) => warn!("rebuild main window failed: {}", err),
             }
         }
-        tauri::WindowEvent::Focused(focused) => {
-            if !focused {
-                let conf = configs::get_data();
-                if conf.hide_main_unfocused() {
-                    let _ = w_handle.hide();
-                }
+        tauri::WindowEvent::Focused(focused) if !focused => {
+            let conf = configs::get_data();
+            if conf.hide_main_unfocused() {
+                let _ = w_handle.hide();
             }
         }
         _ => {}
@@ -187,16 +199,14 @@ pub fn reset_main_window(app: &AppHandle) -> Result<()> {
 /// 销毁并重建主窗口
 fn rebuild_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     let Some(window) = app.get_webview_window(constants::LABEL_MAIN) else {
-        create_main_window(app)?;
+        let position = take_rebuild().get_opt_position();
+        create_main_window(app, position)?;
         return Ok(());
     };
 
-    // 已经有一次重建在跑：它读到的是最新配置，这次直接跳过
     if rebuilding() {
         return Ok(());
     }
-
-    // todo 优化，能否让 position 在创建时生效，而不是单独维护一个重建状态
 
     // 位置只有这一刻问得出来，取不到就退回居中
     plan_rebuild(if keep_position {

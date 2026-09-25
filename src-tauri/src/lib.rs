@@ -198,7 +198,7 @@ pub fn run() {
             configs::load_data(app.handle());
 
             tray::create_tray(app)?;
-            window_utils::create_main_window(app.handle())?;
+            window_utils::create_main_window(app.handle(), None)?;
 
             Ok(())
         })
