@@ -2,7 +2,7 @@ import { Box, Static, Elastic, DividerTop, DividerBottom } from "./main/Layout";
 import Head from "./main/Head";
 import Body from "./main/Body";
 import Tail from "./main/Tail";
-import { set_page_main, type ItemDisplay } from "./core";
+import { setup_page_main, type ItemDisplay } from "./core";
 import { useMainInteraction } from "./main/interaction/useMainInteraction";
 import { current_action_label } from "./main/interaction/action_labels";
 import { action_index_of, current_item } from "./main/interaction/reducer";
@@ -17,10 +17,8 @@ const GHOST_PLACEHOLDER = "输入关键字开始搜索，空格分割参数";
 const NO_ITEMS: ItemDisplay[] = [];
 
 const App = () => {
-  useEffect(() => {
-    return set_page_main();
-  }, []);
-  
+  useEffect(setup_page_main, []);
+
   const { state, item_n, type_actions, input_ref } = useMainInteraction();
 
   /** 空态：还没有结论（没输入过、输入为空，或这一次查询还没回来） */

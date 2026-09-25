@@ -9,6 +9,7 @@
     width: 100%;
     height: var(--item-h);
     overflow: hidden;
+    cursor: pointer;
 }
 
 /* 图标：纯线条，尺寸跟着行高缩放；颜色由 currentColor 跟随整行状态 */

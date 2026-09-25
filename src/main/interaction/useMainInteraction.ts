@@ -1,6 +1,6 @@
 import { Dispatch, RefObject, useCallback, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
-import { debug, info } from "@tauri-apps/plugin-log";
+import { info } from "@tauri-apps/plugin-log";
 
 import {
     EMPTY_ITEM_TYPE_ACTIONS,
@@ -9,11 +9,10 @@ import {
     get_item_type_actions,
     on_main_shown,
     on_main_will_show,
-    play_panel_show,
     run_item_action,
     search,
     search_page,
-    show_main_window,
+    fade_in_main_window,
     type ItemTypeActions,
 } from "../../core";
 import { actions_of, current_action } from "./action_labels";
@@ -27,30 +26,21 @@ import { resolve_wheel } from "./wheel";
 const FALLBACK_ITEM_N = 10;
 
 /**
- * 主窗口显示前后的接线：要显示时先起入场动效再请后端显示，显示之后复位（关预览页面、输入框聚焦并全选）
+ * 主窗口显示前后的接线：显示前入场动效和关预览页面、显示后聚焦全选输入框
  * 
  * 输入与合成事件挂在同一个 input 上，所以 ref 由这里持有再传进去
- *
- * 复位的触发点有两个：
- * - 每次显示窗口都会走一次（见 `window_utils::emit_main_shown`）；
- * - 窗口已经存在、页面却还没挂载完就被显示（比如刚重建完又按了快捷键），那一次事件会丢，所以挂载时也做一次。
  */
 const useMainWindowFocus = (
     input_ref: RefObject<HTMLInputElement | null>,
     dispatch: Dispatch<MainAction>,
 ) => {
-    const reset = useCallback(() => {
-        dispatch({ kind: "close_preview" });
-
+    const focus_input = useCallback(() => {
         const input = input_ref.current;
-        if (!input) return;
-        void info("focus the main input");
-        input.focus();
+        input?.focus();
     }, [input_ref, dispatch]);
 
     useEffect(() => {
-        void debug("main window reset on mount");
-        reset();
+        focus_input();
 
         const unlisteners: (() => void)[] = [];
         let cancelled = false;
@@ -64,20 +54,19 @@ const useMainWindowFocus = (
         };
 
         subscribe(on_main_shown(() => {
-            void debug("main window reset on main_shown");
-            reset();
+            focus_input();
         }));
 
         subscribe(on_main_will_show(() => {
-            play_panel_show();
-            void show_main_window();
+            dispatch({ kind: "close_preview" });
+            void fade_in_main_window();
         }));
 
         return () => {
             cancelled = true;
             unlisteners.forEach(unlisten => unlisten());
         };
-    }, [reset]);
+    }, [focus_input]);
 };
 
 /**

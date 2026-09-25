@@ -74,7 +74,7 @@ mod tray {
             )?)
             .on_menu_event(|app, event| match event.id.as_ref() {
                 "show_main" => {
-                    let _r = window_utils::request_show_main_window(app, true);
+                    let _r = window_utils::request_show_main_window(app);
                     #[cfg(debug_assertions)]
                     debug!("request_show_main_window {:?}", _r);
                 }
@@ -178,9 +178,11 @@ pub fn run() {
             commands::search,
             commands::search_page,
             commands::dismiss_main_window,
-            commands::show_main_window
+            commands::show_main_window,
         ])
         .setup(|app| {
+            // 隐藏 Dock 图标
+            // todo 这种行为是 App 级别的，正常应该是主窗口不显示，配置窗口显示，后续尝试更好的解法
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 

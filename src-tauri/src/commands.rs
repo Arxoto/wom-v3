@@ -112,7 +112,7 @@ pub async fn search(builtin_stat: State<'_, BuiltinStat>, k: &str) -> Result<Ite
 
 /// 无条件隐藏主窗口（实现见 [`window_utils::hide_main_window`]）
 ///
-/// 它就是 ESC 那条显式意图，与 `main_window_mode` 无关。
+/// 摁下 ESC 始终隐藏，与 `main_window_mode` 无关。
 #[tauri::command]
 pub fn dismiss_main_window(app: tauri::AppHandle) -> Result<(), String> {
     window_utils::hide_main_window(&app).map_err(|err| err.to_string())

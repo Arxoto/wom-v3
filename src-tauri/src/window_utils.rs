@@ -1,50 +1,73 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, Manager, Result, WebviewUrl, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Result, WebviewUrl, WebviewWindow};
 use tauri_plugin_log::log::{debug, warn};
-use tauri_plugin_opener::OpenerExt;
 
 use crate::{configs, constants, window_effect};
 
-static PENDING_SHOW: AtomicBool = AtomicBool::new(false);
-static PENDING_FOCUS: AtomicBool = AtomicBool::new(false);
-static REBUILDING: AtomicBool = AtomicBool::new(false);
+static REBUILD: Mutex<Rebuild> = Mutex::new(Rebuild::Idle);
 
+/// 待办的主窗口重建
+///
+/// 窗口销毁是异步的，需要有个状态去保存
+enum Rebuild {
+    /// 没有待办的重建
+    Idle,
+    /// 重建后回到配置里的居中位置
+    Centered,
+    /// 重建后沿用旧窗口的位置
+    KeepPosition(PhysicalPosition<i32>),
+}
+
+/// 登记一次重建
+fn plan_rebuild(plan: Rebuild) {
+    let mut state = REBUILD.lock().unwrap_or_else(|err| err.into_inner());
+    *state = plan;
+}
+
+/// 取走待办的重建，没有待办时回 [`Rebuild::Idle`]
+fn take_rebuild() -> Rebuild {
+    let mut state = REBUILD.lock().unwrap_or_else(|err| err.into_inner());
+    std::mem::replace(&mut *state, Rebuild::Idle)
+}
+
+fn rebuilding() -> bool {
+    let state = REBUILD.lock().unwrap_or_else(|err| err.into_inner());
+    match *state {
+        Rebuild::Idle => false,
+        Rebuild::Centered | Rebuild::KeepPosition(_) => true,
+    }
+}
+
+// todo 梳理窗口创建和显示流程，能否简化
 pub fn show_hide_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         if w.is_visible()? {
             return w.hide();
         }
     }
-    request_show_main_window(app, true)
+    request_show_main_window(app)
 }
 
-pub fn request_show_main_window(app: &AppHandle, focus: bool) -> Result<()> {
+/// 通知前端准备显示窗口
+pub fn request_show_main_window(app: &AppHandle) -> Result<()> {
     if app.get_webview_window(constants::LABEL_MAIN).is_none() {
-        create_main_window(app, true, focus)?;
+        create_main_window(app, true, true)?;
         return Ok(());
     }
 
-    PENDING_SHOW.store(true, Ordering::SeqCst);
-    PENDING_FOCUS.store(focus, Ordering::SeqCst);
     emit_main_will_show(app)
 }
 
+/// 前端准备好后调用此函数真正显示
 pub fn show_main_window_now(app: &AppHandle) -> Result<()> {
-    if !PENDING_SHOW.swap(false, Ordering::SeqCst) {
-        return Ok(());
-    }
-    let focused = PENDING_FOCUS.swap(false, Ordering::SeqCst);
-
     let Some(w) = app.get_webview_window(constants::LABEL_MAIN) else {
         return Ok(());
     };
 
     w.unminimize()?;
     w.show()?;
-    if focused {
-        w.set_focus()?;
-    }
+    w.set_focus()?;
     emit_main_shown(app)
 }
 
@@ -52,18 +75,10 @@ fn emit_main_will_show(app: &AppHandle) -> Result<()> {
     app.emit_to(constants::LABEL_MAIN, constants::EVENT_MAIN_WILL_SHOW, ())
 }
 
-/// 通知前端「主窗口刚被显示」
-///
-/// 前端收到后关掉 Preview、聚焦并全选输入框（见 spec §4.5）。
-/// 想要显示时先发的是 will-show（见 [`emit_main_will_show`]）：先让前端把入场动效起好，
-/// 前端回过话来窗口才真的亮，这条在那之后才发。
 fn emit_main_shown(app: &AppHandle) -> Result<()> {
     app.emit_to(constants::LABEL_MAIN, constants::EVENT_MAIN_SHOWN, ())
 }
 
-/// 无条件隐藏主窗口
-///
-/// ESC 那条显式意图：不看 `main_window_mode`，窗口不存在时什么都不做。
 pub fn hide_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         w.hide()?;
@@ -88,65 +103,80 @@ pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result
     let (width, height) = conf.window_size();
     debug!("create window {:}", "index.html");
 
-    let on_navigation_app = app.clone();
     let the_builder = WebviewWindow::builder(
         app,
         constants::LABEL_MAIN,
         WebviewUrl::App("index.html".into()),
     )
     .title("wom")
+    .center() // 居中
+    .always_on_top(conf.always_on_top) // 置顶
     .transparent(true) // 窗口透明
-    .decorations(false) // 面板自己画外框
+    .decorations(false) // 前端绘制外框
+    .background_color(tauri::window::Color(0, 0, 0, 0))
     // 尺寸固定：面板里 head / tail / item 的高度与数量都按配置算好，
     // 前端布局（尤其是列表区的高度与逐行下翻）依赖这个尺寸，拖拽改大小会把布局搞乱
     .resizable(false)
-    .maximizable(false) // 最大化同样会改尺寸，一并关掉
+    .fullscreen(false)
+    .maximizable(false)
+    .minimizable(false)
     .inner_size(width, height)
-    .fullscreen(false) // 全屏
-    .center() // 居中
-    .always_on_top(conf.always_on_top) // 置顶
-    .visible(false) // 等前端把页面摆好、回过话来才显示（见 show_main_window_now）
-    .focused(false)
-    .background_color(tauri::window::Color(0, 0, 0, 0))
-    .on_navigation(move |url| allow_page(&on_navigation_app, url));
+    // todo 窗口创建时始终隐藏，等前端准备好后再显示
+    .visible(shown)
+    .focused(focused)
+    .on_navigation(allow_page);
 
-    // Platform 跨平台特性
+    // Platform 平台不兼容的特性
     let the_builder = the_builder
         .shadow(true) // 系统原生阴影
-        .skip_taskbar(true); // 在任务栏隐藏图标
+        .skip_taskbar(true); // 任务栏隐藏图标
 
     // 类原生应用
     // 禁用右键菜单 ContextMenu 在前端实现
-    // 禁用快捷键：Windows 侧关掉网页加速键（见 apply_native_webview_settings），其余平台由前端兜底
+    // 禁用快捷键：前端实现（后端 rust 是 unsafe 代码）
     // 禁用文本选择 css 实现
     let the_builder = the_builder
         .devtools(cfg!(debug_assertions)) // 禁用开发工具
         .zoom_hotkeys_enabled(false); // 禁用页面缩放
 
-    PENDING_SHOW.store(shown, Ordering::SeqCst);
-    PENDING_FOCUS.store(focused, Ordering::SeqCst);
-
     let w = the_builder.build()?;
     // 毛玻璃效果，见 https://github.com/tauri-apps/window-vibrancy
     window_effect::apply(&w, effect);
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    apply_native_webview_settings(&w);
-    #[cfg(target_os = "macos")]
-    w.set_visible_on_all_workspaces(true)?;
 
+    let app_handle = app.clone();
     let w_handle = w.clone();
     w.on_window_event(move |event| match event {
         tauri::WindowEvent::CloseRequested { api, .. } => {
-            if REBUILDING.swap(false, Ordering::SeqCst) {
+            if rebuilding() {
+                // 重建时放行
                 return;
             }
             api.prevent_close();
             let _ = w_handle.hide();
         }
+        tauri::WindowEvent::Destroyed => {
+            let position = match take_rebuild() {
+                Rebuild::Idle => return,
+                Rebuild::Centered => None,
+                Rebuild::KeepPosition(position) => Some(position),
+            };
+
+            let shown = configs::get_data().show_main_auto();
+            match create_main_window(&app_handle, shown, shown) {
+                Ok(window) => {
+                    if let Some(position) = position {
+                        let _ = window.set_position(position);
+                    }
+                }
+                Err(err) => warn!("rebuild main window failed: {}", err),
+            }
+        }
         tauri::WindowEvent::Focused(focused) => {
-            let conf = configs::get_data();
-            if conf.hide_main_unfocused() && !*focused {
-                let _ = w_handle.hide();
+            if !focused {
+                let conf = configs::get_data();
+                if conf.hide_main_unfocused() {
+                    let _ = w_handle.hide();
+                }
             }
         }
         _ => {}
@@ -154,145 +184,70 @@ pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result
     Ok(w)
 }
 
-/// 按最新配置重建主窗口，保留可见性与位置
-///
-/// 窗口标签要等旧窗口真正销毁后才能复用，所以重建放在 `Destroyed` 回调里；
-/// 该回调在主线程执行，正好满足窗口效果 `apply` 的主线程要求。
-/// 主窗口不存在时什么都不做——它下次被创建时本来就会读到最新配置。
+/// 保留位置去重建主窗口
 pub fn recreate_main_window(app: &AppHandle) -> Result<()> {
     rebuild_main_window(app, true)
 }
 
-/// 重置主窗口：按最新配置重建，位置回到配置里的居中位置，不沿用旧位置
-///
-/// 同一个菜单项也可能用于把跑到屏幕外的窗口救回来，所以这里不抄旧位置。
+/// 重置主窗口
 pub fn reset_main_window(app: &AppHandle) -> Result<()> {
     rebuild_main_window(app, false)
 }
 
-/// 销毁并重建主窗口；`keep_position` 为 true 时把旧窗口的位置抄给新窗口
+/// 销毁并重建主窗口
 fn rebuild_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     let Some(window) = app.get_webview_window(constants::LABEL_MAIN) else {
+        let show = configs::get_data().show_main_auto();
+        create_main_window(app, show, show)?;
         return Ok(());
     };
 
-    // 取不到可见性就按隐藏处理：宁可少弹一次，也不要凭空出现在屏幕上
-    let shown = window.is_visible().unwrap_or(false);
-    let position = if keep_position {
-        window.outer_position().ok()
+    // 已经有一次重建在跑：它读到的是最新配置，这次直接跳过
+    if rebuilding() {
+        return Ok(());
+    }
+
+    // todo 优化，能否让 position 在创建时生效，而不是单独维护一个重建状态
+
+    // 位置只有这一刻问得出来，取不到就退回居中
+    plan_rebuild(if keep_position {
+        match window.outer_position() {
+            Ok(position) => Rebuild::KeepPosition(position),
+            Err(_) => Rebuild::Centered,
+        }
     } else {
-        None
-    };
-    let app_handle = app.clone();
-
-    window.on_window_event(move |event| {
-        if !matches!(event, tauri::WindowEvent::Destroyed) {
-            return;
-        }
-
-        // 重建不抢焦点：保存配置或重置时，主窗口都不该跳到前台
-        match create_main_window(&app_handle, shown, false) {
-            Ok(window) => {
-                if let Some(position) = position {
-                    let _ = window.set_position(position);
-                }
-            }
-            Err(err) => warn!("rebuild main window failed: {}", err),
-        }
+        Rebuild::Centered
     });
 
-    REBUILDING.store(true, Ordering::SeqCst);
-    window.close()
+    if let Err(err) = window.close() {
+        take_rebuild();
+        return Err(err);
+    }
+    Ok(())
 }
 
 pub fn create_config_window(app: &AppHandle) -> Result<()> {
-    let on_navigation_app = app.clone();
-    let w = WebviewWindow::builder(
+    let _ = WebviewWindow::builder(
         app,
         constants::LABEL_CONFIG,
         WebviewUrl::App("index_config.html".into()),
     )
     .title("wom Config")
-    .on_navigation(move |url| allow_page(&on_navigation_app, url))
+    .on_navigation(allow_page)
     .build()?;
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    apply_native_webview_settings(&w);
     Ok(())
 }
 
-fn allow_page(app: &AppHandle, url: &tauri::Url) -> bool {
-    if url.scheme() == "tauri" || url.host_str() == Some("tauri.localhost") {
+fn allow_page(url: &tauri::Url) -> bool {
+    if url.scheme() == "tauri" {
+        return true;
+    }
+    if url.host_str() == Some("tauri.localhost") {
         return true;
     }
     if cfg!(dev) && url.host_str() == Some("localhost") {
         return true;
     }
 
-    if matches!(url.scheme(), "http" | "https") {
-        if let Err(err) = app.opener().open_url(url.as_str(), None::<&str>) {
-            warn!("open url {} failed: {}", url, err);
-        }
-    }
     false
-}
-
-#[cfg(target_os = "windows")]
-fn apply_native_webview_settings(window: &WebviewWindow) {
-    use webview2_com::Microsoft::Web::WebView2::Win32::{
-        ICoreWebView2Settings3, ICoreWebView2Settings4, ICoreWebView2Settings5,
-        ICoreWebView2Settings6,
-    };
-    use windows_core::Interface;
-
-    let result = window.with_webview(|webview| unsafe {
-        let Ok(core) = webview.controller().CoreWebView2() else {
-            return;
-        };
-        let Ok(settings) = core.Settings() else {
-            return;
-        };
-
-        let _ = settings.SetAreDefaultContextMenusEnabled(false);
-        let _ = settings.SetIsStatusBarEnabled(false);
-        let _ = settings.SetIsZoomControlEnabled(false);
-
-        if let Ok(settings) = settings.cast::<ICoreWebView2Settings3>() {
-            let _ = settings.SetAreBrowserAcceleratorKeysEnabled(false);
-        }
-        if let Ok(settings) = settings.cast::<ICoreWebView2Settings4>() {
-            let _ = settings.SetIsPasswordAutosaveEnabled(false);
-            let _ = settings.SetIsGeneralAutofillEnabled(false);
-        }
-        if let Ok(settings) = settings.cast::<ICoreWebView2Settings5>() {
-            let _ = settings.SetIsPinchZoomEnabled(false);
-        }
-        if let Ok(settings) = settings.cast::<ICoreWebView2Settings6>() {
-            let _ = settings.SetIsSwipeNavigationEnabled(false);
-        }
-    });
-
-    if let Err(err) = result {
-        warn!("apply native webview settings failed: {}", err);
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn apply_native_webview_settings(window: &WebviewWindow) {
-    use objc2_web_kit::WKWebView;
-
-    let result = window.with_webview(|webview| unsafe {
-        let view = webview.inner().cast::<WKWebView>();
-        if view.is_null() {
-            return;
-        }
-
-        let view: &WKWebView = &*view;
-        view.setAllowsMagnification(false);
-        view.setAllowsBackForwardNavigationGestures(false);
-        view.setAllowsLinkPreview(false);
-    });
-
-    if let Err(err) = result {
-        warn!("apply native webview settings failed: {}", err);
-    }
 }

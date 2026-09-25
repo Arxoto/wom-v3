@@ -4,13 +4,10 @@ use tauri_plugin_log::log::{debug, warn};
 
 /// 窗口背景与外观
 ///
-/// 窗口一概透明、无原生框架：原生效果只有透过透明窗口才能看到，经典面板（Solid Panel）
-/// 自己画发丝线与底色。
+/// 窗口一概透明、无原生框架。
 /// 窗口阴影一律用系统原生阴影，不做自绘。
 ///
-/// todo Liquid Glass (macOS 26+) 目前 API 不够稳定，
-/// 且 Tauri 下必须用 with_webview 把 WKWebView 交给 NSGlassEffectView 的 contentView 。
-/// 待稳定再加回来：恢复 macOS 的 objc2-app-kit 依赖。
+/// todo Liquid Glass (macOS 26+) 目前 API 不够稳定，待稳定再加回来
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WindowEffect {
     /// 不使用原生效果：无边框的经典面板
@@ -134,10 +131,7 @@ fn is_available(effect: WindowEffect, version: windows_version::OsVersion) -> bo
 
 #[cfg(target_os = "macos")]
 fn is_available(effect: WindowEffect, _version: ()) -> bool {
-    matches!(
-        effect,
-        WindowEffect::Vibrancy | WindowEffect::Solid
-    )
+    matches!(effect, WindowEffect::Vibrancy | WindowEffect::Solid)
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]

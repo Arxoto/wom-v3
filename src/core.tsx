@@ -6,35 +6,20 @@ if (import.meta.env.DEV) {
     void attachConsole();
 }
 
-const show_page_main = async () => {
-    await set_page_config_data();
-    play_panel_show();
-    await show_main_window();
-}
-
-export const set_page_main = () => {
-    void show_page_main();
-    return set_near_native();
-}
-
-export const set_page_config = () => {
-    return set_near_native();
-}
-
-const EDIT_SHORTCUT_KEYS = new Set(["a", "c", "v", "x", "y", "z"]);
+const EDIT_SHORTCUT_KEYS = new Set(["KeyA", "KeyC", "KeyV", "KeyX", "KeyY", "KeyZ"]);
 
 const is_browser_shortcut = (e: KeyboardEvent) => {
     if (/^F\d{1,2}$/.test(e.key)) return true;
     if (e.altKey) return true;
-    if (!e.ctrlKey && !e.metaKey) return false;
-    return !EDIT_SHORTCUT_KEYS.has(e.key.toLowerCase());
+    if (e.metaKey) return true;
+    if (e.ctrlKey) {
+        if (e.shiftKey) return true;
+        return !EDIT_SHORTCUT_KEYS.has(e.code);
+    }
+    return false;
 };
 
 const set_near_native = () => {
-    // 禁用右键菜单
-    const on_ctx_menu = (e: PointerEvent) => e.preventDefault();
-    window.addEventListener("contextmenu", on_ctx_menu);
-
     // 禁用 Alt 菜单栏与浏览器快捷键，只放行编辑类组合
     const on_key_down = (e: KeyboardEvent) => {
         if (e.isComposing) return;
@@ -42,10 +27,15 @@ const set_near_native = () => {
     };
     window.addEventListener("keydown", on_key_down);
 
+    // 禁用右键菜单
+    const on_ctx_menu = (e: PointerEvent) => e.preventDefault();
+    window.addEventListener("contextmenu", on_ctx_menu);
+
     const on_mouse_down = (e: MouseEvent) => {
-        if (e.button === 1) e.preventDefault();
+        if (e.button === 1 || e.button === 3 || e.button === 4) e.preventDefault();
     };
     window.addEventListener("mousedown", on_mouse_down);
+    window.addEventListener("auxclick", on_mouse_down);
 
     const on_drag = (e: Event) => e.preventDefault();
     window.addEventListener("dragstart", on_drag);
@@ -53,9 +43,10 @@ const set_near_native = () => {
     window.addEventListener("drop", on_drag);
 
     return () => {
-        window.removeEventListener("contextmenu", on_ctx_menu);
         window.removeEventListener("keydown", on_key_down);
+        window.removeEventListener("contextmenu", on_ctx_menu);
         window.removeEventListener("mousedown", on_mouse_down);
+        window.removeEventListener("auxclick", on_mouse_down);
         window.removeEventListener("dragstart", on_drag);
         window.removeEventListener("dragover", on_drag);
         window.removeEventListener("drop", on_drag);
@@ -272,7 +263,23 @@ export const dismiss_main_window = async () => {
     await invoke_backend('dismiss_main_window');
 }
 
-export const show_main_window = async () => {
+const PANEL_SHOW_FRAMES: Keyframe[] = [
+    { opacity: 0, transform: "scale(0.98)" },
+    { opacity: 1, transform: "scale(1)" },
+];
+
+/** 渐入动画 */
+const play_fade_in_anim = () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    document.body.animate(PANEL_SHOW_FRAMES, {
+        duration: 140,
+        easing: "ease-out",
+        fill: "backwards",
+    });
+}
+
+export const fade_in_main_window = async () => {
+    play_fade_in_anim();
     await invoke_backend('show_main_window');
 }
 
@@ -292,20 +299,6 @@ export const on_main_shown = async (handler: () => void) => {
 
 export const on_main_will_show = async (handler: () => void) => {
     return await listen(EVENT_MAIN_WILL_SHOW, handler);
-}
-
-const PANEL_SHOW_FRAMES: Keyframe[] = [
-    { opacity: 0, transform: "scale(0.98)" },
-    { opacity: 1, transform: "scale(1)" },
-];
-
-export const play_panel_show = () => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    document.body.animate(PANEL_SHOW_FRAMES, {
-        duration: 140,
-        easing: "ease-out",
-        fill: "backwards",
-    });
 }
 
 /**
@@ -331,4 +324,15 @@ const set_page_config_data = async () => {
 
     const effect_info = await get_effect_info();
     document.documentElement.style.setProperty('--color-bg-alpha', String(effect_info.alpha));
+}
+
+/** 主页面初始化 */
+export const setup_page_main = () => {
+    void set_page_config_data();
+    return set_near_native();
+}
+
+/** 配置页面初始化 */
+export const setup_page_config = () => {
+    return set_near_native();
 }
