@@ -12,9 +12,9 @@ import {
     run_item_action,
     search,
     search_page,
-    fade_in_main_window,
     type ItemTypeActions,
     should_show_main_on_ready,
+    show_main_window,
 } from "../../core";
 import { actions_of, current_action } from "./action_labels";
 import { is_action_intent, is_select_intent, resolve_key, type Intent } from "./keys";
@@ -27,8 +27,10 @@ import { resolve_wheel } from "./wheel";
 const FALLBACK_ITEM_N = 10;
 
 /**
- * 主窗口显示前后的接线：显示前入场动效和关预览页面、显示后聚焦全选输入框
- * 
+ * 主窗口显示前后的接线：显示前关预览页面、显示后聚焦输入框
+ *
+ * 首次挂载还会按配置决定要不要自己把窗口显示出来；这个判断只放行一次
+ *
  * 输入与合成事件挂在同一个 input 上，所以 ref 由这里持有再传进去
  */
 const useMainWindowFocus = (
@@ -52,12 +54,12 @@ const useMainWindowFocus = (
             }));
             unlisteners.push(await on_main_will_show(() => {
                 dispatch({ kind: "close_preview" });
-                void fade_in_main_window();
+                void show_main_window();
             }));
 
             const should_show = await should_show_main_on_ready();
             if (should_show) {
-                void fade_in_main_window();
+                void show_main_window();
             }
 
             if (cancelled) {

@@ -276,7 +276,10 @@ export const run_item_action = async (item_index: number, action: ItemActionId) 
 
 // #region main_window
 
-const show_main_window = async () => {
+/**
+ * 实际体验无需 fade-in anim
+ */
+export const show_main_window = async () => {
     await invoke_backend('show_main_window');
 }
 
@@ -308,11 +311,6 @@ export const should_show_main_on_ready = async () => {
     if (main_window_ready) return false;
     main_window_ready = true;
     return await should_show_main_auto();
-}
-
-export const fade_in_main_window = async () => {
-    // play_fade_in_anim();
-    await show_main_window();
 }
 
 /**
