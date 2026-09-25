@@ -7,7 +7,6 @@
 //! 应用只有一张命令注册表：`lib.rs` 的 `invoke_handler`。
 
 use tauri::State;
-use tauri_plugin_log::log::warn;
 
 use crate::{
     builtin_plugins::{
@@ -79,29 +78,45 @@ pub fn run_item_action(
     Ok(())
 }
 
-/// 保存整份配置，并让它立刻生效
+/// 保存整份配置：落盘、重新加载运行时配置
 ///
-/// 同步命令：窗口效果只能在主线程应用（见 [`crate::window_effect::apply`] ）。
+/// 返回是否需要重新注册全局快捷键（见 [`register_global_shortcut`]）；
+/// 主窗口不跟着变，要重建窗口由前端调用 [`rebuild_main_window`]。
 #[tauri::command]
-pub fn set_config(app: tauri::AppHandle, config: serde_json::Value) -> Result<(), String> {
+pub fn save_config(app: tauri::AppHandle, config: serde_json::Value) -> Result<bool, String> {
     let config = configs::parse_full_config(config)?;
     config.validate()?;
 
     // 文件与运行时始终是同一份内容
     config.save(&app).map_err(|err| err.to_string())?;
+    let _ = configs::reload_data(&app);
 
-    // 配置真的变了就把主窗口删掉重新建立：新窗口启动时自然读到新配置
-    if configs::reload_data(&app) {
-        if let Err(err) = window_utils::recreate_main_window(&app) {
-            warn!("recreate main window failed: {}", err);
-        }
-    }
+    #[cfg(desktop)]
+    let needs_registration = global_shortcut::needs_registration(&app);
+    #[cfg(not(desktop))]
+    let needs_registration = false;
 
-    // 快捷键可能变了，重新注册（内部会与当前注册值比对）
+    Ok(needs_registration)
+}
+
+/// 重新注册全局快捷键（内部会与当前注册值比对）
+#[tauri::command]
+pub fn register_global_shortcut(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(desktop)]
     global_shortcut::register_global_shortcut(&app).map_err(|err| err.to_string())?;
 
+    #[cfg(not(desktop))]
+    let _ = app;
+
     Ok(())
+}
+
+/// 重建主窗口
+///
+/// 同步命令：窗口效果只能在主线程应用（见 [`crate::window_effect::apply`] ）。
+#[tauri::command]
+pub fn rebuild_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    window_utils::recreate_main_window(&app).map_err(|err| err.to_string())
 }
 
 /// 使用关键字进行检索（实现见 [`stat::search`]）

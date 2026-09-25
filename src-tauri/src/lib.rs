@@ -105,18 +105,16 @@ mod tray {
                     }
                 }
                 "re_plugin" => {
+                    info!("try reload plugin setting");
                     builtin_plugins::reload_setting(app);
-                    if let Err(e) = window_utils::recreate_main_window(app) {
-                        warn!("recreate main window failed: {}", e);
-                    }
+                    // 这里是显式触发，因此无论如何都重建窗口，否则可能认为没有触发
+                    rebuild_main(app);
                 }
                 "reload" => {
                     info!("try reload config data");
                     let _ = configs::reload_data(app);
                     // 这里是显式触发，因此无论如何都重建窗口，否则可能认为没有触发
-                    if let Err(e) = window_utils::recreate_main_window(app) {
-                        warn!("recreate main window failed: {}", e);
-                    }
+                    rebuild_main(app);
                 }
                 "quit" => {
                     debug!("try exit");
@@ -127,6 +125,12 @@ mod tray {
             })
             .build(app)?;
         Ok(())
+    }
+
+    fn rebuild_main(app: &tauri::AppHandle) {
+        if let Err(err) = window_utils::recreate_main_window(app) {
+            warn!("recreate main window failed: {}", err);
+        }
     }
 }
 
@@ -174,7 +178,9 @@ pub fn run() {
             commands::fetch_scan_base_options,
             commands::fetch_item_type_actions,
             commands::run_item_action,
-            commands::set_config,
+            commands::save_config,
+            commands::register_global_shortcut,
+            commands::rebuild_main_window,
             commands::search,
             commands::search_page,
             commands::dismiss_main_window,
@@ -189,11 +195,9 @@ pub fn run() {
             builtin_plugins::load_stat(app.handle())?;
 
             configs::load_data(app.handle());
-            let conf = configs::get_data();
 
             tray::create_tray(app)?;
-            let auto_show = conf.show_main_auto();
-            window_utils::create_main_window(app.handle(), auto_show, auto_show)?;
+            window_utils::create_main_window(app.handle(), configs::get_data().show_main_auto())?;
 
             Ok(())
         })

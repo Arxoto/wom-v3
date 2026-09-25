@@ -78,6 +78,11 @@ pub fn register_global_shortcut(app: &tauri::AppHandle) -> Result<(), Error> {
     Ok(())
 }
 
+/// 配置里的快捷键是否还没注册上
+pub fn needs_registration(app: &tauri::AppHandle) -> bool {
+    get_stat(app).get() != Some(get_shortcut())
+}
+
 /// 运行时的注销动作可以手动触发
 pub fn unregister_global_shortcut(app: &tauri::AppHandle) -> Result<(), Error> {
     let stat = get_stat(app);
@@ -130,7 +135,7 @@ fn handler_global_shortcut(
     // 目前只注册一个快捷键，因此这里无需识别
     match event.state() {
         tauri_plugin_global_shortcut::ShortcutState::Pressed => {
-            let _ = window_utils::show_hide_main_window(app_handle);
+            let _ = window_utils::toggle_main_window(app_handle);
         }
         tauri_plugin_global_shortcut::ShortcutState::Released => {}
     }

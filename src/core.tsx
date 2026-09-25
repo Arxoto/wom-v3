@@ -203,8 +203,17 @@ export const get_config = async () => {
     return (await invoke_backend('fetch_config')) as Config;
 }
 
-export const set_config = async (config: Config) => {
-    await invoke_backend('set_config', { config });
+/**
+ * 保存配置
+ * @param config 保存的配置
+ * @returns 是否需要 register_global_shortcut
+ */
+export const save_config = async (config: Config) => {
+    return (await invoke_backend('save_config', { config })) as boolean;
+}
+
+export const register_global_shortcut = async () => {
+    await invoke_backend('register_global_shortcut');
 }
 
 export const get_effect_info = async () => {
@@ -261,6 +270,10 @@ export const run_item_action = async (item_index: number, action: ItemActionId) 
  */
 export const dismiss_main_window = async () => {
     await invoke_backend('dismiss_main_window');
+}
+
+export const rebuild_main_window = async () => {
+    await invoke_backend('rebuild_main_window');
 }
 
 const PANEL_SHOW_FRAMES: Keyframe[] = [

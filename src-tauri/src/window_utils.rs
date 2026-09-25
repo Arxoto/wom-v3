@@ -40,7 +40,7 @@ fn rebuilding() -> bool {
 }
 
 // todo 梳理窗口创建和显示流程，能否简化
-pub fn show_hide_main_window(app: &AppHandle) -> Result<()> {
+pub fn toggle_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         if w.is_visible()? {
             return w.hide();
@@ -52,7 +52,7 @@ pub fn show_hide_main_window(app: &AppHandle) -> Result<()> {
 /// 通知前端准备显示窗口
 pub fn request_show_main_window(app: &AppHandle) -> Result<()> {
     if app.get_webview_window(constants::LABEL_MAIN).is_none() {
-        create_main_window(app, true, true)?;
+        create_main_window(app, true)?;
         return Ok(());
     }
 
@@ -97,7 +97,7 @@ pub fn show_config_window(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result<WebviewWindow> {
+pub fn create_main_window(app: &AppHandle, show: bool) -> Result<WebviewWindow> {
     let conf = configs::get_data();
     let effect = conf.effect();
     let (width, height) = conf.window_size();
@@ -122,8 +122,8 @@ pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result
     .minimizable(false)
     .inner_size(width, height)
     // todo 窗口创建时始终隐藏，等前端准备好后再显示
-    .visible(shown)
-    .focused(focused)
+    .visible(show)
+    .focused(show)
     .on_navigation(allow_page);
 
     // Platform 平台不兼容的特性
@@ -161,8 +161,8 @@ pub fn create_main_window(app: &AppHandle, shown: bool, focused: bool) -> Result
                 Rebuild::KeepPosition(position) => Some(position),
             };
 
-            let shown = configs::get_data().show_main_auto();
-            match create_main_window(&app_handle, shown, shown) {
+            let show = configs::get_data().show_main_auto();
+            match create_main_window(&app_handle, show) {
                 Ok(window) => {
                     if let Some(position) = position {
                         let _ = window.set_position(position);
@@ -198,7 +198,7 @@ pub fn reset_main_window(app: &AppHandle) -> Result<()> {
 fn rebuild_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     let Some(window) = app.get_webview_window(constants::LABEL_MAIN) else {
         let show = configs::get_data().show_main_auto();
-        create_main_window(app, show, show)?;
+        create_main_window(app, show)?;
         return Ok(());
     };
 
