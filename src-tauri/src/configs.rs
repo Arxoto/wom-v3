@@ -56,7 +56,7 @@ pub fn get_data() -> Arc<Config> {
 #[serde(default)]
 pub struct Config {
     // ========= 界面基础设置 =========
-    /// 应用打开时自动显示主窗口（见 [`Config::show_main_auto`]）
+    /// 应用打开时一并显示主窗口（见 [`Config::show_main_auto`]）
     #[serde(deserialize_with = "deserialize_tolerant")]
     pub main_window_mode: MainWindowMode,
     /// 窗口背景与外观；`None` 表示跟随当前平台的推荐值

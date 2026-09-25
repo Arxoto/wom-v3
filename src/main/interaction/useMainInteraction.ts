@@ -14,6 +14,7 @@ import {
     search_page,
     fade_in_main_window,
     type ItemTypeActions,
+    should_show_main_on_ready,
 } from "../../core";
 import { actions_of, current_action } from "./action_labels";
 import { is_action_intent, is_select_intent, resolve_key, type Intent } from "./keys";
@@ -40,31 +41,35 @@ const useMainWindowFocus = (
     }, [input_ref, dispatch]);
 
     useEffect(() => {
-        focus_input();
-
-        const unlisteners: (() => void)[] = [];
         let cancelled = false;
+        let cleaners: (() => void)[] = [];
 
-        const subscribe = (pending: Promise<() => void>) => {
-            void pending.then(stop => {
-                // 注册还没回来就卸载了，就地退订
-                if (cancelled) stop();
-                else unlisteners.push(stop);
-            });
-        };
+        (async () => {
+            const unlisteners: (() => void)[] = [];
 
-        subscribe(on_main_shown(() => {
-            focus_input();
-        }));
+            unlisteners.push(await on_main_shown(() => {
+                focus_input();
+            }));
+            unlisteners.push(await on_main_will_show(() => {
+                dispatch({ kind: "close_preview" });
+                void fade_in_main_window();
+            }));
 
-        subscribe(on_main_will_show(() => {
-            dispatch({ kind: "close_preview" });
-            void fade_in_main_window();
-        }));
+            const should_show = await should_show_main_on_ready();
+            if (should_show) {
+                void fade_in_main_window();
+            }
+
+            if (cancelled) {
+                unlisteners.forEach(unlisten => unlisten());
+            } else {
+                cleaners = unlisteners;
+            }
+        })();
 
         return () => {
             cancelled = true;
-            unlisteners.forEach(unlisten => unlisten());
+            cleaners.forEach(unlisten => unlisten());
         };
     }, [focus_input]);
 };

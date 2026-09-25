@@ -39,6 +39,12 @@ pub async fn fetch_effect_info() -> configs::EffectInfo {
     }
 }
 
+/// 主窗口创建完成时是否应该自动显示
+#[tauri::command]
+pub fn should_show_main_auto() -> bool {
+    configs::get_data().show_main_auto()
+}
+
 /// 扫描根路径的可选项，配置页用来渲染下拉
 ///
 /// 顺带给出每个变量在这台机器上解析出来的目录，前端可以直接显示

@@ -175,6 +175,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::fetch_config,
             commands::fetch_effect_info,
+            commands::should_show_main_auto,
             commands::fetch_scan_base_options,
             commands::fetch_item_type_actions,
             commands::run_item_action,
@@ -197,7 +198,7 @@ pub fn run() {
             configs::load_data(app.handle());
 
             tray::create_tray(app)?;
-            window_utils::create_main_window(app.handle(), configs::get_data().show_main_auto())?;
+            window_utils::create_main_window(app.handle())?;
 
             Ok(())
         })

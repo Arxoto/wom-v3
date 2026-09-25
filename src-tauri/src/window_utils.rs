@@ -52,7 +52,7 @@ pub fn toggle_main_window(app: &AppHandle) -> Result<()> {
 /// 通知前端准备显示窗口
 pub fn request_show_main_window(app: &AppHandle) -> Result<()> {
     if app.get_webview_window(constants::LABEL_MAIN).is_none() {
-        create_main_window(app, true)?;
+        create_main_window(app)?;
         return Ok(());
     }
 
@@ -97,7 +97,7 @@ pub fn show_config_window(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-pub fn create_main_window(app: &AppHandle, show: bool) -> Result<WebviewWindow> {
+pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
     let conf = configs::get_data();
     let effect = conf.effect();
     let (width, height) = conf.window_size();
@@ -121,9 +121,9 @@ pub fn create_main_window(app: &AppHandle, show: bool) -> Result<WebviewWindow> 
     .maximizable(false)
     .minimizable(false)
     .inner_size(width, height)
-    // todo 窗口创建时始终隐藏，等前端准备好后再显示
-    .visible(show)
-    .focused(show)
+    // 窗口创建时始终隐藏，前端准备好后进入统一的显示流程
+    .visible(false)
+    .focused(false)
     .on_navigation(allow_page);
 
     // Platform 平台不兼容的特性
@@ -161,8 +161,7 @@ pub fn create_main_window(app: &AppHandle, show: bool) -> Result<WebviewWindow> 
                 Rebuild::KeepPosition(position) => Some(position),
             };
 
-            let show = configs::get_data().show_main_auto();
-            match create_main_window(&app_handle, show) {
+            match create_main_window(&app_handle) {
                 Ok(window) => {
                     if let Some(position) = position {
                         let _ = window.set_position(position);
@@ -197,8 +196,7 @@ pub fn reset_main_window(app: &AppHandle) -> Result<()> {
 /// 销毁并重建主窗口
 fn rebuild_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     let Some(window) = app.get_webview_window(constants::LABEL_MAIN) else {
-        let show = configs::get_data().show_main_auto();
-        create_main_window(app, show)?;
+        create_main_window(app)?;
         return Ok(());
     };
 

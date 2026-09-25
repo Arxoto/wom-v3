@@ -199,6 +199,8 @@ const invoke_backend = async (cmd: string, args?: Record<string, unknown>): Prom
     }
 }
 
+// #region: global
+
 export const get_config = async () => {
     return (await invoke_backend('fetch_config')) as Config;
 }
@@ -212,13 +214,21 @@ export const save_config = async (config: Config) => {
     return (await invoke_backend('save_config', { config })) as boolean;
 }
 
+export const get_effect_info = async () => {
+    return (await invoke_backend('fetch_effect_info')) as EffectInfo;
+}
+
+const should_show_main_auto = async () => {
+    return (await invoke_backend('should_show_main_auto')) as boolean;
+}
+
 export const register_global_shortcut = async () => {
     await invoke_backend('register_global_shortcut');
 }
 
-export const get_effect_info = async () => {
-    return (await invoke_backend('fetch_effect_info')) as EffectInfo;
-}
+// #endregion
+
+// #region built-in plugin
 
 export const get_scan_base_options = async () => {
     return (await invoke_backend('fetch_scan_base_options')) as ScanBaseOption[];
@@ -262,18 +272,42 @@ export const run_item_action = async (item_index: number, action: ItemActionId) 
     await invoke_backend('run_item_action', { itemIndex: item_index, action });
 }
 
-/**
- * 无条件隐藏主窗口
- *
- * 它就是 ESC 那条显式意图，与 main_window_mode 无关——配置只管失焦与触发动作
- * 这两条被动隐藏规则。
- */
+// #endregion
+
+// #region main_window
+
+const show_main_window = async () => {
+    await invoke_backend('show_main_window');
+}
+
 export const dismiss_main_window = async () => {
     await invoke_backend('dismiss_main_window');
 }
 
 export const rebuild_main_window = async () => {
     await invoke_backend('rebuild_main_window');
+}
+
+const EVENT_MAIN_SHOWN = "main_shown";
+
+const EVENT_MAIN_WILL_SHOW = "main_will_show";
+
+export const on_main_shown = async (handler: () => void) => {
+    return await listen(EVENT_MAIN_SHOWN, handler);
+}
+
+export const on_main_will_show = async (handler: () => void) => {
+    return await listen(EVENT_MAIN_WILL_SHOW, handler);
+}
+
+// #endregion
+
+let main_window_ready = false;
+
+export const should_show_main_on_ready = async () => {
+    if (main_window_ready) return false;
+    main_window_ready = true;
+    return await should_show_main_auto();
 }
 
 const PANEL_SHOW_FRAMES: Keyframe[] = [
@@ -293,25 +327,7 @@ const play_fade_in_anim = () => {
 
 export const fade_in_main_window = async () => {
     play_fade_in_anim();
-    await invoke_backend('show_main_window');
-}
-
-/** 主窗口被显示时后端发来的事件名（对应 Rust 侧 constants::EVENT_MAIN_SHOWN） */
-const EVENT_MAIN_SHOWN = "main_shown";
-
-const EVENT_MAIN_WILL_SHOW = "main_will_show";
-
-/**
- * 监听主窗口被显示（每次显示都会发）
- *
- * 返回取消监听的函数，调用方负责在卸载时取消。
- */
-export const on_main_shown = async (handler: () => void) => {
-    return await listen(EVENT_MAIN_SHOWN, handler);
-}
-
-export const on_main_will_show = async (handler: () => void) => {
-    return await listen(EVENT_MAIN_WILL_SHOW, handler);
+    await show_main_window();
 }
 
 /**
