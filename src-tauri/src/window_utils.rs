@@ -39,7 +39,6 @@ fn rebuilding() -> bool {
     }
 }
 
-// todo 梳理窗口创建和显示流程，能否简化
 pub fn toggle_main_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_MAIN) {
         if w.is_visible()? {
@@ -53,13 +52,12 @@ pub fn toggle_main_window(app: &AppHandle) -> Result<()> {
 pub fn request_show_main_window(app: &AppHandle) -> Result<()> {
     if app.get_webview_window(constants::LABEL_MAIN).is_none() {
         create_main_window(app)?;
-        return Ok(());
     }
 
-    emit_main_will_show(app)
+    show_main_window_now(app)
 }
 
-/// 前端准备好后调用此函数真正显示
+/// 显示主界面，并通知前端
 pub fn show_main_window_now(app: &AppHandle) -> Result<()> {
     let Some(w) = app.get_webview_window(constants::LABEL_MAIN) else {
         return Ok(());
@@ -68,14 +66,7 @@ pub fn show_main_window_now(app: &AppHandle) -> Result<()> {
     w.unminimize()?;
     w.show()?;
     w.set_focus()?;
-    emit_main_shown(app)
-}
 
-fn emit_main_will_show(app: &AppHandle) -> Result<()> {
-    app.emit_to(constants::LABEL_MAIN, constants::EVENT_MAIN_WILL_SHOW, ())
-}
-
-fn emit_main_shown(app: &AppHandle) -> Result<()> {
     app.emit_to(constants::LABEL_MAIN, constants::EVENT_MAIN_SHOWN, ())
 }
 

@@ -293,14 +293,9 @@ export const rebuild_main_window = async () => {
 
 const EVENT_MAIN_SHOWN = "main_shown";
 
-const EVENT_MAIN_WILL_SHOW = "main_will_show";
-
+/** 后端显示主界面后，再次通知前端 */
 export const on_main_shown = async (handler: () => void) => {
     return await listen(EVENT_MAIN_SHOWN, handler);
-}
-
-export const on_main_will_show = async (handler: () => void) => {
-    return await listen(EVENT_MAIN_WILL_SHOW, handler);
 }
 
 // #endregion

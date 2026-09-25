@@ -8,7 +8,6 @@ import {
     get_config,
     get_item_type_actions,
     on_main_shown,
-    on_main_will_show,
     run_item_action,
     search,
     search_page,
@@ -43,35 +42,22 @@ const useMainWindowFocus = (
     }, [input_ref, dispatch]);
 
     useEffect(() => {
-        let cancelled = false;
-        let cleaners: (() => void)[] = [];
+        let cleaner: (() => void) | undefined;
 
         (async () => {
-            const unlisteners: (() => void)[] = [];
-
-            unlisteners.push(await on_main_shown(() => {
-                focus_input();
-            }));
-            unlisteners.push(await on_main_will_show(() => {
+            cleaner = await on_main_shown(() => {
                 dispatch({ kind: "close_preview" });
-                void show_main_window();
-            }));
+                focus_input();
+            });
 
             const should_show = await should_show_main_on_ready();
             if (should_show) {
                 void show_main_window();
             }
-
-            if (cancelled) {
-                unlisteners.forEach(unlisten => unlisten());
-            } else {
-                cleaners = unlisteners;
-            }
         })();
 
         return () => {
-            cancelled = true;
-            cleaners.forEach(unlisten => unlisten());
+            cleaner?.();
         };
     }, [focus_input]);
 };
