@@ -310,23 +310,8 @@ export const should_show_main_on_ready = async () => {
     return await should_show_main_auto();
 }
 
-const PANEL_SHOW_FRAMES: Keyframe[] = [
-    { opacity: 0, transform: "scale(0.98)" },
-    { opacity: 1, transform: "scale(1)" },
-];
-
-/** 渐入动画 */
-const play_fade_in_anim = () => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    document.body.animate(PANEL_SHOW_FRAMES, {
-        duration: 140,
-        easing: "ease-out",
-        fill: "backwards",
-    });
-}
-
 export const fade_in_main_window = async () => {
-    play_fade_in_anim();
+    // play_fade_in_anim();
     await show_main_window();
 }
 
