@@ -84,7 +84,7 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions, action
                         const action_index = action_indices[item.item_index] ?? 0;
                         const action = current_action(type_actions, item.the_type, action_index);
                         return (
-                            // 用窗口内的下标作 key：翻页时同一槽位的 DOM 保持复用（见 AppMain.tsx 的 todo）
+                            // 用窗口内的下标作 key：翻页时同一槽位的 DOM 保持复用
                             <Item
                                 key={index}
                                 item={item}
