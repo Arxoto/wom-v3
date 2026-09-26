@@ -104,6 +104,9 @@ pub struct ItemAction {
     pub label_key: &'static str,
 }
 
+/// 系统命令不挂动作，每个命令的动作就是描述内容
+const SYS_ACTIONS: &[ItemAction] = &[];
+
 /// 片段只能复制，没有别的动作可做
 const SNIP_ACTIONS: &[ItemAction] = &[ItemAction {
     id: ItemActionId::Copy,
@@ -170,8 +173,7 @@ const SCAN_ACTIONS: &[ItemAction] = &[
 pub fn of(the_type: ItemType) -> &'static [ItemAction] {
     match the_type {
         ItemType::Snippets => SNIP_ACTIONS,
-        // todo 系统命令不挂动作（待实现）
-        ItemType::System => &[],
+        ItemType::System => SYS_ACTIONS,
         ItemType::Note => NOTE_ACTIONS,
         ItemType::Cmd => CMD_ACTIONS,
         ItemType::Web => WEB_ACTIONS,
