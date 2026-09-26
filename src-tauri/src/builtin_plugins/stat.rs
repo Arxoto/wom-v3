@@ -55,7 +55,7 @@ pub fn reload_setting(app: &AppHandle) {
     let state = app
         .try_state::<BuiltinStat>()
         .expect("BuiltinStat not be managed");
-    let mut stat = state.0.lock().unwrap();
+    let mut stat = state.0.lock().unwrap_or_else(|err| err.into_inner());
 
     stat.item_collection = item_collection;
     stat.item_search_result = ItemSearchResult::default();
@@ -63,7 +63,7 @@ pub fn reload_setting(app: &AppHandle) {
 
 /// 使用关键字进行检索
 pub fn search(builtin_stat: &BuiltinStat, k: &str) -> ItemSearchPage {
-    let mut stat = builtin_stat.0.lock().unwrap(); // 无法处理异常
+    let mut stat = builtin_stat.0.lock().unwrap_or_else(|err| err.into_inner());
 
     // cache
     if !stat.item_search_result.is_current_key(k) {
@@ -83,7 +83,7 @@ pub fn search_page(
     index: usize,
     token: u32,
 ) -> Result<ItemSearchPage, String> {
-    let stat = builtin_stat.0.lock().unwrap();
+    let stat = builtin_stat.0.lock().unwrap_or_else(|err| err.into_inner());
 
     if !stat.item_search_result.is_current_token(token) {
         let cached = stat.item_search_result.token;
@@ -109,7 +109,7 @@ pub fn run_item_action(
     item_index: usize,
     action_id: &str,
 ) -> bool {
-    let stat = builtin_stat.0.lock().unwrap();
+    let stat = builtin_stat.0.lock().unwrap_or_else(|err| err.into_inner());
 
     action::run(app, &stat.item_collection, item_index, action_id)
 }
