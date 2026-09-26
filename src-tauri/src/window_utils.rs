@@ -13,6 +13,7 @@ mod rebuild_main {
     /// 待办的主窗口重建
     ///
     /// 窗口销毁是异步的，需要有个状态去保存
+    #[derive(Debug)]
     pub enum MainRebuildState {
         /// 没有待办的重建
         Idle,
@@ -73,7 +74,8 @@ pub fn show_main_window_now(app: &AppHandle) -> Result<()> {
     app.emit_to(constants::LABEL_MAIN, constants::EVENT_MAIN_SHOWN, ())?;
 
     if let Some(w) = get_main_window(app) {
-        w.unminimize()?;
+        // 目前不存在最小化的情况，先注释，后续若发现问题可恢复
+        // w.unminimize()?;
         w.show()?;
         w.set_focus()?;
     };
@@ -90,7 +92,7 @@ pub fn hide_main_window(app: &AppHandle) -> Result<()> {
 
 pub fn show_config_window(app: &AppHandle) -> Result<()> {
     if let Some(w) = app.get_webview_window(constants::LABEL_CONFIG) {
-        w.unminimize()?;
+        // w.unminimize()?;
         w.show()?;
         w.set_focus()?;
     } else {
@@ -146,7 +148,6 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
     window_effect::apply(&w, effect);
 
     if let Some(position) = rebuild_main::take_position() {
-        // todo 位置是否准确、能否合并到 builder 中
         w.set_position(position)?;
     }
 
@@ -183,17 +184,17 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
 }
 
 /// 保留位置去重建主窗口
-pub fn recreate_main_window(app: &AppHandle) -> Result<()> {
-    rebuild_main_window(app, true)
+pub fn rebuild_main_window(app: &AppHandle) -> Result<()> {
+    recreate_main_window(app, true)
 }
 
 /// 重置主窗口
 pub fn reset_main_window(app: &AppHandle) -> Result<()> {
-    rebuild_main_window(app, false)
+    recreate_main_window(app, false)
 }
 
 /// 销毁并重建主窗口
-fn rebuild_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
+fn recreate_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     let Some(window) = get_main_window(app) else {
         rebuild_main::plan(MainRebuildState::Centered);
         create_main_window(app)?;
@@ -208,6 +209,7 @@ fn rebuild_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     } else {
         MainRebuildState::Centered
     };
+    debug!("plan rebuild {:?}", rebuild_state);
     rebuild_main::plan(rebuild_state);
 
     if let Err(err) = window.close() {

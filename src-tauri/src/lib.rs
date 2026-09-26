@@ -127,8 +127,8 @@ mod tray {
 
     /// 显式触发，无论如何都重建窗口，否则可能认为没有触发
     fn rebuild_main(app: &tauri::AppHandle) {
-        if let Err(err) = window_utils::recreate_main_window(app) {
-            warn!("recreate main window failed: {}", err);
+        if let Err(err) = window_utils::rebuild_main_window(app) {
+            warn!("rebuild main window failed: {}", err);
         }
     }
 }

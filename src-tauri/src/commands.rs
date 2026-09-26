@@ -122,7 +122,7 @@ pub fn register_global_shortcut(app: tauri::AppHandle) -> Result<(), String> {
 /// 同步命令：窗口效果只能在主线程应用（见 [`crate::window_effect::apply`] ）。
 #[tauri::command]
 pub fn rebuild_main_window(app: tauri::AppHandle) -> Result<(), String> {
-    window_utils::recreate_main_window(&app).map_err(|err| err.to_string())
+    window_utils::rebuild_main_window(&app).map_err(|err| err.to_string())
 }
 
 /// 使用关键字进行检索（实现见 [`stat::search`]）
