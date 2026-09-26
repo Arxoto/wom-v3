@@ -107,13 +107,11 @@ mod tray {
                 "re_plugin" => {
                     info!("try reload plugin setting");
                     builtin_plugins::reload_setting(app);
-                    // 这里是显式触发，因此无论如何都重建窗口，否则可能认为没有触发
                     rebuild_main(app);
                 }
                 "reload" => {
                     info!("try reload config data");
                     let _ = configs::reload_data(app);
-                    // 这里是显式触发，因此无论如何都重建窗口，否则可能认为没有触发
                     rebuild_main(app);
                 }
                 "quit" => {
@@ -127,6 +125,7 @@ mod tray {
         Ok(())
     }
 
+    /// 显式触发，无论如何都重建窗口，否则可能认为没有触发
     fn rebuild_main(app: &tauri::AppHandle) {
         if let Err(err) = window_utils::recreate_main_window(app) {
             warn!("recreate main window failed: {}", err);
@@ -198,7 +197,7 @@ pub fn run() {
             configs::load_data(app.handle());
 
             tray::create_tray(app)?;
-            window_utils::create_main_window(app.handle(), None)?;
+            window_utils::create_main_window(app.handle())?;
 
             Ok(())
         })
