@@ -7,7 +7,7 @@ use tauri_plugin_log::log::{debug, warn};
 /// 窗口一概透明、无原生框架。
 /// 窗口阴影一律用系统原生阴影，不做自绘。
 ///
-/// todo Liquid Glass (macOS 26+) 目前 API 不够稳定，待稳定再加回来
+/// Liquid Glass (macOS 26+) 目前 API 不够稳定，待稳定再加回来
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WindowEffect {
     /// 不使用原生效果：无边框的经典面板
