@@ -31,7 +31,7 @@ pub(super) fn scan_files<R: Runtime>(
 
     // 根路径变量交给 tauri 解析（支持的变量见 ItemParsedScan::base 的文档注释），
     // 不自行维护变量名与 BaseDirectory 的映射表，避免与 tauri 的平台差异脱节
-    let real_path = match BaseDirectory::from_variable(&base) {
+    let resolved_path = match BaseDirectory::from_variable(&base) {
         Some(base_dir) => app.path().resolve(path, base_dir).map_err(|_| {
             ItemParseErr::ItemValueParsedFailed("resolve base path failed".to_string())
         })?,
@@ -44,6 +44,10 @@ pub(super) fn scan_files<R: Runtime>(
             )));
         }
     };
+
+    let real_path = std::path::absolute(&resolved_path).map_err(|_| {
+        ItemParseErr::ItemValueParsedFailed("get scan root absolute path failed".to_string())
+    })?;
 
     let target_types: Vec<FileType> = file_types
         .iter()
@@ -145,10 +149,7 @@ fn scan_path<P: AsRef<Path>>(root: P, opts: ScanOptions) -> Vec<(String, PathBuf
 
         let file_name = entry.file_name().to_string_lossy();
         if is_match(&entry, &file_name, &opts) {
-            // 获取绝对路径
-            if let Ok(abs_path) = std::fs::canonicalize(entry.path()) {
-                results.push((file_name.into_owned(), abs_path));
-            }
+            results.push((file_name.into_owned(), entry.path().to_path_buf()));
         }
     }
 
