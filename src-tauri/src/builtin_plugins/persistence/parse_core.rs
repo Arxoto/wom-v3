@@ -78,6 +78,8 @@ impl Item {
         let item_type_str = &item_parsed_values[0];
         let item_type = ItemType::from_str(item_type_str)?;
 
+        // todo 不同类型实现 FromIterator ，然后把 Scan 和 File 合并
+        //     Scan 扫描配置序列化后作为一个字段，并且显式配置迭代层数，关键字匹配内部所有文件
         match item_type {
             ItemType::System => Self::parse_str_system(item_parsed_values),
             ItemType::Snippets
