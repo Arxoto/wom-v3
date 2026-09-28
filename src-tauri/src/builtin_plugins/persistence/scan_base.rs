@@ -6,7 +6,7 @@
 use serde::Serialize;
 use tauri::path::BaseDirectory;
 
-/// 扫描根路径 [`ItemParsedScan::base`] 的可选项枚举类（仅作为前端交互时的辅助，不作为反序列化类型）
+/// 扫描根路径 [`ScanConfig::base`] 的可选项枚举类（仅作为前端交互时的辅助，不作为反序列化类型）
 ///
 /// 变量名与各平台的具体目录都由 [`tauri::path::BaseDirectory`] 决定，设置文件只写变量名即可，
 /// 不必关心平台差异：各平台按系统惯例落到不同目录
@@ -17,7 +17,7 @@ use tauri::path::BaseDirectory;
 ///
 /// 序列化形式就是变量名本身（如 `"$DESKTOP"` ），前端拿到的值与写进设置文件的值一致。
 ///
-/// [`ItemParsedScan::base`]: crate::builtin_plugins::persistence::parse_impl_scan::ItemParsedScan::base
+/// [`ScanConfig::base`]: crate::builtin_plugins::persistence::parse_impl_scan::ScanConfig::base
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScanBase {
     /// `$HOME` 用户主目录，其余用户目录都在它下面

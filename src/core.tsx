@@ -114,7 +114,7 @@ export interface ItemDisplay {
 /**
  * Item 的类型（对应 Rust 侧 base::ItemType）
  */
-export type ItemType = "snip" | "sys" | "note" | "cmd" | "web" | "file" | "scan";
+export type ItemType = "snip" | "sys" | "note" | "cmd" | "web" | "scan";
 
 /**
  * Item Action 的标识（对应 Rust 侧 action::ItemActionId）
@@ -145,7 +145,6 @@ export const EMPTY_ITEM_TYPE_ACTIONS: ItemTypeActions = {
     note: [],
     cmd: [],
     web: [],
-    file: [],
     scan: [],
 };
 

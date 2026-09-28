@@ -1,37 +1,24 @@
+//! 公共类型（片段、笔记、命令、网页）的转换
+
 use crate::builtin_plugins::{
-    base::ItemType,
     common::Item,
     persistence::parse_core::{ItemParseErr, ItemParsed},
 };
 
-pub struct ItemParsedCommon {
-    pub the_type: ItemType,
-    pub key_words: Vec<String>,
-    pub name: String,
-    pub desc: String,
-}
+impl ItemParsed {
+    pub(super) fn into_snippets(self) -> Result<Item, ItemParseErr> {
+        Ok(Item::Snippets(self.common_data()?))
+    }
 
-impl Item {
-    /// - 第一个固定为 [`ItemType`]
-    /// - 第二个为 [`crate::builtin_plugins::base::KeyWords`] （同一个 item 的多个关键字），以 [`super::parse_core::SPLIT_KEY`] 分割
-    /// - 第三个为 item_name
-    /// - 第四个为 item_desc
-    pub(super) fn parse_str_common(
-        item_type: ItemType,
-        mut item_parsed_values: Vec<String>,
-    ) -> Result<ItemParsed, ItemParseErr> {
-        Self::check_value_count(&item_parsed_values, 4, item_type)?;
+    pub(super) fn into_note(self) -> Result<Item, ItemParseErr> {
+        Ok(Item::Note(self.common_data()?))
+    }
 
-        let item_key_word_list = Self::split_key(&item_parsed_values[1]);
+    pub(super) fn into_cmd(self) -> Result<Item, ItemParseErr> {
+        Ok(Item::Cmd(self.common_data()?))
+    }
 
-        let name = std::mem::take(&mut item_parsed_values[2]);
-        let desc = std::mem::take(&mut item_parsed_values[3]);
-
-        Ok(ItemParsed::Common(ItemParsedCommon {
-            the_type: item_type,
-            key_words: item_key_word_list,
-            name,
-            desc,
-        }))
+    pub(super) fn into_web(self) -> Result<Item, ItemParseErr> {
+        Ok(Item::Web(self.common_data()?))
     }
 }

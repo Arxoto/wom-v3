@@ -4,6 +4,7 @@ use std::{
     fs,
     io::{self, BufRead},
     path::PathBuf,
+    str::FromStr,
 };
 
 use tauri::{AppHandle, Runtime};
@@ -74,7 +75,7 @@ fn gen_item_list<R: Runtime>(app: &AppHandle<R>, setting_path: PathBuf) -> io::R
         }
         let line_content = line.trim_end();
 
-        let r = Item::parse_str(line_content);
+        let r = ItemParsed::from_str(line_content);
         match r {
             Ok(parsed) => {
                 let r = add_items(app, parsed, &mut item_list);
@@ -85,6 +86,9 @@ fn gen_item_list<R: Runtime>(app: &AppHandle<R>, setting_path: PathBuf) -> io::R
 
         line.clear();
     }
+
+    // 稳定排序：priority 相同的条目保持它们在设置文件里的相对顺序
+    item_list.sort_by_key(|item| item.priority());
 
     Ok(item_list)
 }
@@ -111,32 +115,19 @@ fn add_items<R: Runtime>(
     parsed: ItemParsed,
     item_list: &mut Vec<Item>,
 ) -> Result<(), ItemParseErr> {
-    match parsed {
-        ItemParsed::Common(item_parsed_common) => {
-            let item = Item::new(
-                item_parsed_common.the_type,
-                item_parsed_common.key_words,
-                item_parsed_common.name,
-                item_parsed_common.desc,
-            );
-            item_list.push(item);
-            Ok(())
-        }
-        ItemParsed::System(item_parsed_system) => {
-            let item = Item::new(
-                ItemType::System,
-                item_parsed_system.key_words,
-                item_parsed_system.name,
-                "",
-            );
-            item_list.push(item);
-            Ok(())
-        }
-        ItemParsed::Scan(item_parsed_scan) => {
-            let mut ll = scans_helper::scan_files(app, item_parsed_scan)?;
+    let the_type = ItemType::from_str(&parsed.the_type)?;
 
-            item_list.append(&mut ll);
-            Ok(())
+    match the_type {
+        ItemType::System => item_list.push(parsed.into_system()?),
+        ItemType::Snippets => item_list.push(parsed.into_snippets()?),
+        ItemType::Note => item_list.push(parsed.into_note()?),
+        ItemType::Cmd => item_list.push(parsed.into_cmd()?),
+        ItemType::Web => item_list.push(parsed.into_web()?),
+        ItemType::Scan => {
+            let mut items = scans_helper::scan_files(app, parsed.into_scan_config()?)?;
+            item_list.append(&mut items);
         }
     }
+
+    Ok(())
 }

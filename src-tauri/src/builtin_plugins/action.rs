@@ -4,7 +4,7 @@
 //! 也是行内显示的那一个（见 spec §4.2）。
 //!
 //! 表里只放元数据：ASCII 的 [`ItemActionId`] 给前端查图标、给派发动作那条命令认动作；
-//! `label_key` 给前端查文案，所以中文一个字都不进 Rust，同一个 `copy` 在 `File` 与 `Web`
+//! `label_key` 给前端查文案，所以中文一个字都不进 Rust，同一个 `copy` 在 `Scan` 与 `Web`
 //! 上才能各有各的说法。
 //!
 //! 执行只有一个入口 [`run`]，与表放在一起：加一条动作要同时动到「动作叫什么」与
@@ -96,7 +96,7 @@ impl Serialize for ItemActionId {
 
 /// 一个 Item Action 的元数据
 ///
-/// `label_key` 按 [`ItemType`] + 动作分套：同一个 `copy` 在 `File` 上是「复制完整路径」、
+/// `label_key` 按 [`ItemType`] + 动作分套：同一个 `copy` 在 `Scan` 上是「复制完整路径」、
 /// 在 `Web` 上是「复制链接」，所以文案键不能只按动作分。
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct ItemAction {
@@ -136,22 +136,7 @@ const WEB_ACTIONS: &[ItemAction] = &[
     },
 ];
 
-const FILE_ACTIONS: &[ItemAction] = &[
-    ItemAction {
-        id: ItemActionId::OpenPath,
-        label_key: "action.file.open_path",
-    },
-    ItemAction {
-        id: ItemActionId::Reveal,
-        label_key: "action.file.reveal",
-    },
-    ItemAction {
-        id: ItemActionId::Copy,
-        label_key: "action.file.copy",
-    },
-];
-
-/// 扫描得到的条目与 [`ItemType::File`] 同类，行为一样
+/// 扫描得到的文件/文件夹
 const SCAN_ACTIONS: &[ItemAction] = &[
     ItemAction {
         id: ItemActionId::OpenPath,
@@ -177,7 +162,6 @@ pub fn of(the_type: ItemType) -> &'static [ItemAction] {
         ItemType::Note => NOTE_ACTIONS,
         ItemType::Cmd => CMD_ACTIONS,
         ItemType::Web => WEB_ACTIONS,
-        ItemType::File => FILE_ACTIONS,
         ItemType::Scan => SCAN_ACTIONS,
     }
 }
@@ -196,7 +180,6 @@ pub fn table() -> ItemActionTable {
         ItemType::Note,
         ItemType::Cmd,
         ItemType::Web,
-        ItemType::File,
         ItemType::Scan,
     ]
     .into_iter()
@@ -245,7 +228,7 @@ pub fn run(
 /// 能复制的条目，要复制的正文都在 `desc` 里：片段是内容本身、网页是链接、
 /// 命令是命令行、文件与扫描条目是完整路径。
 fn copy_to_clipboard(app: &AppHandle, item: &Item) -> bool {
-    match app.clipboard().write_text(item.desc.to_string()) {
+    match app.clipboard().write_text(item.data().desc.clone()) {
         Ok(()) => true,
         Err(err) => {
             warn!("write text to clipboard failed: {err}");

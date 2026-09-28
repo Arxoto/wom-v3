@@ -89,11 +89,12 @@ impl ItemSearchResult {
 /// `item_index` 是 Item Index：条目在设置文件加载出的整集里的下标，
 /// 前端靠它寻址条目（跑 Item Action）；列表里的行号只是 `List Position`，
 /// 两者不是一回事，所以下标跟着条目一起下发。
+///
+/// 条目本身以内部 tag（`the_type`）序列化，字段与 tag 平铺
 #[derive(Debug, Serialize)]
 pub struct ItemDisplay {
-    pub the_type: String,
-    pub name: String,
-    pub desc: String,
+    #[serde(flatten)]
+    pub item: Item,
     pub item_index: usize,
 }
 
@@ -101,9 +102,7 @@ impl ItemDisplay {
     /// 由条目在整集里的下标与条目本身造出渲染数据
     pub fn new(item_index: usize, item: &Item) -> Self {
         Self {
-            the_type: item.the_type.to_string(),
-            name: item.name.clone(),
-            desc: item.desc.to_string(),
+            item: item.clone(),
             item_index,
         }
     }
@@ -185,6 +184,7 @@ mod algorithm {
                 // 遍历该 item 的全部关键字，取优先级最高的匹配模式
                 // 未命中任何关键字时不占用下标
                 let mode = item
+                    .data()
                     .key_words
                     .iter()
                     .filter_map(|keyword| MatchMode::of(keyword, k))
@@ -229,19 +229,16 @@ mod algorithm {
     mod tests {
         use super::*;
 
-        use crate::builtin_plugins::{
-            base::{ItemDesc, ItemType},
-            common::Item,
-        };
+        use crate::builtin_plugins::common::{Item, ItemData};
 
         /// 下标由 `vec!` 中的位置决定
         fn item(key_words: &[&str]) -> Item {
-            Item {
-                the_type: ItemType::Snippets,
+            Item::Snippets(ItemData {
+                priority: 0,
                 key_words: key_words.iter().map(|s| s.to_string()).collect(),
                 name: key_words.join(" "),
-                desc: ItemDesc::Str(String::new()),
-            }
+                desc: String::new(),
+            })
         }
 
         #[test]
@@ -336,8 +333,8 @@ mod algorithm {
             assert_eq!(page.total, 3);
             assert_eq!(page.index, 0);
             assert_eq!(page.item_list.len(), 3);
-            assert_eq!(page.item_list[0].name, "abc");
-            assert_eq!(page.item_list[2].name, "xabc");
+            assert_eq!(page.item_list[0].item.data().name, "abc");
+            assert_eq!(page.item_list[2].item.data().name, "xabc");
             assert_eq!(page.index_contains, 2);
 
             // 越界时返回空页

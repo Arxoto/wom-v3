@@ -70,16 +70,6 @@ const IconWeb = () => {
     );
 }
 
-/* 文件：文件夹 */
-const IconFile = () => {
-    return (
-        <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
-            fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 12.3V4.4a1.2 1.2 0 0 1 1.2-1.2h2.7l1.6 1.9h5.3a1.2 1.2 0 0 1 1.2 1.2v5.9a1.2 1.2 0 0 1-1.2 1.2H3.2a1.2 1.2 0 0 1-1.2-1.2z"></path>
-        </svg>
-    );
-}
-
 /* 扫描：一列结果（三条线）后面跟一把放大镜 */
 const IconScan = () => {
     return (
@@ -99,6 +89,5 @@ export const ITEM_ICONS: Record<ItemType, ReactNode> = {
     note: <IconNote></IconNote>,
     cmd: <IconCmd></IconCmd>,
     web: <IconWeb></IconWeb>,
-    file: <IconFile></IconFile>,
     scan: <IconScan></IconScan>,
 };

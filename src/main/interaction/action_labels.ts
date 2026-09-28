@@ -4,7 +4,7 @@ import type { ItemAction, ItemDisplay, ItemType, ItemTypeActions } from "../../c
  * Item Type + Item Action 的中文文案
  *
  * 键由 Rust 下发（对应 Rust 侧 `action::ItemAction::label_key`）。同一个 `copy`
- * 在 `File` 上是「复制完整路径」、在 `Web` 上是「复制链接」，所以键按 ItemType 分套。
+ * 在 `Scan` 上是「复制完整路径」、在 `Web` 上是「复制链接」，所以键按 ItemType 分套。
  *
  * 中文只住在这里：Rust 侧一个字都没有，键查不到就显示键本身。
  */
@@ -14,9 +14,6 @@ const LABELS: Record<string, string> = {
     "action.cmd.copy": "复制命令",
     "action.web.open_url": "打开链接",
     "action.web.copy": "复制链接",
-    "action.file.open_path": "默认打开",
-    "action.file.reveal": "在文件夹中选中",
-    "action.file.copy": "复制完整路径",
     "action.scan.open_path": "默认打开",
     "action.scan.reveal": "在文件夹中选中",
     "action.scan.copy": "复制完整路径",

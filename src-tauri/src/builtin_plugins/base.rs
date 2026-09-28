@@ -1,8 +1,8 @@
 //! 内建插件的基础字段定义
 //!
-//! 包括 [`KeyWords`] [`ItemType`] [`ItemDesc`]
+//! 包括 [`KeyWords`] [`ItemType`]
 
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use std::{fmt::Display, str::FromStr};
 
 /// 关键字列表
 ///
@@ -33,8 +33,6 @@ pub enum ItemType {
     Cmd,
     /// 网页 支持使用默认浏览器打开、复制连接
     Web,
-    /// 文件/文件夹/应用 支持默认方式打开、在文件夹中选中、复制完整路径 行为一样所以合并了
-    File,
     /// 基于路径扫描得到文件
     /// - 可以自建数据库索引
     /// - 配合文件变更通知实时更新索引
@@ -47,7 +45,6 @@ const ITEM_SYSTEM: &str = "sys";
 const ITEM_NOTE: &str = "note";
 const ITEM_CMD: &str = "cmd";
 const ITEM_WEB: &str = "web";
-const ITEM_FILE: &str = "file";
 const ITEM_SCAN: &str = "scan";
 
 impl ItemType {
@@ -59,7 +56,6 @@ impl ItemType {
             ItemType::Note => ITEM_NOTE,
             ItemType::Cmd => ITEM_CMD,
             ItemType::Web => ITEM_WEB,
-            ItemType::File => ITEM_FILE,
             ItemType::Scan => ITEM_SCAN,
         }
     }
@@ -83,7 +79,6 @@ impl FromStr for ItemType {
             ITEM_NOTE => Ok(Self::Note),
             ITEM_CMD => Ok(Self::Cmd),
             ITEM_WEB => Ok(Self::Web),
-            ITEM_FILE => Ok(Self::File),
             ITEM_SCAN => Ok(Self::Scan),
             _ => Err(ItemTypeParseFailed),
         }
@@ -95,45 +90,6 @@ impl TryFrom<String> for ItemType {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         value.parse()
-    }
-}
-
-// endregion
-
-// region: ItemDesc
-
-#[derive(Debug, Clone)]
-pub enum ItemDesc {
-    Str(String),
-    Path(PathBuf),
-}
-
-impl From<String> for ItemDesc {
-    fn from(value: String) -> Self {
-        Self::Str(value)
-    }
-}
-
-// 必定成功 所以不是实现 FromStr
-impl From<&str> for ItemDesc {
-    fn from(value: &str) -> Self {
-        Self::Str(value.to_string())
-    }
-}
-
-impl From<PathBuf> for ItemDesc {
-    fn from(value: PathBuf) -> Self {
-        Self::Path(value)
-    }
-}
-
-impl Display for ItemDesc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s: &str = match self {
-            ItemDesc::Str(s) => s,
-            ItemDesc::Path(path_buf) => &path_buf.to_string_lossy(),
-        };
-        f.write_str(s)
     }
 }
 

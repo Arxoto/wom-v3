@@ -11,31 +11,36 @@ use tauri::{path::BaseDirectory, AppHandle, Manager, Runtime};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::builtin_plugins::{
-    base::ItemType,
-    common::Item,
-    persistence::{parse_core::ItemParseErr, parse_impl_scan::ItemParsedScan},
+    common::{Item, ItemData},
+    persistence::{
+        parse_core::{ItemParseErr, DEFAULT_PRIORITY},
+        parse_impl_scan::ScanConfig,
+    },
 };
 
 pub(super) fn scan_files<R: Runtime>(
     app: &AppHandle<R>,
-    parsed: ItemParsedScan,
+    config: ScanConfig,
 ) -> Result<Vec<Item>, ItemParseErr> {
-    let ItemParsedScan {
+    let ScanConfig {
+        priority,
+        key_words,
+        name,
         file_types,
         file_suffix,
         black_list,
-        recursive,
+        max_depth,
         base,
         path,
-    } = parsed;
+    } = config;
 
-    // 根路径变量交给 tauri 解析（支持的变量见 ItemParsedScan::base 的文档注释），
+    // 根路径变量交给 tauri 解析（支持的变量见 ScanConfig::base 的文档注释），
     // 不自行维护变量名与 BaseDirectory 的映射表，避免与 tauri 的平台差异脱节
     let resolved_path = match BaseDirectory::from_variable(&base) {
         Some(base_dir) => app.path().resolve(path, base_dir).map_err(|_| {
             ItemParseErr::ItemValueParsedFailed("resolve base path failed".to_string())
         })?,
-        // 空 base 是合法写法，此时 path 原样使用（见 ItemParsedScan::path）
+        // 空 base 是合法写法，此时 path 原样使用（见 ScanConfig::path）
         None if base.is_empty() => PathBuf::from(&path),
         // 非空却认不出来，说明变量名写错了，直接报错而不是退化成相对路径静默扫不到文件
         None => {
@@ -56,28 +61,47 @@ pub(super) fn scan_files<R: Runtime>(
         .collect();
 
     let opts = ScanOptions {
-        recursive,
         follow_links: false, // 默认不扫描文件夹的软连接
         target_types,
         ends_with_patterns: file_suffix,
         black_list,
     };
 
-    let file_name_path = scan_path(real_path, opts);
+    let file_name_path = scan_path(real_path, max_depth, opts);
 
     let r: Vec<Item> = file_name_path
         .into_iter()
-        .map(|(file_name, file_path)| {
-            Item::new(
-                ItemType::File,
-                vec![file_name.clone()],
-                file_name,
-                file_path,
-            )
+        .map(|(file_name, file_path, depth)| {
+            // 第 0 层就是 path 本身，沿用配置的 name，其余层级用文件名
+            let item_name = if depth == 0 && !name.is_empty() {
+                name.clone()
+            } else {
+                file_name
+            };
+            let item_key_words = if key_words.is_empty() {
+                vec![item_name.clone()]
+            } else {
+                key_words.clone()
+            };
+            Item::Scan(ItemData {
+                priority: priority_at(&priority, depth),
+                key_words: item_key_words,
+                name: item_name,
+                desc: file_path.to_string_lossy().into_owned(),
+            })
         })
         .collect();
 
     Ok(r)
+}
+
+/// 取某一递归层级的优先级：越界时沿用链尾，链为空时取默认值
+fn priority_at(chain: &[i32], index: usize) -> i32 {
+    chain
+        .get(index)
+        .copied()
+        .or_else(|| chain.last().copied())
+        .unwrap_or(DEFAULT_PRIORITY)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -119,8 +143,6 @@ impl FromStr for FileType {
 }
 
 struct ScanOptions {
-    /// 递归子目录
-    pub recursive: bool,
     /// 是否追踪软链接
     pub follow_links: bool,
     /// 文件类型过滤
@@ -131,25 +153,26 @@ struct ScanOptions {
     pub black_list: Vec<String>,
 }
 
-fn scan_path<P: AsRef<Path>>(root: P, opts: ScanOptions) -> Vec<(String, PathBuf)> {
+fn scan_path<P: AsRef<Path>>(
+    root: P,
+    max_depth: usize,
+    opts: ScanOptions,
+) -> Vec<(String, PathBuf, usize)> {
     let mut results = Vec::new();
 
-    // 基础配置
-    let mut walker = WalkDir::new(root).follow_links(opts.follow_links);
-    if !opts.recursive {
-        walker = walker.max_depth(1);
-    }
+    // max_depth 直接交给 walkdir：0 表示只取 root 本身（即原 file 类型）
+    let walker = WalkDir::new(root)
+        .follow_links(opts.follow_links)
+        .max_depth(max_depth);
 
     // 跳过无权限的目录
     for entry in walker.into_iter().filter_map(|r| r.ok()) {
-        // 跳过目录本身
-        if entry.depth() == 0 {
-            continue;
-        }
-
+        let depth = entry.depth();
         let file_name = entry.file_name().to_string_lossy();
-        if is_match(&entry, &file_name, &opts) {
-            results.push((file_name.into_owned(), entry.path().to_path_buf()));
+
+        // 第 0 层是显式配置的 path，不受过滤条件约束
+        if depth == 0 || is_match(&entry, &file_name, &opts) {
+            results.push((file_name.into_owned(), entry.path().to_path_buf(), depth));
         }
     }
 
