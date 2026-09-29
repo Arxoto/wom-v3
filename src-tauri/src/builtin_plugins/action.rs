@@ -64,7 +64,7 @@ impl ItemActionId {
 
 impl Display for ItemActionId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
+        self.as_str().fmt(f)
     }
 }
 
@@ -157,12 +157,12 @@ const SCAN_ACTIONS: &[ItemAction] = &[
 /// 不按平台剔除动作：桌面三平台上这些动作都有官方路径，真缺 API 时再说。
 pub fn of(the_type: ItemType) -> &'static [ItemAction] {
     match the_type {
-        ItemType::Snippets => SNIP_ACTIONS,
-        ItemType::System => SYS_ACTIONS,
-        ItemType::Note => NOTE_ACTIONS,
+        ItemType::Sys => SYS_ACTIONS,
         ItemType::Cmd => CMD_ACTIONS,
         ItemType::Web => WEB_ACTIONS,
         ItemType::Scan => SCAN_ACTIONS,
+        ItemType::Note => NOTE_ACTIONS,
+        ItemType::Snippets => SNIP_ACTIONS,
     }
 }
 
@@ -172,15 +172,14 @@ pub type ItemActionTable = BTreeMap<&'static str, &'static [ItemAction]>;
 /// 全部 [`ItemType`] 的动作表
 ///
 /// 前端只在挂载时拉一次（配置重载会重建窗口，不需要热更新），所以一次给全，
-/// 连空表的 `System` 也算上，前端不必自己补空数组。
 pub fn table() -> ItemActionTable {
     [
-        ItemType::Snippets,
-        ItemType::System,
-        ItemType::Note,
+        ItemType::Sys,
         ItemType::Cmd,
         ItemType::Web,
         ItemType::Scan,
+        ItemType::Note,
+        ItemType::Snippets,
     ]
     .into_iter()
     .map(|the_type| (the_type.as_str(), of(the_type)))

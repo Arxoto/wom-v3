@@ -118,15 +118,15 @@ fn add_items<R: Runtime>(
     let the_type = ItemType::from_str(&parsed.the_type)?;
 
     match the_type {
-        ItemType::System => item_list.push(parsed.into_system()?),
-        ItemType::Snippets => item_list.push(parsed.into_snippets()?),
-        ItemType::Note => item_list.push(parsed.into_note()?),
+        ItemType::Sys => item_list.push(parsed.into_system()?),
         ItemType::Cmd => item_list.push(parsed.into_cmd()?),
         ItemType::Web => item_list.push(parsed.into_web()?),
         ItemType::Scan => {
             let mut items = scans_helper::scan_files(app, parsed.into_scan_config()?)?;
             item_list.append(&mut items);
         }
+        ItemType::Note => item_list.push(parsed.into_note()?),
+        ItemType::Snippets => item_list.push(parsed.into_snippets()?),
     }
 
     Ok(())
