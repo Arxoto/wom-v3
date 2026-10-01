@@ -18,6 +18,12 @@ mod commands;
 
 mod builtin_plugins;
 
+// 插件体系（第一轮）：框架层与 launcher 插件并行存在，尚未接入
+// （见 .scratch/plugin-system/spec.md 与 docs/adr/0008）
+mod plugin_framework;
+
+mod plugin_impl_launcher;
+
 mod app_stat {
     use std::sync::atomic::{AtomicBool, Ordering};
 
