@@ -1,30 +1,36 @@
+import { useEffect } from "react";
+
 import { Box, Static, Elastic, DividerTop, DividerBottom } from "./main/Layout";
 import Head from "./main/Head";
 import Body from "./main/Body";
 import Tail from "./main/Tail";
-import { setup_page_main, type PluginItemDisplay } from "./core";
+import { setup_page_main } from "./core";
 import { useMainInteraction } from "./main/interaction/useMainInteraction";
-import { current_action_label } from "./main/interaction/action_labels";
-import { action_index_of, current_item } from "./main/interaction/reducer";
+import { registry } from "./plugins/registry.tsx";
+import { action_index_of, active_items, active_selection, current_item } from "./main/interaction/reducer";
 
 import "./core.css";
-import { useEffect } from "react";
 
 /** 空输入时的占位文案 */
 const GHOST_PLACEHOLDER = "输入关键字开始搜索，空格分割参数";
 
-/** 还没有结论时的空列表；常量而不是每次新建，允许 memo(Body) bailout */
-const NO_ITEMS: PluginItemDisplay[] = [];
-
 const App = () => {
   useEffect(setup_page_main, []);
 
-  const { state, item_n, type_actions, input_ref } = useMainInteraction();
+  const { state, item_n, input_ref } = useMainInteraction();
 
-  /** 空态：还没有结论（没输入过、输入为空，或这一次查询还没回来） */
+  /** 插件搜索页是否打开：它是一份与主列表并列的列表（见 reducer 的 PluginSearchState） */
+  const search_open = state.plugin_search !== null;
+
+  // 渲染读的是"当前生效"那一层：搜索页打开时是它，否则是主列表
+  const item_list = active_items(state);
+  const selection = active_selection(state);
+  const action_indices = state.plugin_search?.action_indices ?? state.action_indices;
+
+  /** 空态：主列表还没有结论（没输入过、输入为空，或这一次查询还没回来） */
   const empty = state.conclusion === null;
 
-  const selected_item = current_item(state.conclusion?.item_list, state.selection);
+  const selected_item = current_item(item_list, selection);
   const selected_action_index = selected_item ? action_index_of(state, selected_item.item_index) : 0;
 
   return (
@@ -34,29 +40,30 @@ const App = () => {
           value={state.input}
           ghost={state.input === "" ? GHOST_PLACEHOLDER : ""}
           input_ref={input_ref}
-          read_only={state.preview_open}
+          read_only={state.preview_open || search_open}
           empty={empty}
-          total={state.conclusion?.total ?? 0}
-          selection={state.selection}>
+          total={state.plugin_search?.total ?? state.conclusion?.total ?? 0}
+          selection={selection}>
         </Head>
       </Static>
       <DividerTop></DividerTop>
       <Elastic>
         <Body
-          item_list={state.conclusion?.item_list ?? NO_ITEMS}
-          selection={state.selection}
+          item_list={item_list}
+          selection={selection}
           item_n={item_n}
           show_preview={state.preview_open}
-          type_actions={type_actions}
-          action_indices={state.action_indices}
-          empty={empty}>
+          action_indices={action_indices}
+          empty={empty}
+          search_open={search_open}>
         </Body>
       </Elastic>
       <DividerBottom></DividerBottom>
       <Static>
         <Tail
           preview_open={state.preview_open}
-          action_desc={current_action_label(type_actions, selected_item, selected_action_index)}>
+          search_open={search_open}
+          action_desc={registry.current_action_label(selected_item, selected_action_index)}>
         </Tail>
       </Static>
     </Box>
@@ -95,55 +102,55 @@ todo list
 // 下翻 list 过渡动画，使用 rAF 绕过 React 渲染任务队列、不写明 will-change 让其自动优化
 // /* 基础槽位 */
 // .item-slot {
-//   transform: translateY(0);
-//   opacity: 1;
-//   /* 回弹阶段的动画：缓动函数决定了“弹力感” */
-//   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-//               opacity 0.2s ease;
+//     transform: translateY(0);
+//     opacity: 1;
+//     /* 回弹阶段的动画：缓动函数决定了“弹力感” */
+//     transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+//                 opacity 0.2s ease;
 // }
 // /* 瞬间触发态 */
 // .item-slot.is-bumping {
-//   /* 关键：关闭过渡，让位移瞬间发生 */
-//   transition: none !important;
-//   transform: translateY(2px);
-//   opacity: 0.7;
+//     /* 关键：关闭过渡，让位移瞬间发生 */
+//     transition: none !important;
+//     transform: translateY(2px);
+//     opacity: 0.7;
 // }
 
 // const ListItemSlot = ({ data, isActive }) => {
-//   const domRef = useRef<HTMLDivElement>(null);
-//   const isFirstRender = useRef(true);
+//     const domRef = useRef<HTMLDivElement>(null);
+//     const isFirstRender = useRef(true);
 
-//   useLayoutEffect(() => {
-//     if (isFirstRender.current) {
-//       isFirstRender.current = false;
-//       return;
-//     }
+//     useLayoutEffect(() => {
+//         if (isFirstRender.current) {
+//             isFirstRender.current = false;
+//             return;
+//         }
 
-//     const el = domRef.current;
-//     if (!el) return;
+//         const el = domRef.current;
+//         if (!el) return;
 
-//     // 第一帧：瞬间加上类名，让元素跳到 2px 位置，由于在 useLayoutEffect 中，这一步对用户是不可见的（发生在 Paint 之前）
-//     el.classList.add('is-bumping');
-//     // 第二帧：移除类名，CSS 的 transition 此时接管，让它弹回 0
-//     const rafId = requestAnimationFrame(() => {
-//       el.classList.remove('is-bumping');
-//     });
+//         // 第一帧：瞬间加上类名，让元素跳到 2px 位置，由于在 useLayoutEffect 中，这一步对用户是不可见的（发生在 Paint 之前）
+//         el.classList.add('is-bumping');
+//         // 第二帧：移除类名，CSS 的 transition 此时接管，让它弹回 0
+//         const rafId = requestAnimationFrame(() => {
+//             el.classList.remove('is-bumping');
+//         });
 
 
-//     // 强制重置，防止 React 复用槽位时带着旧的样式
-//     return () => {
-//       cancelAnimationFrame(rafId);
-//       if (el) {
-//         el.classList.remove('is-bumping');
-//       }
-//     };
-//   }, [data?.id]); // 仅在数据更新时触发
+//         // 强制重置，防止 React 复用槽位时带着旧的样式
+//         return () => {
+//             cancelAnimationFrame(rafId);
+//             if (el) {
+//                 el.classList.remove('is-bumping');
+//             }
+//         };
+//     }, [data?.id]); // 仅在数据更新时触发
 
-//   return (
-//     <div ref={domRef} className={`item-slot ${isActive ? 'active' : ''}`}>
-//       {/* 内容... */}
-//     </div>
-//   );
+//     return (
+//         <div ref={domRef} className={`item-slot ${isActive ? 'active' : ''}`}>
+//             {/* 内容... */}
+//         </div>
+//     );
 // };
 
 // =================================
@@ -154,62 +161,63 @@ todo list
 // import { convertFileSrc } from '@tauri-apps/api/core';
 
 // const useSafeHtml = (rawHtml: string) => {
-//   return useMemo(() => {
-//     // 1. 在内存中创建一个虚拟文档
-//     const parser = new DOMParser();
-//     const doc = parser.parseFromString(rawHtml, 'text/html');
+//     return useMemo(() => {
+//         // 1. 在内存中创建一个虚拟文档
+//         const parser = new DOMParser();
+//         const doc = parser.parseFromString(rawHtml, 'text/html');
 
-//     // 2. 精准查找所有 img 标签
-//     const imgs = doc.querySelectorAll('img');
+//         // 2. 精准查找所有 img 标签
+//         const imgs = doc.querySelectorAll('img');
 
-//     imgs.forEach(img => {
-//       const src = img.getAttribute('src');
-//       // 3. 只有当它看起来像本地路径时才转换
-//       if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('asset:')) {
-//         img.setAttribute('src', convertFileSrc(src));
-//       }
+//         imgs.forEach(img => {
+//             const src = img.getAttribute('src');
+//             // 3. 只有当它看起来像本地路径时才转换
+//             if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('asset:')) {
+//                 img.setAttribute('src', convertFileSrc(src));
+//             }
 
-//       // 顺便可以在这里做一些“非暴力”的预处理
-//       img.setAttribute('loading', 'lazy'); // 自动开启延迟加载
-//       img.setAttribute('draggable', 'false'); // 禁止拖拽
-//     });
+//             // 顺便可以在这里做一些“非暴力”的预处理
+//             img.setAttribute('loading', 'lazy'); // 自动开启延迟加载
+//             img.setAttribute('draggable', 'false'); // 禁止拖拽
+//         });
 
-//     // 4. 返回处理后的 HTML 字符串
-//     return doc.body.innerHTML;
-//   }, [rawHtml]);
+//         // 4. 返回处理后的 HTML 字符串
+//         return doc.body.innerHTML;
+//     }, [rawHtml]);
 // };
 
 // const StaticRichText = ({ htmlContent }: { htmlContent: string }) => {
-//   const containerRef = useRef<HTMLDivElement>(null);
+//     const containerRef = useRef<HTMLDivElement>(null);
 
-//   useEffect(() => {
-//     if (!containerRef.current) return;
+//     useEffect(() => {
+//         if (!containerRef.current) return;
 
-//     // 1. 强制对所有图片绑定事件
-//     const images = containerRef.current.querySelectorAll('img');
-//     const handleClick = (e: Event) => {
-//       const target = e.target as HTMLImageElement;
-//       console.log('图片被点击了:', target.src);
-//       // 这里可以调用 Tauri 的 API 弹出大图预览
-//     };
+//         // 1. 强制对所有图片绑定事件
+//         const images = containerRef.current.querySelectorAll('img');
+//         const handleClick = (e: Event) => {
+//             const target = e.target as HTMLImageElement;
+//             console.log('图片被点击了:', target.src);
+//             // 这里可以调用 Tauri 的 API 弹出大图预览
+//         };
 
-//     images.forEach(img => {
-//       img.addEventListener('click', handleClick);
-//       // 顺手解决静态 HTML 的图片加载失败显示问题
-//       img.style.cursor = 'pointer';
-//     });
+//         images.forEach(img => {
+//             img.addEventListener('click', handleClick);
+//             // 顺手解决静态 HTML 的图片加载失败显示问题
+//             img.style.cursor = 'pointer';
+//         });
 
-//     // 2. 清理函数（防止 React 严格模式下重复绑定）
-//     return () => {
-//       images.forEach(img => img.removeEventListener('click', handleClick));
-//     };
-//   }, [htmlContent]); // 当内容更新时重新绑定
+//         // 2. 清理函数（防止 React 严格模式下重复绑定）
+//         return () => {
+//             images.forEach(img => img.removeEventListener('click', handleClick));
+//         };
+//     }, [htmlContent]); // 当内容更新时重新绑定
 
-//   return (
-//     <div
-//       ref={containerRef}
-//       className="prose max-w-none"
-//       dangerouslySetInnerHTML={{ __html: htmlContent }}
-//     />
-//   );
+//     return (
+//         <div
+//             ref={containerRef}
+//             className="prose max-w-none"
+//             dangerouslySetInnerHTML={{ __html: htmlContent }}
+//         />
+//     );
 // };
+

@@ -11,7 +11,7 @@ const SEARCH_DEBOUNCE_MS = 50;
  *
  * 以空格开头时关键字就是空串，后端按它给出全部条目。
  */
-const search_key = (value: string) => value.split(" ")[0];
+export const search_key = (value: string) => value.split(" ")[0];
 
 /** 预请求判据要用的状态 */
 export interface PrefetchContext {

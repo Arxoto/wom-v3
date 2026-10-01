@@ -1,8 +1,8 @@
 import { memo, useState } from "react";
-import type { PluginActionTable, PluginItemDisplay } from "../core";
+import type { PluginItemDisplay } from "../core";
 import Item from "./item/Item";
-import { item_icon_of } from "./item/item_icons";
-import { actions_of, current_action } from "./interaction/action_labels";
+import PluginIcon, { item_icon } from "../plugins/plugin_icon";
+import { registry } from "../plugins/registry.tsx";
 import { current_item } from "./interaction/reducer";
 import "./Body.css";
 
@@ -18,7 +18,9 @@ const BodyPreview = ({ item }: BodyPreviewProps) => {
         <div className="body-divider"></div>
         <div className="body-preview">
             <div className="body-preview-icon">
-                <div className="body-preview-icon-block">{item_icon_of(item.the_type)}</div>
+                <div className="body-preview-icon-block">
+                    <PluginIcon icon={item_icon(item)} className="item-icon"></PluginIcon>
+                </div>
             </div>
             <div className="body-preview-title">{item.name}</div>
             <div className="body-preview-divider"></div>
@@ -32,11 +34,12 @@ interface Props {
     selection: number,
     item_n: number,
     show_preview: boolean,
-    type_actions: PluginActionTable,
     /** 每个条目记住的动作下标（按 Item Index）：行内动作与两侧三角都按它画 */
     action_indices: Record<number, number>,
     /** 空态：还没有结论（没输入过、输入为空，或查询还没回来）——列表区留白 */
     empty: boolean,
+    /** 插件搜索页是否打开：那一页为空时也留白（这一段没有渲染"为什么"的地方，spec §4.4） */
+    search_open: boolean,
 }
 
 /**
@@ -48,16 +51,25 @@ interface Props {
  * 
  * 预览是否打开由外部传入（AppMain），这样它与 Tail 的提示是同一个状态。
  */
-const Body = ({ item_list, selection, item_n, show_preview, type_actions, action_indices, empty }: Props) => {
+const Body = ({ item_list, selection, item_n, show_preview, action_indices, empty, search_open }: Props) => {
     const preview_item = current_item(item_list, selection);
 
-    const empty_text = empty ? "" : "没有匹配的条目";
+    const empty_text = empty || search_open ? "" : "没有匹配的条目";
 
-    // 窗口的滚动位置。Selection 一起存着，只在它真的变了之后才看窗口要不要挪
-    const [scroll, set_scroll] = useState({ selection, offset: 0 });
+    /**
+     * 窗口的滚动位置。Selection 一起存着，只在它真的变了之后才看窗口要不要挪。
+     *
+     * `which` 是"这一份列表是哪一层"（主列表 / 某个插件的搜索页）：换层时偏移量从头再来，
+     * 否则从主列表第 5 行进空的结果页时，偏移量还停在第 5 行，屏幕上就什么都没有。
+     */
+    const which = search_open ? "search" : "main";
+    const [scroll, set_scroll] = useState({ which, selection, offset: 0 });
 
     let offset = scroll.offset;
-    if (scroll.selection !== selection) {
+    if (scroll.which !== which) {
+        offset = 0;
+        set_scroll({ which, selection, offset });
+    } else if (scroll.selection !== selection) {
         // 高亮上下各留的余量（行数），近似黄金分割
         const margin = Math.floor(item_n * 0.4);
         // 高亮现在落在屏幕第几行
@@ -67,7 +79,7 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions, action
         else if (row_index > item_n - margin) offset = selection + margin - item_n;
         // 两端夹住
         offset = Math.max(0, Math.min(offset, item_list.length - item_n));
-        set_scroll({ selection, offset });
+        set_scroll({ which, selection, offset });
     }
 
     // 露在可见区里的那几行：窗口的第一行就是 offset，末尾不足一屏时自然短一截
@@ -80,9 +92,9 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions, action
                     ? <div className="body-empty">{empty_text}</div>
                     : item_show_list.map((item, index) => {
                         const is_selected = offset + index === selection;
-                        const actions = actions_of(type_actions, item);
+                        const actions = registry.actions_of(item);
                         const action_index = action_indices[item.item_index] ?? 0;
-                        const action = current_action(type_actions, item, action_index);
+                        const action = registry.current_action(item, action_index);
                         return (
                             // 用窗口内的下标作 key：翻页时同一槽位的 DOM 保持复用
                             <Item

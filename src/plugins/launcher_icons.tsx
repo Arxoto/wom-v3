@@ -1,29 +1,20 @@
 import type { ReactNode } from "react";
 
-import type { ItemType } from "../../core";
-
 /**
- * Item Type 的图标
+ * launcher 插件的条目图标
  *
- * 每种 ItemType 配一张纯线条图标，形状要一眼能认出类型。整张图标只用描边，线宽统一 1.2。
+ * 每个类型配一张纯线条图标，形状要一眼能认出类型。整张图标只用描边，线宽统一 1.2。
  * 图标是行内的一部分，所以尺寸与颜色都由 Item.css 决定（跟着 --item-h 缩放、currentColor 跟随整行状态）。
+ *
+ * 图标由 launcher 自己提供、注册进前端注册表（见 `launcher.tsx`）：类型名是插件定义的，
+ * 「这个类型长什么样」自然也是插件的事。
+ *
+ * snip / note 两张图标在接入这一轮**删掉了**：那两个类型还没有插件，留着就是没有调用方的
+ * 死图标；等它们各自成为插件（spec §2.1 理由 1）时，从 git 历史里取回来即可。
  */
 
-/* 片段：一对尖括号夹一道斜杠，即 </>
-   斜杠与左右括号各留 1 单位的空隙，避免描边叠在一起 */
-const IconSnip = () => {
-    return (
-        <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
-            fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5.8 3.8 2.6 8l3.2 4.2"></path>
-            <path d="M9.4 3.6 6.8 12.4"></path>
-            <path d="M10.4 3.8 13.6 8l-3.2 4.2"></path>
-        </svg>
-    );
-}
-
 /* 系统命令：齿轮，外圈八个齿、内圈一个孔 */
-const IconSys = () => {
+export const IconSys = (): ReactNode => {
     return (
         <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
@@ -34,20 +25,8 @@ const IconSys = () => {
     );
 }
 
-/* 笔记：折角文档加两条正文线 */
-const IconNote = () => {
-    return (
-        <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
-            fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4.6 2.6h4.6l2.4 2.4v8.4H4.6z"></path>
-            <path d="M9.2 2.6V5h2.4"></path>
-            <path d="M6.6 8.4h3.4M6.6 10.8h3.4"></path>
-        </svg>
-    );
-}
-
 /* 命令：终端窗口，框内是提示符 >_ */
-const IconCmd = () => {
+export const IconCmd = (): ReactNode => {
     return (
         <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
@@ -59,7 +38,7 @@ const IconCmd = () => {
 }
 
 /* 网页：地球，一条纬线加两条经线（椭圆的两侧就是两条经线） */
-const IconWeb = () => {
+export const IconWeb = (): ReactNode => {
     return (
         <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
@@ -71,7 +50,7 @@ const IconWeb = () => {
 }
 
 /* 扫描：一列结果（三条线）后面跟一把放大镜 */
-const IconScan = () => {
+export const IconScan = (): ReactNode => {
     return (
         <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
@@ -81,23 +60,3 @@ const IconScan = () => {
         </svg>
     );
 }
-
-/** Item 图标表：按 `ItemType` 查 */
-const ITEM_ICONS: Record<ItemType, ReactNode> = {
-    snip: <IconSnip></IconSnip>,
-    sys: <IconSys></IconSys>,
-    note: <IconNote></IconNote>,
-    cmd: <IconCmd></IconCmd>,
-    web: <IconWeb></IconWeb>,
-    scan: <IconScan></IconScan>,
-};
-
-/**
- * 按类型名取图标
- *
- * 类型名从插件那边过来时是**不透明字符串**（框架不解释它），前端只认识表里这几个：
- * 认不出的就不画图标，而不是碰巧落到别的类型上。将来接更多插件时，
- * 这一处就是"前端认识哪些类型"的边界。
- */
-export const item_icon_of = (the_type: string): ReactNode | null =>
-    the_type in ITEM_ICONS ? ITEM_ICONS[the_type as ItemType] : null;

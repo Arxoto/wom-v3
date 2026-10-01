@@ -1,7 +1,8 @@
 import { memo } from "react";
 import type { PluginItemDisplay } from "../../core";
-import { action_icon_of, ACTION_SWITCH_MARKS } from "./action_icons";
-import { item_icon_of } from "./item_icons";
+import { ACTION_SWITCH_MARKS } from "../../plugins/launcher_action_icons";
+import PluginIcon, { item_icon } from "../../plugins/plugin_icon";
+import { registry } from "../../plugins/registry.tsx";
 import "./Item.css";
 
 interface Props {
@@ -17,14 +18,15 @@ interface Props {
 /**
  * 一行条目：左图标、中间名称与描述、右侧动作图标
  *
- * 左侧是 ItemType 的线条图标（见 item_icons.tsx）。
- * 动作与 Item 数据无关（来自动作表），所以由外部传入；该行显示哪个动作也由外部决定。
+ * 左侧图标与右侧动作图标都按**不透明字符串**从前端插件注册表里查（见 src/plugins/registry.tsx）：
+ * Rust 侧不解释类型名与动作 id，认不出就不画，而不是碰巧落到别的类型上。
+ * 动作与 Item 数据无关（来自插件注册的动作表），所以由外部传入；该行显示哪个动作也由外部决定。
  * is_selected 是键盘选中的那一行，与鼠标悬停共用同一套高亮样式（见 Item.css）。
  */
 const Item = ({ item, action_id, can_switch_prev, can_switch_next, is_selected }: Props) => {
     return (
         <div className={is_selected ? "item-box is-selected" : "item-box"}>
-            {item_icon_of(item.the_type)}
+            <PluginIcon icon={item_icon(item)} className="item-icon"></PluginIcon>
             <div className="item-text">
                 <div className="item-name">{item.name}</div>
                 <div className="item-desc">{item.desc}</div>
@@ -34,7 +36,7 @@ const Item = ({ item, action_id, can_switch_prev, can_switch_next, is_selected }
                     data-switch-prev={can_switch_prev}
                     data-switch-next={can_switch_next}>
                     {ACTION_SWITCH_MARKS.prev}
-                    {action_icon_of(action_id)}
+                    <PluginIcon icon={registry.action_icon(action_id)} className="item-action-icon"></PluginIcon>
                     {ACTION_SWITCH_MARKS.next}
                 </div>
                 : <></>}

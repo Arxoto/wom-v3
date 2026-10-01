@@ -1,32 +1,19 @@
 import type { ReactNode } from "react";
 
-import type { ItemActionId } from "../../core";
-
 /**
- * Item Action 的图标
+ * launcher 插件的动作图标
  *
- * 行内动作是图标不是文字，所以每个动作配一张。
- * 图标是行内的一部分，所以尺寸与颜色都由 Item.css 决定（跟着 --item-h 缩放、currentColor 跟随整行状态）。
+ * 行内动作是图标不是文字，所以每个动作配一张。图标是行内的一部分，
+ * 所以尺寸与颜色都由 Item.css 决定（跟着 --item-h 缩放、currentColor 跟随整行状态）。
+ *
+ * 图标由 launcher 自己提供、注册进前端注册表（见 `launcher.tsx`）：动作 id 是插件定义的，
+ * 「这个动作长什么样」自然也是插件的事。
+ *
+ * `open_note` 那张图标在接入这一轮**删掉了**：note 还不是插件，留着就是没有调用方的
+ * 死图标；等它成为插件（spec §2.1 理由 1）时，从 git 历史里取回来即可。
  */
 
-/* 两侧的切换三角：哪一侧还有动作就露哪一侧，样式见 Item.css 的 .item-action-arrow */
-const IconSwitchPrev = () => {
-    return (
-        <svg className="item-action-arrow" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
-            <path d="M11 3.2 5.2 8 11 12.8z"></path>
-        </svg>
-    );
-}
-
-const IconSwitchNext = () => {
-    return (
-        <svg className="item-action-arrow" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
-            <path d="M5 3.2 10.8 8 5 12.8z"></path>
-        </svg>
-    );
-}
-
-const IconCopy = () => {
+export const IconCopy = (): ReactNode => {
     return (
         <svg className="item-action-icon" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -37,7 +24,7 @@ const IconCopy = () => {
 }
 
 /* 网页：地球，一条纬线加两条经线 */
-const IconOpenUrl = () => {
+export const IconOpenUrl = (): ReactNode => {
     return (
         <svg className="item-action-icon" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -49,7 +36,7 @@ const IconOpenUrl = () => {
 }
 
 /* 文件与文件夹：文件夹 */
-const IconOpenPath = () => {
+export const IconOpenPath = (): ReactNode => {
     return (
         <svg className="item-action-icon" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -59,7 +46,7 @@ const IconOpenPath = () => {
 }
 
 /* 在文件夹中选中：文件夹里一把放大镜 */
-const IconReveal = () => {
+export const IconReveal = (): ReactNode => {
     return (
         <svg className="item-action-icon" viewBox="0 0 16 16" aria-hidden="true"
             fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -70,35 +57,22 @@ const IconReveal = () => {
     );
 }
 
-/* 笔记：折角文档加两条正文线 */
-const IconOpenNote = () => {
+/* 两侧的切换三角：哪一侧还有动作就露哪一侧，样式见 Item.css 的 .item-action-arrow */
+const IconSwitchPrev = (): ReactNode => {
     return (
-        <svg className="item-action-icon" viewBox="0 0 16 16" aria-hidden="true"
-            fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4.2 2.5h5.1l2.5 2.5v8.5H4.2z"></path>
-            <path d="M9.3 2.5V5h2.5"></path>
-            <path d="M6.2 8.2h3.6M6.2 10.5h3.6"></path>
+        <svg className="item-action-arrow" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+            <path d="M11 3.2 5.2 8 11 12.8z"></path>
         </svg>
     );
 }
 
-/** 动作图标表：按 `ItemActionId` 查 */
-const ACTION_ICONS: Record<ItemActionId, ReactNode> = {
-    copy: <IconCopy></IconCopy>,
-    open_url: <IconOpenUrl></IconOpenUrl>,
-    open_path: <IconOpenPath></IconOpenPath>,
-    reveal: <IconReveal></IconReveal>,
-    open_note: <IconOpenNote></IconOpenNote>,
-};
-
-/**
- * 按动作 id 取图标
- *
- * 动作 id 由插件给出，框架只当不透明字符串透传：认不出的动作就不画图标，
- * 而不是碰巧落到别的动作上（与 `item_icons.tsx` 的 `item_icon_of` 同理）。
- */
-export const action_icon_of = (action_id: string): ReactNode | null =>
-    action_id in ACTION_ICONS ? ACTION_ICONS[action_id as ItemActionId] : null;
+const IconSwitchNext = (): ReactNode => {
+    return (
+        <svg className="item-action-arrow" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+            <path d="M5 3.2 10.8 8 5 12.8z"></path>
+        </svg>
+    );
+}
 
 /** 动作图标两侧的切换三角：`prev` 朝左、`next` 朝右，位置常驻、由 Item 决定露不露 */
 export const ACTION_SWITCH_MARKS: Record<"prev" | "next", ReactNode> = {

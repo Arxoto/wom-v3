@@ -1,0 +1,21 @@
+# 探针 Plugin Package：验证 Plugin Folder 的扫描、装载、搜索与结果行动作。
+# 手写 key: value 行格式，一行一条；# 起头是注释，空行忽略（见 spec §1.3）。
+# 目录名 probe 不是身份，下面这个 id 才是。
+
+id: probe
+name: Probe Plugin
+desc: Probe package for the JS plugin host
+keywords: probe,wom-probe
+
+# 插件条目自己的图片（包内相对路径）：条目在插件代码装载之前就要画出来，
+# 所以这张图只能来自清单，不能来自插件代码
+icon: icon.svg
+
+# JS 入口（包内相对路径），缺省就是 index.js
+entry: index.js
+
+# 结果行的动作，**有序**：第一个是默认动作。它同时也是派发时的白名单。
+actions: greet,log
+
+# 结果行的类型名
+types: probe_result

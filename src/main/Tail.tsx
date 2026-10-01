@@ -4,6 +4,8 @@ import "./Tail.css";
 interface Props {
     /** 预览是否打开：提示条的形态由它现算，不另存一份状态 */
     preview_open: boolean,
+    /** 插件搜索页是否打开：它也有自己的一套说辞（ESC 返回主列表） */
+    search_open: boolean,
     /** 当前条目的当前动作文案；没有条目或条目没有动作时为 null，动作栏整块不渲染 */
     action_desc: string | null,
 }
@@ -17,8 +19,11 @@ interface Props {
  * 动作名也在这里渲染、不进提示条：它随 `Selection` 每次上下都变，放在外壳这一层，
  * 提示条就不跟着一起重渲染（见 HintBar 的 memo）。它绝对定位在正中，DOM 里在哪一段无所谓。
  */
-const Tail = ({ preview_open, action_desc }: Props) => {
-    const texts = HINT_BAR_TEXTS[preview_open ? HintBarKind.Preview : HintBarKind.ItemList];
+const Tail = ({ preview_open, search_open, action_desc }: Props) => {
+    const kind = search_open
+        ? HintBarKind.SearchPage
+        : preview_open ? HintBarKind.Preview : HintBarKind.ItemList;
+    const texts = HINT_BAR_TEXTS[kind];
 
     return (
         <div className="tail-box">
@@ -36,12 +41,13 @@ const Tail = ({ preview_open, action_desc }: Props) => {
 enum HintBarKind {
     ItemList = "ItemList",
     Preview = "Preview",
+    SearchPage = "SearchPage",
 }
 
-/** 形态的说辞 */
+/** 形态的说辞：`preview_toggle_label` 为 `null` 表示这一形态没有这一步 */
 interface HintBarTexts {
     esc_label: string,
-    preview_toggle_label: string,
+    preview_toggle_label: string | null,
 }
 
 /** 表格写全所有形态，枚举加值时这里会编译不过 */
@@ -53,6 +59,11 @@ const HINT_BAR_TEXTS: Record<HintBarKind, HintBarTexts> = {
     [HintBarKind.Preview]: {
         esc_label: "关闭预览",
         preview_toggle_label: "关闭预览",
+    },
+    // 插件搜索页：ESC 与退格都返回主列表，没有预览可开关（spec §4.3 / §4.1）
+    [HintBarKind.SearchPage]: {
+        esc_label: "返回主列表",
+        preview_toggle_label: null,
     },
 }
 

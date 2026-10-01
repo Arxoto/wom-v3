@@ -98,75 +98,6 @@ export interface EffectInfo {
 }
 
 /**
- * 列表条目的渲染结构（对应 Rust 侧 search::ItemDisplay）
- *
- * 只带渲染需要的类型、名称与描述，外加 `item_index`（Item Index）：条目在整集里的
- * 下标，前端跑 Item Action 时用它寻址。列表里的行号是 List Position，两者不是一回事。
- * 关键字与动作不在其中。
- */
-export interface ItemDisplay {
-    the_type: ItemType,
-    name: string,
-    desc: string,
-    item_index: number,
-}
-
-/**
- * Item 的类型（对应 Rust 侧 base::ItemType）
- */
-export type ItemType = "snip" | "sys" | "note" | "cmd" | "web" | "scan";
-
-/**
- * Item Action 的标识（对应 Rust 侧 action::ItemActionId）
- */
-export type ItemActionId = "copy" | "open_url" | "open_path" | "reveal" | "open_note";
-
-/**
- * 一个 Item Action 的元数据（对应 Rust 侧 action::ItemAction）
- *
- * `label_key` 按 ItemType + 动作分套，中文文案见 src/main/interaction/action_labels.ts。
- */
-export interface ItemAction {
-    id: ItemActionId,
-    label_key: string,
-}
-
-/**
- * 每种 ItemType 支持的动作（对应 Rust 侧 action::table）
- *
- * 顺序即优先级，第一个是该类型的默认动作。
- */
-export type ItemTypeActions = Record<ItemType, ItemAction[]>;
-
-/** 还没拉到动作表时的空表：拉到之前没有条目显示动作图标 */
-export const EMPTY_ITEM_TYPE_ACTIONS: ItemTypeActions = {
-    snip: [],
-    sys: [],
-    note: [],
-    cmd: [],
-    web: [],
-    scan: [],
-};
-
-/**
- * 检索结果的一页（对应 Rust 侧 search::ItemSearchPage）
- *
- * `index` 是这一页在结果集里的起始位置（不是页码），
- * 三个分组边界用来在列表里画匹配模式的分割线；
- * `token` 是后端下发的结果令牌，翻页时原样回传，前端不自己造。
- */
-export interface ItemSearchPage {
-    token: number,
-    total: number,
-    index: number,
-    item_list: ItemDisplay[],
-    index_eq: number,
-    index_starts_with: number,
-    index_contains: number,
-    index_match: number,
-}
-
-/**
  * 扫描根路径变量（对应 Rust 侧 persistence::scan_base::ScanBase）
  *
  * 值就是设置文件里写的变量名，各平台落到哪个目录由 tauri 决定。
@@ -227,98 +158,69 @@ export const register_global_shortcut = async () => {
 
 // #endregion
 
-// #region built-in plugin
-//
-// 内建条目（builtin_plugins）那一套：与下面的插件注册表那一套并行存在，是有意的（见 ADR 0008）。
-// 界面这一轮已经切到插件那一套，这里的封装与类型原样留着——它们对应的命令仍在 Rust 侧注册着。
-
-export const get_scan_base_options = async () => {
-    return (await invoke_backend('fetch_scan_base_options')) as ScanBaseOption[];
-}
-
-/**
- * 使用关键字检索
- *
- * 空串是合法输入：后端按「空关键字匹配所有」给出全部条目。
- */
-export const search = async (k: string) => {
-    return (await invoke_backend('search', { k })) as ItemSearchPage;
-}
-
-/**
- * 取检索结果的一页
- *
- * - `index` 是这一页在结果集里的起始位置（不是页码）：预请求传已加载条数。
- * - `token` 是从后端拿到的、屏上那份结论的令牌：原样回传，不自己造；与后端缓存对不上就会报错。
- */
-export const search_page = async (index: number, token: number) => {
-    return (await invoke_backend('search_page', { index, token })) as ItemSearchPage;
-}
-
-/**
- * 每种 ItemType 支持的动作
- *
- * 前端只在挂载时拉一次：配置重载会重建窗口，不需要热更新。
- */
-export const get_item_type_actions = async () => {
-    return (await invoke_backend('fetch_item_type_actions')) as ItemTypeActions;
-}
-
-/**
- * 跑一个 Item Action
- *
- * 按下标与动作 id 派发；越界索引、认不出的动作与还没实现的动作在 Rust 侧当无操作
- * 并记日志。跑完之后要不要隐藏主窗口由 Rust 按 `main_window_mode` 决定，前端不参与。
- */
-export const run_item_action = async (item_index: number, action: ItemActionId) => {
-    await invoke_backend('run_item_action', { itemIndex: item_index, action });
-}
-
-// #endregion
-
 // #region plugin framework
 //
 // 插件体系那一套（对应 Rust 侧 plugin_framework 与 plugin_impl_launcher）。
-// 界面读的是这一套：类型名由插件定义，框架与前端都不解释它，前端只按它查图标与文案。
+// 界面读的是这一套：类型名与动作 id 由插件定义，Rust 侧与这里都不解释它们。
+// 「类型名画哪张图标、动作 id 画哪张图标、label_key 是什么中文」归前端插件注册表，
+// 见 src/plugins/registry.tsx。
 
 /**
  * 插件条目的渲染结构（对应 Rust 侧 plugin_framework::PluginItemDisplay）
  *
- * 与内建条目同一个形状，多一个 `action_ids`：条目自带的动作 id 列表，顺序即优先级、
+ * 检索结果里的每条条目都是这个形状，`action_ids` 是条目自带的动作 id 列表：顺序即优先级、
  * 第一个是默认动作（见 spec §1.5）。`the_type` 是插件定义的类型名，是**不透明字符串**。
+ *
+ * `handle` 是条目身份（对应 Rust 侧 plugin_framework::ItemHandle）：
+ * `item_index` 只给主列表翻页与缓存记账，**动作派发一律用 handle**——
+ * 插件搜索结果行不在主列表那一集里，下标对它不成立（见 spec §3.4）。
  */
 export interface PluginItemDisplay {
     the_type: string,
     name: string,
     desc: string,
+    /**
+     * 条目自带的图标：**绝对路径**，空串表示没有
+     *
+     * 与"类型图标"不是一回事：类型图标一张画给同类型的每一行（前端注册表按类型名查），
+     * 这一张是条目自己的图片（`Plugin Package` 清单里写的那张），由前端转成 asset URL。
+     */
+    icon: string,
     item_index: number,
+    action_ids: string[],
+    handle: ItemHandle,
+}
+
+/**
+ * 条目身份（对应 Rust 侧 plugin_framework::ItemHandle）
+ *
+ * `plugin_id` + `local_id`：插件注册的条目是它在该插件里的注册序号，
+ * 插件搜索结果行则是它在最近一次搜索结果里的下标（结果行不注册进框架，见 spec §3.4）。
+ */
+export interface ItemHandle {
+    plugin_id: string,
+    local_id: number,
+}
+
+/**
+ * 一条 Plugin Search Result（对应 Rust 侧 plugin_impl_js::SearchRow）
+ *
+ * 插件自己的搜索函数交出来的纯数据：`the_type` 是它声明的结果行类型名，
+ * `action_ids` 是这一行自己的动作列表（顺序即优先级，可以为空）。
+ */
+export interface PluginSearchRow {
+    the_type: string,
+    name: string,
+    desc: string,
     action_ids: string[],
 }
 
 /**
- * 动作表里的一条动作（对应 Rust 侧 plugin_framework::PluginActionView）
- *
- * `label_key` 由插件给出，中文文案见 src/main/interaction/action_labels.ts。
- */
-export interface PluginActionView {
-    id: string,
-    label_key: string,
-}
-
-/**
- * 插件的动作表（对应 Rust 侧 plugin_framework::ActionTableView）
- *
- * 类型名 → 该类型的动作，顺序即优先级、第一个是默认动作；类型名是不透明字符串。
- */
-export type PluginActionTable = Record<string, PluginActionView[]>;
-
-/** 还没拉到动作表时的空表：拉到之前没有条目显示动作图标 */
-export const EMPTY_PLUGIN_ACTION_TABLE: PluginActionTable = {};
-
-/**
  * 插件检索结果的一页（对应 Rust 侧 plugin_framework::ItemSearchPage）
  *
- * 字段与内建那一页一致，见上面 [`ItemSearchPage`] 的说明。
+ * `index` 是这一页在结果集里的起始位置（不是页码），
+ * 三个分组边界用来在列表里画匹配模式的分割线；
+ * `token` 是后端下发的结果令牌，翻页时原样回传，前端不自己造。
  */
 export interface PluginItemSearchPage {
     token: number,
@@ -336,31 +238,51 @@ export const plugin_search = async (k: string) => {
     return (await invoke_backend('plugin_search', { k })) as PluginItemSearchPage;
 }
 
-/**
- * 取插件检索结果的一页
- *
- * `index` 与 `token` 的语义与 [`search_page`] 完全一致：令牌从后端拿，原样回传。
- */
+/** 取插件检索结果的一页；`index` 与 `token` 的语义同内建那一页：令牌从后端拿，原样回传 */
 export const plugin_search_page = async (index: number, token: number) => {
     return (await invoke_backend('plugin_search_page', { index, token })) as PluginItemSearchPage;
 }
 
 /**
- * 插件注册的动作表
+ * 跑一个 Plugin Action
  *
- * 前端只在挂载时拉一次：动作表相对插件与类型是固定的（Q22），配置重载会重建窗口。
+ * 按条目身份与动作 id 派发；认不出的插件、落不到的行与还没实现的动作在 Rust 侧当无操作
+ * 并记日志。跑完之后要不要隐藏主窗口由 Rust 按 `main_window_mode` 决定，前端不参与。
  */
-export const get_plugin_actions = async () => {
-    return (await invoke_backend('fetch_plugin_actions')) as PluginActionTable;
+export const plugin_run_item_action = async (handle: ItemHandle, action: string) => {
+    await invoke_backend('plugin_run_item_action', { handle, action });
 }
 
 /**
- * 跑一个 Plugin Action
+ * 触发一次 Plugin Search，拿回 `Plugin Search Page` 的数据
  *
- * 按下标与动作 id 派发；语义与 [`run_item_action`] 一致，隐藏窗口同样由 Rust 决定。
+ * Rust 会把请求转给 webview（装载插件、跑插件自己的搜索），等结果行回来再投影成这一页。
+ * 插件装载失败或搜索抛错时是一份空页，不是错误（见 spec §4.4）。
  */
-export const plugin_run_item_action = async (item_index: number, action: string) => {
-    await invoke_backend('plugin_run_item_action', { itemIndex: item_index, action });
+export const plugin_open_plugin_search = async (plugin_id: string, keyword: string) => {
+    return (await invoke_backend('plugin_open_plugin_search', { pluginId: plugin_id, keyword })) as PluginItemSearchPage;
+}
+
+/**
+ * 把插件搜索的结果行交回 Rust（`plugin_impl_js` 里那次搜索的回程）
+ *
+ * 只有插件自己报过的那一份行能派发动作：Rust 按同样的下标把它们记下来。
+ */
+export const plugin_report_search_results = async (plugin_id: string, items: PluginSearchRow[]) => {
+    await invoke_backend('plugin_report_search_results', { pluginId: plugin_id, items });
+}
+
+/** 列出已发现的 Plugin Package（`id` / `name` / 入口绝对路径与它存不存在） */
+export const plugin_list_packages = async () => {
+    return (await invoke_backend('plugin_list_packages')) as PluginPackageInfo[];
+}
+
+/** 一个已发现的 Plugin Package（对应 Rust 侧 plugin_host::PackageInfo） */
+export interface PluginPackageInfo {
+    id: string,
+    name: string,
+    entry: string,
+    entry_exists: boolean,
 }
 
 // #endregion

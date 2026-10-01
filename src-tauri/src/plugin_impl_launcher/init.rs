@@ -77,6 +77,8 @@ fn item_sources_of(
             name,
             // sys 没有 desc，也就没有可复制的正文
             String::new(),
+            // launcher 的条目没有各自一张图片：图标按类型来（见前端注册表）
+            String::new(),
         )]),
         LauncherItemSource::Cmd {
             priority,
@@ -89,6 +91,7 @@ fn item_sources_of(
             key_words,
             name,
             desc,
+            String::new(),
         )]),
         LauncherItemSource::Web {
             priority,
@@ -101,6 +104,7 @@ fn item_sources_of(
             key_words,
             name,
             desc,
+            String::new(),
         )]),
         LauncherItemSource::Scan {
             priority_chain,
@@ -141,6 +145,7 @@ fn scan_items(
                 merged_key_words(key_words, &item_name),
                 item_name,
                 entry.path.to_string_lossy().into_owned(),
+                String::new(),
             )
         })
         .collect();

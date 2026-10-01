@@ -9,7 +9,16 @@
 //! 公开面只有两处（见 `.scratch/plugin-system/spec.md` §1.8）：
 //!
 //! 1. [`PluginRegistry`]：构造 + 注册插件 + 检索 + 翻页 + 跑动作；
-//! 2. [`actions_of`]：动作表查询函数。
+//! 2. 动作表查询函数 [`actions_of`]——它现在只服务于页面投影：投影按条目的类型名查表，
+//!    把动作 id 列表写进 [`PluginItemDisplay::action_ids`]。
+//!
+//! 跑动作按 [`ItemHandle`] 寻址（Q23），不按条目在整集里的下标：主列表与
+//! `Plugin Search Page` 两层列表因此走同一条派发路（见 [`PluginItemDisplay::handle`]）。
+//!
+//! 动作表**不再有对外的取用面**：界面那一侧的动作顺序、图标与文案由前端的插件注册表给出
+//! （见 `src/plugins/registry.tsx`），Rust 只在投影时用它算条目自带的 `action_ids`。
+//! 因此 [`PluginActionView`] 与 [`ActionTableView`] 是本模块内部类型，`pub` 只为了让
+//! trait 实现与投影函数能指名它们。
 //!
 //! 其余类型（条目、动作、上下文、错误）在**类型层面**是 `pub` 的——插件的 trait 实现必须能
 //! 指名它们——但本模块整体是私有的，所以它们对外不可达，等价于"只暴露两处入口"。
@@ -26,13 +35,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri_plugin_log::log::{info, warn};
 
 // region: 身份
 
 /// 插件标识：稳定 ASCII 字符串
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+///
+/// 它随 [`ItemHandle`] 一起下发到前端，所以两端都认这一个形状（`Serialize` / `Deserialize`）。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PluginId(pub String);
 
 impl Display for PluginId {
@@ -64,10 +75,14 @@ impl Display for ActionId {
 ///
 /// 由框架分配（Q30），插件不自己造。框架与插件之间用它寻址条目，
 /// 与"条目在加载出的整集里的下标"不是一回事。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+///
+/// **它随条目一起下发到前端**（Q23）：`Plugin Search Result` 不在框架持有的那一集里，
+/// 用 `item_index` 寻址对它不成立，所以两层列表的寻址统一到 handle 上——
+/// 管你在第几层，动作派发都能找到那一行。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ItemHandle {
     pub plugin_id: PluginId,
-    /// 该插件内**从 0 递增的注册序号**
+    /// 该插件内**从 0 递增的注册序号**；结果行则是它在最近一次搜索结果里的下标
     pub local_id: usize,
 }
 
@@ -92,6 +107,12 @@ pub struct PluginItem {
     pub desc: String,
     /// 类型名。框架对它的值**永远不解释**，只透传
     pub the_type: String,
+    /// 条目自带的图标：**绝对路径**，空串表示没有
+    ///
+    /// 与"类型图标"不是一回事：类型图标一张画给同类型的每一行（前端注册表里按类型名查），
+    /// 而这一张是**这个条目自己**的图片——`Plugin Package` 的清单里写的那一张就是它。
+    /// 框架不碰文件、也不解释路径，只把它原样透传给前端（前端再交给 asset protocol）。
+    pub icon: String,
 }
 
 impl PluginItem {
@@ -101,6 +122,7 @@ impl PluginItem {
         key_words: Vec<String>,
         name: impl Into<String>,
         desc: impl Into<String>,
+        icon: impl Into<String>,
     ) -> Self {
         Self {
             the_type: the_type.into(),
@@ -108,6 +130,7 @@ impl PluginItem {
             key_words,
             name: name.into(),
             desc: desc.into(),
+            icon: icon.into(),
         }
     }
 }
@@ -276,10 +299,21 @@ pub trait Plugin: Send + Sync {
         registrar: &mut dyn ItemRegistrar,
     ) -> Result<(), PluginError>;
 
+    /// 把一个句柄解析成条目：框架**注册时没拿到**的那一类条目由插件自己交出来
+    ///
+    /// 注册推上来的条目框架手上都有，所以默认实现是 [`None`]。`Plugin Search Result`
+    /// 是每次查询现算的、不注册进框架（Q10），派发它的动作时框架手上没有那一行，
+    /// 于是回头问插件（实现见 `plugin_impl_js::JsPlugin`）。
+    ///
+    /// 只有 [`PluginRegistry::run_action`] 会问它，而且只在自己那一份里找不到时才问。
+    fn resolve_item(&self, _handle: &ItemHandle) -> Option<PluginItem> {
+        None
+    }
+
     /// 跑一个动作
     ///
-    /// `item` 一定是本插件注册过的条目（框架只把落在这个插件名下的条目交给它），
-    /// `handle` 是它的身份。
+    /// `item` 一定是本插件名下的条目——注册过的那个，或者 [`Plugin::resolve_item`] 给出的
+    /// 那一个；`handle` 是它的身份。
     fn run_action(
         &self,
         cx: &dyn PluginContext,
@@ -395,7 +429,7 @@ impl ItemSearchPage {
 /// 一条条目的渲染结构
 ///
 /// 条目以内部 tag（`the_type`）序列化、字段与 tag 平铺；`item_index` 是条目在整集里的下标，
-/// 前端靠它寻址条目（跑动作），列表行号只是显示位置。
+/// 列表行号只是显示位置——**动作派发一律用 `handle`**（见 [`ItemHandle`]），不再用下标。
 ///
 /// `action_ids` 是该条目可用的动作，顺序即优先级、第一个是默认动作；
 /// 投影时由框架按条目的 [`PluginItem::the_type`] 查插件注册的动作表得出——
@@ -404,8 +438,12 @@ impl ItemSearchPage {
 pub struct PluginItemDisplay {
     #[serde(flatten)]
     pub item: PluginItem,
+    /// 条目在整集里的下标：主列表翻页与预请求的记账用（`search_page` 的 `index`），
+    /// **不是**动作派发的地址
     pub item_index: usize,
     pub action_ids: Vec<ActionId>,
+    /// 条目身份：动作派发用它，两层列表（主列表 / `Plugin Search Page`）因此都是同一条路
+    pub handle: ItemHandle,
 }
 
 // endregion
@@ -415,7 +453,8 @@ pub struct PluginItemDisplay {
 /// 动作表里的一条动作：动作 id + 前端据它查文案的 `label_key`
 ///
 /// 与 [`PluginAction`] 只差一个 `the_type`——它在表的外层键上，不必在每条动作里再写一遍。
-/// 元素的形状因此与现有内建动作表一致（`id` + `label_key`），前端手写的镜像沿用同一个形状。
+///
+/// 只服务于投影，不下发：界面读的是前端注册表（见本模块头部的说明）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PluginActionView {
     pub id: ActionId,
@@ -433,7 +472,7 @@ pub type ActionTableView = BTreeMap<String, Vec<PluginActionView>>;
 
 /// 查某个类型的动作；类型没有动作时返回 [`None`]
 ///
-/// 这是公开面的第二处（Q29）：页面投影按条目的类型名查它——框架不解释类型名，只拿它查表。
+/// 页面投影按条目的类型名查它——框架不解释类型名，只拿它查表。
 pub fn actions_of<'a>(table: &'a ActionTableView, the_type: &str) -> Option<&'a [PluginActionView]> {
     table.get(the_type).map(Vec::as_slice)
 }
@@ -466,8 +505,10 @@ struct RegistryInner {
 /// `HashMap` **只**服务于"整块替换某插件的条目"与按 id 找块，任何迭代顺序都以 `Vec` 为准。
 ///
 /// 本身可以 `manage` 进 Tauri（接入期补的）：条目与缓存都在一把私有 [`Mutex`] 后面，
-/// 所有取用方法都只取 `&self`，所以它是 `Send + Sync` 的；`register_plugin` 是唯一的 `&mut`，
-/// 只在托管之前（宿主组装注册表时）用。
+/// 所有取用方法都只取 `&self`，所以它是 `Send + Sync` 的；只有装配期的
+/// [`PluginRegistry::register_plugin`] 取 `&mut`，运行期的重扫走
+/// [`PluginRegistry::register_or_reload_plugin`]（它只取 `&self`，因为 `manage` 之后
+/// 宿主手上只有 `State`）。
 pub struct PluginRegistry {
     cx: Arc<dyn PluginContext>,
     inner: Mutex<RegistryInner>,
@@ -506,22 +547,41 @@ impl PluginRegistry {
 
         let mut inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
 
+        // 装配期的重复注册是错的：同一个 id 出现两次，多半是代码写错了
         if inner.plugin_index.contains_key(&plugin_id) {
             warn!("plugin already registered, skip: {plugin_id}");
             return;
         }
 
-        // 先落位、再 `init`：`init` 里推的条目要按注册顺序落进这个块
-        let slot = inner.plugin_list.len();
-        inner.plugin_list.push(PluginBlock {
-            plugin,
-            items: Vec::new(),
-        });
-        inner.plugin_index.insert(plugin_id.clone(), slot);
+        let slot = place_plugin(&mut inner, plugin);
 
         init_plugin(&mut inner, slot, self.cx.as_ref());
 
         info!("plugin registered: {plugin_id}");
+    }
+
+    /// 注册一个插件；`id` 已经存在时**换掉实现**并重新 `init`（运行期重扫走这条）
+    ///
+    /// 与 [`Self::register_plugin`] 的差别只有"已存在时怎么办"：装配期的重复注册是错的，
+    /// 而重扫是常态——`Plugin Package` 的清单可能改过（名字、关键字、动作），代理要跟着换一份。
+    ///
+    /// 取 `&self`：注册表 `manage` 进 Tauri 之后拿到的是 `State`，重扫没有 `&mut` 可用。
+    pub fn register_or_reload_plugin(&self, plugin: Box<dyn Plugin>) {
+        let plugin: Arc<dyn Plugin> = Arc::from(plugin);
+        let plugin_id = plugin.id();
+
+        let mut inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        let replaced = inner.plugin_index.contains_key(&plugin_id);
+
+        let slot = place_plugin(&mut inner, plugin);
+
+        init_plugin(&mut inner, slot, self.cx.as_ref());
+
+        if replaced {
+            info!("plugin replaced: {plugin_id}");
+        } else {
+            info!("plugin registered: {plugin_id}");
+        }
     }
 
     /// 重新 `init` 一个已注册插件：按 `plugin_id` 整块替换它的条目（Q11）
@@ -534,15 +594,6 @@ impl PluginRegistry {
         };
 
         init_plugin(&mut inner, slot, self.cx.as_ref());
-    }
-
-    /// 类型名 → 该类型的全部动作，形状与现有 `action::table()` 的输出一致
-    ///
-    /// 类型名按字典序；同一类型下插件按注册顺序、动作按注册顺序（见 [`action_table_of`]）。
-    pub fn action_table(&self) -> ActionTableView {
-        let inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
-
-        action_table_of(&inner.plugin_list)
     }
 
     /// 用关键字检索：重新生成一份结果并给出第一页
@@ -576,46 +627,78 @@ impl PluginRegistry {
         page_of(&inner, index, token)
     }
 
-    /// 按下标跑一个动作，返回它是否**真的执行了**
+    /// 按 [`ItemHandle`] 跑一个动作，返回它是否**真的执行了**
     ///
-    /// 落下标、认不出的动作、没挂在条目类型上的动作，都当无操作并记 warn：
+    /// 认不出的插件、落不到的行、没挂在条目类型上的动作，都当无操作并记 warn：
     /// 不 panic、不做版本校验（复刻 `action.rs:195` 的语义）。
-    pub fn run_action(&self, item_index: usize, action_id: &ActionId) -> ActionOutcome {
+    ///
+    /// 寻址用 handle 而不是下标（Q23）：主列表与 `Plugin Search Page` 两层列表因此
+    /// 走的是同一条派发路，框架不必知道自己在哪一层。
+    pub fn run_action(&self, handle: &ItemHandle, action_id: &ActionId) -> ActionOutcome {
         let inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
 
-        let Some((plugin_id, local_id)) = handle_at(&inner, item_index) else {
-            warn!("run action with out-of-range item index: {item_index}");
+        let Some(block) = block_of(&inner, &handle.plugin_id) else {
+            warn!("run action on an unregistered plugin: {}", handle.plugin_id);
             return ActionOutcome::NoOp;
         };
 
-        let Some(block) = block_of(&inner, &plugin_id) else {
-            warn!("run action on an unregistered plugin: {plugin_id}");
-            return ActionOutcome::NoOp;
-        };
+        // 自己手上没有就问插件：`Plugin Search Result` 不在注册表里（Q10）
+        let resolved;
+        let item = match block.items.get(handle.local_id) {
+            Some(item) => item,
+            None => {
+                resolved = block.plugin.resolve_item(handle);
 
-        let Some(item) = block.items.get(local_id) else {
-            warn!("run action on a missing item: plugin {plugin_id}, local {local_id}");
-            return ActionOutcome::NoOp;
+                let Some(item) = resolved.as_ref() else {
+                    warn!(
+                        "run action on a missing item: plugin {}, local {}",
+                        handle.plugin_id, handle.local_id
+                    );
+                    return ActionOutcome::NoOp;
+                };
+
+                item
+            }
         };
 
         if !has_action(&block.plugin.actions(), &item.the_type, action_id) {
             warn!(
                 "action {} is not registered for type {} by plugin {}",
-                action_id, item.the_type, plugin_id
+                action_id, item.the_type, handle.plugin_id
             );
             return ActionOutcome::NoOp;
         }
 
-        let handle = ItemHandle {
-            plugin_id,
-            local_id,
-        };
-
         block
             .plugin
-            .run_action(self.cx.as_ref(), item, &handle, action_id)
+            .run_action(self.cx.as_ref(), item, handle, action_id)
     }
 }
+
+/// 把一个插件的块放进注册表：已有的 `id` 换实现，没有的追加到末尾
+///
+/// 注册与替换共用这一段；调用方负责先决定"重复注册该怎么办"。
+/// 先落位、再 `init`：`init` 里推的条目要按注册顺序落进这个块。
+fn place_plugin(inner: &mut RegistryInner, plugin: Arc<dyn Plugin>) -> usize {
+    let plugin_id = plugin.id();
+
+    match inner.plugin_index.get(&plugin_id).copied() {
+        Some(slot) => {
+            inner.plugin_list[slot].plugin = plugin;
+            slot
+        }
+        None => {
+            let slot = inner.plugin_list.len();
+            inner.plugin_list.push(PluginBlock {
+                plugin,
+                items: Vec::new(),
+            });
+            inner.plugin_index.insert(plugin_id, slot);
+            slot
+        }
+    }
+}
+
 
 /// `init` 一个块里的插件，成功后整块替换它的条目；失败则回滚并跳过该插件
 ///
@@ -709,6 +792,10 @@ fn project(inner: &RegistryInner, item_indexes: &[usize]) -> Vec<PluginItemDispl
                 item: item.clone(),
                 item_index: *item_index,
                 action_ids,
+                handle: ItemHandle {
+                    plugin_id,
+                    local_id,
+                },
             })
         })
         .collect()

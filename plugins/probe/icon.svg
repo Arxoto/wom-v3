@@ -1,0 +1,10 @@
+<!-- 探针插件条目自带的那张图（清单里的 icon）。
+     用 SVG 是因为插件条目在插件代码装载之前就要画出来：这张图只能来自**文件**，
+     不能来自插件自己的注册（那一份要等装载）。取文件走 asset protocol，
+     所以 SVG 与 PNG 在这里是同一条路。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none"
+    stroke="#9aa0a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="8" r="5.2"></circle>
+    <circle cx="8" cy="8" r="1.5"></circle>
+    <path d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2"></path>
+</svg>

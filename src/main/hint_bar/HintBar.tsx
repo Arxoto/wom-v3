@@ -15,9 +15,13 @@ interface ActionHintProps {
     has_action: boolean,
 }
 
-/** 开关预览那条提示的输入：说的是这一次按下会做什么（打开还是关闭），不是当前状态名 */
+/**
+ * 开关预览那条提示的输入：说的是这一次按下会做什么（打开还是关闭），不是当前状态名
+ *
+ * `null` 表示这一形态没有这一步（插件搜索页只有回车与返回），整块不渲染。
+ */
 interface PreviewToggleProps {
-    label: string,
+    label: string | null,
 }
 
 /** ESC 出口那条提示的输入：文案由用它的形态给——两种形态按下去的结果不一样 */
@@ -72,6 +76,8 @@ const EscHint = ({ label }: EscHintProps) => {
 
 /** 「Shift+Enter 开关预览」：两种形态共用，文案由骨架给 */
 const PreviewToggleHint = ({ label }: PreviewToggleProps) => {
+    if (label === null) return <></>;
+
     return <>
         <span className="hint-combo">
             <IconShift></IconShift>
@@ -108,7 +114,7 @@ interface Props {
     /** ESC 出口的后果：列表模式是关界面，预览模式是关预览 */
     esc_label: string,
     /** 开关预览那一步做什么：打开还是关闭 */
-    preview_toggle_label: string,
+    preview_toggle_label: string | null,
     /** 当前条目有没有可跑的动作：决定「触发动作」那条提示显不显示 */
     has_action: boolean,
 }

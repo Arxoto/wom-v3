@@ -40,6 +40,26 @@ _Avoid_: host API, plugin API
 One of the things a Plugin Item can be made to do, registered by its plugin along with the label key the frontend resolves. A Plugin Item carries the ordered list of the Plugin Actions it offers.
 _Avoid_: handler, callback, trigger
 
+**Plugin Folder** (插件目录):
+The directory shipped outside the binary that holds Plugin Packages; it is what `bundle.resources` delivers and what the host scans at startup, so packages can be added after the app is built.
+_Avoid_: plugins dir, plugin path, plugin root
+
+**Plugin Package** (插件包):
+One plugin in the Plugin Folder: a directory holding a `manifest.yml` and the JS entry it names. The manifest's `id` is its identity, not the directory name.
+_Avoid_: plugin, plugin script, plugin module
+
+**Plugin Search** (插件搜索):
+The act of asking a Plugin Package for Plugin Search Results; it is the plugin's own search, run when its Plugin Item is acted on, and the framework never performs it.
+_Avoid_: plugin query, plugin lookup, dynamic search
+
+**Plugin Search Result** (插件搜索结果):
+A row a Plugin Package returns from a Plugin Search. It is not a Plugin Item: the framework does not hold it and it is computed per query, though the framework draws its row.
+_Avoid_: plugin item, search hit, sub item
+
+**Plugin Search Page** (插件搜索页):
+The second result page that holds the Plugin Search Results of one Plugin Package; the framework draws its rows, and ESC or backspace returns to the main list.
+_Avoid_: sub list, plugin list, second list
+
 ### Launcher plugin
 
 **Launcher**:
@@ -61,7 +81,7 @@ The Item in the search results that the main window is currently aimed at; ↑/�
 _Avoid_: 高亮, focus, cursor, 当前项
 
 **Preview**:
-The side panel of the main window that shows the Selection in full; ⇧+Enter toggles it and ESC closes it.
+The side panel of the main window that shows the Selection's extended content—for most Items it is the Selection in full, and for a Plugin Item it is that package's Plugin Search Page; ⇧+Enter toggles it and ESC closes it.
 _Avoid_: detail view, panel, 预览页面
 
 **Item Action**:

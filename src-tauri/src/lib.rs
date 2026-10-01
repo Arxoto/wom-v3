@@ -24,6 +24,9 @@ mod plugin_framework;
 
 mod plugin_impl_launcher;
 
+// JS 插件宿主：`Plugin Package` 在框架里的代理与它的宿主侧接线
+mod plugin_impl_js;
+
 mod plugin_host;
 
 mod app_stat {
@@ -57,6 +60,9 @@ mod tray {
         let register_desc = "register Global-Shortcut";
         let unregister_desc = "unregister Global-Shortcut";
         let re_plugin_desc = "Reload Plugin Settings";
+        // issue 04 的临时验证入口：打包之后往 `Plugin Folder` 里加一个包，
+        // 走这一条确认能被扫到。转正或删除由接口定稿时决定（spec §五 / Q25）。
+        let reload_packages_desc = "Reload Plugin Packages";
         let reload_desc = "Reload Global Config";
         let quit_desc = "Quit";
 
@@ -75,6 +81,7 @@ mod tray {
                     &MenuItem::with_id(app, "unregister", unregister_desc, true, None::<&str>)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItem::with_id(app, "re_plugin", re_plugin_desc, true, None::<&str>)?,
+                    &MenuItem::with_id(app, "reload_packages", reload_packages_desc, true, None::<&str>)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItem::with_id(app, "reload", reload_desc, true, None::<&str>)?,
                     &MenuItem::with_id(app, "quit", quit_desc, true, None::<&str>)?,
@@ -120,6 +127,13 @@ mod tray {
                     plugin_host::reload_launcher(app);
                     rebuild_main(app);
                 }
+                // issue 04 的临时验证入口，见上面的菜单项说明
+                "reload_packages" => {
+                    info!("try reload plugin packages");
+                    let packages = plugin_host::reload_packages(app);
+                    info!("plugin packages reloaded: {}", packages.len());
+                    rebuild_main(app);
+                }
                 "reload" => {
                     info!("try reload config data");
                     let _ = configs::reload_data(app);
@@ -157,10 +171,14 @@ fn log_setting_init<R: Runtime>() -> TauriPlugin<R> {
             .build()
     } else {
         tauri_plugin_log::Builder::new()
-            .targets([tauri_plugin_log::Target::new(
-                tauri_plugin_log::TargetKind::LogDir { file_name: None },
-            )])
-            .level(tauri_plugin_log::log::LevelFilter::Warn)
+            .targets([
+                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
+                // issue 01 的临时诊断：打包态要采 info 级日志，交付前连同 Webview 目标一起还原
+                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                // 前端记的日志也落进文件：打包态没有 stdout，诊断只能靠它
+                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+            ])
+            .level(tauri_plugin_log::log::LevelFilter::Debug)
             .max_file_size(1024 * 1024)
             .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
             .build()
@@ -200,7 +218,10 @@ pub fn run() {
             commands::plugin_search,
             commands::plugin_search_page,
             commands::plugin_run_item_action,
-            commands::fetch_plugin_actions,
+            commands::plugin_list_packages,
+            commands::plugin_reload_packages,
+            commands::plugin_open_plugin_search,
+            commands::plugin_report_search_results,
         ])
         .setup(|app| {
             // 隐藏 Dock 图标， App 级配置，即使是打开配置窗口也不会出现在 Dock 栏
@@ -212,6 +233,8 @@ pub fn run() {
 
             // 插件注册表：组装（注册 launcher 并读它的 manifest）也在建窗口前完成，
             // 检索命令以 `State<PluginRegistry>` 取用
+            // JS 插件宿主的运行期状态要先于注册表托管：组装注册表时要往里写扫描结果
+            app.manage(plugin_host::JsHost::new());
             app.manage(plugin_host::create_registry(app.handle())?);
 
             configs::load_data(app.handle());

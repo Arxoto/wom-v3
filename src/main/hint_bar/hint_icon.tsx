@@ -1,7 +1,8 @@
 /**
  * 提示条的按键图标
  *
- * 只有提示条自己用的图标；列表行的动作图标属于 Item，见 [action_icons.tsx](../item/action_icons.tsx)——
+ * 只有提示条自己用的图标；列表行的动作图标由插件自己提供，见
+ * [launcher_action_icons.tsx](../../plugins/launcher_action_icons.tsx)——
  * 图标跟着它的消费者走，不集中到一个"全app图标库"里。
  * 图标只出几何——尺寸见 [HintBar.css](./HintBar.css) 的 `.hint-icon`，颜色一律 `currentColor` 跟随文字。
  */

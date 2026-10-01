@@ -1,24 +1,31 @@
 import { Dispatch, RefObject, useCallback, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
-import { info } from "@tauri-apps/plugin-log";
+import { info, warn } from "@tauri-apps/plugin-log";
 
 import {
-    EMPTY_PLUGIN_ACTION_TABLE,
     dismiss_main_window,
     get_config,
-    get_plugin_actions,
     on_main_shown,
+    plugin_open_plugin_search,
     plugin_run_item_action,
     plugin_search,
     plugin_search_page,
-    type PluginActionTable,
     should_show_main_on_ready,
     show_main_window,
 } from "../../core";
-import { actions_of, current_action } from "./action_labels";
-import { is_action_intent, is_select_intent, resolve_key, type Intent } from "./keys";
-import { MAIN_STATE_INIT, MainAction, action_index_of, current_item, reduce_main } from "./reducer";
-import { create_search_session } from "./search_session";
+import { JS_PLUGIN_ITEM_TYPE } from "../../plugins/js_host.tsx";
+import { registry } from "../../plugins/registry.tsx";
+import { is_action_intent, is_search_intent, is_select_intent, resolve_key, type Intent } from "./keys";
+import {
+    MAIN_STATE_INIT,
+    MainAction,
+    action_index_of,
+    active_items,
+    active_selection,
+    current_item,
+    reduce_main,
+} from "./reducer";
+import { create_search_session, search_key } from "./search_session";
 import { SELECT_REPEAT_MS } from "./timing";
 import { resolve_wheel } from "./wheel";
 
@@ -47,6 +54,8 @@ const useMainWindowFocus = (
         (async () => {
             cleaner = await on_main_shown(() => {
                 dispatch({ kind: "close_preview" });
+                // 窗口再显示时从主列表开始：搜索页是一次的（见 spec §4.3）
+                dispatch({ kind: "plugin_search_closed" });
                 focus_input();
             });
 
@@ -76,8 +85,6 @@ export const useMainInteraction = () => {
     const [state, dispatch] = useReducer(reduce_main, MAIN_STATE_INIT);
     // 主界面显示几行 item
     const [item_n, set_item_n] = useState(FALLBACK_ITEM_N);
-    // 动作表：挂载时拉一次，拉到之前是空表（没有条目显示动作图标）
-    const [type_actions, set_type_actions] = useState<PluginActionTable>(EMPTY_PLUGIN_ACTION_TABLE);
 
     const input_ref = useRef<HTMLInputElement>(null);
     // 上一次连续切换的时刻；初值 -Infinity 让首次切换立即响应
@@ -103,11 +110,11 @@ export const useMainInteraction = () => {
 
     /** 计算当前条目的目标动作 */
     const action_step_target = (delta: number): { item_index: number, action_index: number } | null => {
-        const item = current_item(state.conclusion?.item_list, state.selection);
+        const item = current_item(active_items(state), active_selection(state));
         if (!item) return null;
 
         const action_index = action_index_of(state, item.item_index) + delta;
-        if (action_index < 0 || action_index >= actions_of(type_actions, item).length) return null;
+        if (action_index < 0 || action_index >= registry.actions_of(item).length) return null;
 
         return { item_index: item.item_index, action_index };
     };
@@ -124,6 +131,9 @@ export const useMainInteraction = () => {
 
     /** 静默续下一页 */
     const prefetch_next_page = () => {
+        // 只有主列表有下一页：插件搜索页一次查询就是整份答案
+        if (state.plugin_search !== null) return;
+
         session.prefetch({
             // 已加载条数就是下一页的起始下标：列表按顺序追加，中间没有空洞
             loaded_count: state.conclusion?.item_list.length ?? 0,
@@ -143,14 +153,36 @@ export const useMainInteraction = () => {
     };
 
     const run_current_action = () => {
-        const item = current_item(state.conclusion?.item_list, state.selection);
+        const item = current_item(active_items(state), active_selection(state));
         if (!item) return;
-        const action = current_action(type_actions, item, action_index_of(state, item.item_index));
+        const action = registry.current_action(item, action_index_of(state, item.item_index));
         if (!action) return;
 
-        void info(`run action item_index=${item.item_index} action=${action.id}`);
+        void info(`run action plugin=${item.handle.plugin_id} action=${action.id}`);
         dispatch({ kind: "intent", intent: "run_action" });
-        void plugin_run_item_action(item.item_index, action.id);
+        void plugin_run_item_action(item.handle, action.id);
+    };
+
+    /**
+     * 打开当前插件条目的 `Plugin Search Page`
+     *
+     * 关键字取主输入里命中的那一段（第一个空格之前）：框架看不出哪部分是插件的、
+     * 哪部分是参数，所以只把命中的关键字给它（spec §7 开放问题 2）。
+     * 装载与搜索都在 Rust → webview 的那一次往返里完成（见 `plugins/host.ts`）。
+     */
+    const open_plugin_search = async () => {
+        const item = current_item(active_items(state), active_selection(state));
+        if (!item) return;
+
+        const plugin_id = item.handle.plugin_id;
+
+        try {
+            const page = await plugin_open_plugin_search(plugin_id, search_key(state.input));
+            dispatch({ kind: "plugin_search_settled", plugin_id, page });
+        } catch (err) {
+            // 打不开就记一条，界面留在主列表：这一段没有渲染"为什么"的地方（spec §4.4）
+            void warn(`open plugin search failed: ${plugin_id} ${String(err)}`);
+        }
     };
 
     /**
@@ -165,10 +197,16 @@ export const useMainInteraction = () => {
         // 因此仍然加上 keyCode 判断（即使他已经被废弃）
         if (event.isComposing || event.keyCode === 229) return;
 
+        const item = current_item(active_items(state), active_selection(state));
+
         const intent = resolve_key(
             event.key,
             { shift: event.shiftKey },
-            { preview_open: state.preview_open },
+            {
+                preview_open: state.preview_open,
+                search_open: state.plugin_search !== null,
+                plugin_item: item?.the_type === JS_PLUGIN_ITEM_TYPE,
+            },
         );
         if (intent === null) return;
 
@@ -176,6 +214,12 @@ export const useMainInteraction = () => {
 
         if (intent === "dismiss") {
             void dismiss_main_window();
+            return;
+        }
+
+        if (is_search_intent(intent)) {
+            if (intent === "open_search") void open_plugin_search();
+            else dispatch({ kind: "plugin_search_closed" });
             return;
         }
 
@@ -256,7 +300,6 @@ export const useMainInteraction = () => {
     // 获取配置
     useEffect(() => {
         void get_config().then(config => set_item_n(config.main_item_n));
-        void get_plugin_actions().then(set_type_actions);
     }, []);
 
     // 卸载时丢掉还没到点的防抖
@@ -264,5 +307,5 @@ export const useMainInteraction = () => {
 
     useMainWindowFocus(input_ref, dispatch);
 
-    return { state, item_n, type_actions, input_ref };
+    return { state, item_n, input_ref };
 }
