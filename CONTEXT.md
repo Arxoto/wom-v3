@@ -13,8 +13,42 @@ _Avoid_: settings, ConfigData, ConfigSettings, ConfigFile, Editable Config
 ### Search and items
 
 **Item**:
-A single piece of built-in content that search can find and that carries a name, a description, keywords, and an action; it is the smallest unit of both searching and acting.
+A single piece of content that search can find and that carries a name, a description, keywords, and an action; it is the smallest unit of both searching and acting. Builtin Items and Plugin Items are the two implementations in flight; the builtin one is on its way out (see the Plugin Framework).
 _Avoid_: entry, record, result
+
+**Builtin Item**:
+An Item implemented by the builtin plugins, led by a fixed set of item types; its actions are a constant table keyed by that type.
+_Avoid_: legacy Item, old Item
+
+**Plugin Item**:
+An Item a plugin registers with the framework. It is plain data—a priority, keywords, a name, a description, and a type name the framework never interprets—and it carries the ordered Plugin Actions it offers.
+_Avoid_: plugin entry, plugin record
+
+**Item Handle**:
+The identity of a Plugin Item: the plugin it came from plus the plugin-local registration number. It is what a Plugin Action is addressed by, so an item can be acted on without knowing its position in the loaded set.
+_Avoid_: id, item_id, key
+
+**Plugin Framework**:
+The layer that registers plugins, searches the Items they provide, projects them for the frontend, and routes a Plugin Action back to the plugin that registered it. It owns no item of its own and knows no content type.
+_Avoid_: plugin host, plugin manager, plugin runtime
+
+**Plugin Context**:
+The narrow interface through which a plugin reaches the host—writing logs, resolving a path, reporting the outcome of an action. It is what keeps a plugin independent of Tauri.
+_Avoid_: host API, plugin API
+
+**Plugin Action**:
+One of the things a Plugin Item can be made to do, registered by its plugin along with the label key the frontend resolves. A Plugin Item carries the ordered list of the Plugin Actions it offers.
+_Avoid_: handler, callback, trigger
+
+### Launcher plugin
+
+**Launcher**:
+The content types, persistence, and actions of the launcher plugin: system commands, commands, web pages, and scanned paths. It is the first plugin, and the only one so far.
+_Avoid_: default plugin, core plugin
+
+**Launcher Item Source**:
+One line of the launcher plugin's manifest, as read and written by its persistence layer; it is what a Launcher Item is built from.
+_Avoid_: manifest line, source record
 
 **Item Display**:
 The projection of an Item rendered in the list, holding its type, name, and description, and carrying its Item Index so an Item Action can be addressed without the list row.

@@ -28,6 +28,8 @@ Rust 后端 `src-tauri/src/`：
 | `shortcuts.rs` | 快捷键字符 |
 | `constants.rs` | 文件名、窗口 label 等常量 |
 | `builtin_plugins/` | 内建条目与检索：`base` / `common` / `persistence` / `search` / `stat` |
+| `plugin_framework/` | 插件框架：插件与条目注册、检索、动作派发；**尚未接入**（见 `docs/adr/0008`） |
+| `plugin_impl_launcher/` | launcher 插件：`persistence` / `action` / `init`；**尚未接入** |
 
 前端 `src/`：`core.tsx` 是两个入口共用的部分（类型镜像、invoke 封装、css 变量），`index_main.tsx` / `index_config.tsx` 是入口，`AppMain.tsx` / `AppConfig.tsx` 是根组件，`main/` 装主窗口的布局与各区块。
 
