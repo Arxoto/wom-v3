@@ -228,6 +228,9 @@ export const register_global_shortcut = async () => {
 // #endregion
 
 // #region built-in plugin
+//
+// 内建条目（builtin_plugins）那一套：与下面的插件注册表那一套并行存在，是有意的（见 ADR 0008）。
+// 界面这一轮已经切到插件那一套，这里的封装与类型原样留着——它们对应的命令仍在 Rust 侧注册着。
 
 export const get_scan_base_options = async () => {
     return (await invoke_backend('fetch_scan_base_options')) as ScanBaseOption[];
@@ -269,6 +272,95 @@ export const get_item_type_actions = async () => {
  */
 export const run_item_action = async (item_index: number, action: ItemActionId) => {
     await invoke_backend('run_item_action', { itemIndex: item_index, action });
+}
+
+// #endregion
+
+// #region plugin framework
+//
+// 插件体系那一套（对应 Rust 侧 plugin_framework 与 plugin_impl_launcher）。
+// 界面读的是这一套：类型名由插件定义，框架与前端都不解释它，前端只按它查图标与文案。
+
+/**
+ * 插件条目的渲染结构（对应 Rust 侧 plugin_framework::PluginItemDisplay）
+ *
+ * 与内建条目同一个形状，多一个 `action_ids`：条目自带的动作 id 列表，顺序即优先级、
+ * 第一个是默认动作（见 spec §1.5）。`the_type` 是插件定义的类型名，是**不透明字符串**。
+ */
+export interface PluginItemDisplay {
+    the_type: string,
+    name: string,
+    desc: string,
+    item_index: number,
+    action_ids: string[],
+}
+
+/**
+ * 动作表里的一条动作（对应 Rust 侧 plugin_framework::PluginActionView）
+ *
+ * `label_key` 由插件给出，中文文案见 src/main/interaction/action_labels.ts。
+ */
+export interface PluginActionView {
+    id: string,
+    label_key: string,
+}
+
+/**
+ * 插件的动作表（对应 Rust 侧 plugin_framework::ActionTableView）
+ *
+ * 类型名 → 该类型的动作，顺序即优先级、第一个是默认动作；类型名是不透明字符串。
+ */
+export type PluginActionTable = Record<string, PluginActionView[]>;
+
+/** 还没拉到动作表时的空表：拉到之前没有条目显示动作图标 */
+export const EMPTY_PLUGIN_ACTION_TABLE: PluginActionTable = {};
+
+/**
+ * 插件检索结果的一页（对应 Rust 侧 plugin_framework::ItemSearchPage）
+ *
+ * 字段与内建那一页一致，见上面 [`ItemSearchPage`] 的说明。
+ */
+export interface PluginItemSearchPage {
+    token: number,
+    total: number,
+    index: number,
+    item_list: PluginItemDisplay[],
+    index_eq: number,
+    index_starts_with: number,
+    index_contains: number,
+    index_match: number,
+}
+
+/** 使用关键字在插件注册表上检索；空串是合法输入，后端按「空关键字匹配所有」给出全部条目 */
+export const plugin_search = async (k: string) => {
+    return (await invoke_backend('plugin_search', { k })) as PluginItemSearchPage;
+}
+
+/**
+ * 取插件检索结果的一页
+ *
+ * `index` 与 `token` 的语义与 [`search_page`] 完全一致：令牌从后端拿，原样回传。
+ */
+export const plugin_search_page = async (index: number, token: number) => {
+    return (await invoke_backend('plugin_search_page', { index, token })) as PluginItemSearchPage;
+}
+
+/**
+ * 插件注册的动作表
+ *
+ * 前端只在挂载时拉一次：动作表相对插件与类型是固定的（Q22），配置重载会重建窗口。
+ */
+export const get_plugin_actions = async () => {
+    return (await invoke_backend('fetch_plugin_actions')) as PluginActionTable;
+}
+
+/**
+ * 跑一个 Plugin Action
+ *
+ * 按下标与动作 id 派发；语义与 [`run_item_action`] 一致，隐藏窗口同样由 Rust 决定。
+ */
+export const plugin_run_item_action = async (item_index: number, action: string) => {
+    await invoke_backend('plugin_run_item_action', { itemIndex: item_index, action });
 }
 
 // #endregion

@@ -1,4 +1,4 @@
-use tauri::{plugin::TauriPlugin, Runtime};
+use tauri::{plugin::TauriPlugin, Manager, Runtime};
 use tauri_plugin_log::log::{debug, info};
 
 mod constants;
@@ -18,11 +18,13 @@ mod commands;
 
 mod builtin_plugins;
 
-// 插件体系（第一轮）：框架层与 launcher 插件并行存在，尚未接入
-// （见 .scratch/plugin-system/spec.md 与 docs/adr/0008）
+// 插件体系：框架层（framework）、第一个插件（launcher）与宿主侧接线（host）。
+// 两套体系并行存在是有意的，见 docs/adr/0008
 mod plugin_framework;
 
 mod plugin_impl_launcher;
+
+mod plugin_host;
 
 mod app_stat {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -46,7 +48,7 @@ mod tray {
     };
     use tauri_plugin_log::log::{debug, info, warn};
 
-    use crate::{app_stat, builtin_plugins, configs, global_shortcut, window_utils};
+    use crate::{app_stat, builtin_plugins, configs, global_shortcut, plugin_host, window_utils};
 
     pub fn create_tray(app: &App) -> Result<()> {
         let show_main_desc = "Show Main Window";
@@ -54,7 +56,7 @@ mod tray {
         let open_config_desc = "Open Config Window";
         let register_desc = "register Global-Shortcut";
         let unregister_desc = "unregister Global-Shortcut";
-        let re_plugin_desc = "Reload Builtin-Plugin Settings";
+        let re_plugin_desc = "Reload Plugin Settings";
         let reload_desc = "Reload Global Config";
         let quit_desc = "Quit";
 
@@ -112,7 +114,10 @@ mod tray {
                 }
                 "re_plugin" => {
                     info!("try reload plugin setting");
+                    // 两套体系并行期间，这一个菜单项把两边都重新读一遍：
+                    // 内建条目的设置文件，与 launcher 插件自己的 manifest
                     builtin_plugins::reload_setting(app);
+                    plugin_host::reload_launcher(app);
                     rebuild_main(app);
                 }
                 "reload" => {
@@ -191,6 +196,11 @@ pub fn run() {
             commands::search_page,
             commands::dismiss_main_window,
             commands::show_main_window,
+            // 插件体系那一套（与上面内建那一套并行）
+            commands::plugin_search,
+            commands::plugin_search_page,
+            commands::plugin_run_item_action,
+            commands::fetch_plugin_actions,
         ])
         .setup(|app| {
             // 隐藏 Dock 图标， App 级配置，即使是打开配置窗口也不会出现在 Dock 栏
@@ -199,6 +209,10 @@ pub fn run() {
 
             // 内建条目的运行期状态：命令以 `State<BuiltinStat>` 取用，必须在创建窗口前托管
             builtin_plugins::load_stat(app.handle())?;
+
+            // 插件注册表：组装（注册 launcher 并读它的 manifest）也在建窗口前完成，
+            // 检索命令以 `State<PluginRegistry>` 取用
+            app.manage(plugin_host::create_registry(app.handle())?);
 
             configs::load_data(app.handle());
 

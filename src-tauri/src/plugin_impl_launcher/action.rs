@@ -9,12 +9,16 @@
 //! | `web` | `open_url`、`copy` |
 //! | `scan` | `open_path`、`reveal`、`copy` |
 //!
-//! 这一轮**只实现 `copy`**（Q36），其余三个动作记 warn 并返回 [`ActionOutcome::NoOp`]：
-//! "还没实现的动作不隐藏窗口"这条行为靠的就是 NoOp 与 Failed 分开（复刻 `action.rs:219`）。
+//! 四个动作都在这一轮落地（Q36 之后剩下的三个随接入清单第 4 条补齐）：它们全部走
+//! [`PluginContext`]，插件因此仍然不知道底层是哪一个剪贴板或文件管理器。
+//! [`ActionOutcome::NoOp`] 只留给"没有动作可做"（系统命令、认不出的动作），
+//! 尝试了但失败是 [`ActionOutcome::Failed`]——两者分开，调用方才知道该不该隐藏窗口。
 //!
 //! `label_key` 的命名规范是**四段式**：`action.<插件>.<类型>.<动作>`（Q35），
 //! 于是现有键迁移为 `action.launcher.scan.open_path` 这类形状。框架不强制这个规范，
 //! 只当不透明字符串透传——规范是 launcher 自己遵守的约定。
+
+use std::path::Path;
 
 use crate::{
     plugin_framework::{ActionId, ActionOutcome, PluginAction, PluginContext, PluginItem},
@@ -113,15 +117,10 @@ pub fn run(cx: &dyn PluginContext, item: &PluginItem, action_id: &ActionId) -> A
             cx.log_warn(&format!("launcher sys item has no action: {action_id}"));
             ActionOutcome::NoOp
         }
-        (_, ACTION_COPY) => copy_desc(cx, item),
-        // 其余动作只出现在表里，本 effort 不实现：当无操作，也不让窗口在一件什么都没发生的事上消失。
-        // 写全每一个变体，加新动作时会在这里被拦一下
-        (_, ACTION_OPEN_URL) | (_, ACTION_OPEN_PATH) | (_, ACTION_REVEAL) => {
-            cx.log_warn(&format!(
-                "launcher action not implemented yet: {action_id}"
-            ));
-            ActionOutcome::NoOp
-        }
+        (_, ACTION_COPY) => outcome_of(cx, action_id, cx.write_clipboard(&item.desc)),
+        (_, ACTION_OPEN_URL) => outcome_of(cx, action_id, cx.open_url(&item.desc)),
+        (_, ACTION_OPEN_PATH) => outcome_of(cx, action_id, cx.open_path(Path::new(&item.desc))),
+        (_, ACTION_REVEAL) => outcome_of(cx, action_id, cx.reveal(Path::new(&item.desc))),
         (_, _) => {
             cx.log_warn(&format!("launcher unknown action: {action_id}"));
             ActionOutcome::NoOp
@@ -129,16 +128,20 @@ pub fn run(cx: &dyn PluginContext, item: &PluginItem, action_id: &ActionId) -> A
     }
 }
 
-/// 把条目正文写进系统剪贴板
+/// 把一次宿主调用的成败折算成动作结果
 ///
-/// [`PluginContext`] 这一轮**没有**剪贴板写入（Q15 的最小集合），所以这里如实返回
-/// [`ActionOutcome::Failed`] 并记 warn：报 Done 会让调用方以为剪贴板真的被写了，
-/// 接入期补上 `PluginContext::write_clipboard` 时，这里只剩一行替换（见接入清单第 4 条）。
-fn copy_desc(cx: &dyn PluginContext, item: &PluginItem) -> ActionOutcome {
-    cx.log_warn(&format!(
-        "launcher copy action needs PluginContext clipboard support, not available yet: {}",
-        item.name
-    ));
-
-    ActionOutcome::Failed
+/// 成功就是 [`ActionOutcome::Done`]；失败记一条 warn 并回 [`ActionOutcome::Failed`]，
+/// 让调用方知道"试过了但没成"——它据此不隐藏窗口，也就没人在一件没发生的事上丢掉界面。
+fn outcome_of(
+    cx: &dyn PluginContext,
+    action_id: &ActionId,
+    result: Result<(), String>,
+) -> ActionOutcome {
+    match result {
+        Ok(()) => ActionOutcome::Done,
+        Err(err) => {
+            cx.log_warn(&format!("launcher action {action_id} failed: {err}"));
+            ActionOutcome::Failed
+        }
+    }
 }

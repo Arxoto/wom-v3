@@ -83,13 +83,22 @@ const IconOpenNote = () => {
 }
 
 /** 动作图标表：按 `ItemActionId` 查 */
-export const ACTION_ICONS: Record<ItemActionId, ReactNode> = {
+const ACTION_ICONS: Record<ItemActionId, ReactNode> = {
     copy: <IconCopy></IconCopy>,
     open_url: <IconOpenUrl></IconOpenUrl>,
     open_path: <IconOpenPath></IconOpenPath>,
     reveal: <IconReveal></IconReveal>,
     open_note: <IconOpenNote></IconOpenNote>,
 };
+
+/**
+ * 按动作 id 取图标
+ *
+ * 动作 id 由插件给出，框架只当不透明字符串透传：认不出的动作就不画图标，
+ * 而不是碰巧落到别的动作上（与 `item_icons.tsx` 的 `item_icon_of` 同理）。
+ */
+export const action_icon_of = (action_id: string): ReactNode | null =>
+    action_id in ACTION_ICONS ? ACTION_ICONS[action_id as ItemActionId] : null;
 
 /** 动作图标两侧的切换三角：`prev` 朝左、`next` 朝右，位置常驻、由 Item 决定露不露 */
 export const ACTION_SWITCH_MARKS: Record<"prev" | "next", ReactNode> = {

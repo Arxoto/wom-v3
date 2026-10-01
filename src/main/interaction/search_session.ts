@@ -1,6 +1,6 @@
 import { debug, info, warn } from "@tauri-apps/plugin-log";
 
-import type { ItemSearchPage } from "../../core";
+import type { PluginItemSearchPage } from "../../core";
 import { PREFETCH_MARGIN } from "./timing";
 
 /** 打字到检索的尾防抖：停手这么久才发请求 */
@@ -26,13 +26,13 @@ export interface PrefetchContext {
 /** 检索会话要的外部能力注入 */
 export interface SearchSessionDeps {
     /** 按关键字检索第一页 */
-    search: (key: string) => Promise<ItemSearchPage>;
+    search: (key: string) => Promise<PluginItemSearchPage>;
     /** 请求下一页：起始位置 + 当前令牌 */
-    search_page: (page_start: number, token: number) => Promise<ItemSearchPage>;
+    search_page: (page_start: number, token: number) => Promise<PluginItemSearchPage>;
     /** 检索结果落定：`null` 表示没有查询（输入为空） */
-    on_conclusion: (page: ItemSearchPage | null) => void;
+    on_conclusion: (page: PluginItemSearchPage | null) => void;
     /** 预请求续上的一页回来了 */
-    on_page_appended: (page: ItemSearchPage) => void;
+    on_page_appended: (page: PluginItemSearchPage) => void;
 }
 
 /**

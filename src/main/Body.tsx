@@ -1,13 +1,13 @@
 import { memo, useState } from "react";
-import type { ItemDisplay, ItemTypeActions } from "../core";
+import type { PluginActionTable, PluginItemDisplay } from "../core";
 import Item from "./item/Item";
-import { ITEM_ICONS } from "./item/item_icons";
+import { item_icon_of } from "./item/item_icons";
 import { actions_of, current_action } from "./interaction/action_labels";
 import { current_item } from "./interaction/reducer";
 import "./Body.css";
 
 interface BodyPreviewProps {
-    item: ItemDisplay,
+    item: PluginItemDisplay,
 }
 
 /**
@@ -18,7 +18,7 @@ const BodyPreview = ({ item }: BodyPreviewProps) => {
         <div className="body-divider"></div>
         <div className="body-preview">
             <div className="body-preview-icon">
-                <div className="body-preview-icon-block">{ITEM_ICONS[item.the_type]}</div>
+                <div className="body-preview-icon-block">{item_icon_of(item.the_type)}</div>
             </div>
             <div className="body-preview-title">{item.name}</div>
             <div className="body-preview-divider"></div>
@@ -28,11 +28,11 @@ const BodyPreview = ({ item }: BodyPreviewProps) => {
 }
 
 interface Props {
-    item_list: ItemDisplay[],
+    item_list: PluginItemDisplay[],
     selection: number,
     item_n: number,
     show_preview: boolean,
-    type_actions: ItemTypeActions,
+    type_actions: PluginActionTable,
     /** 每个条目记住的动作下标（按 Item Index）：行内动作与两侧三角都按它画 */
     action_indices: Record<number, number>,
     /** 空态：还没有结论（没输入过、输入为空，或查询还没回来）——列表区留白 */
@@ -80,9 +80,9 @@ const Body = ({ item_list, selection, item_n, show_preview, type_actions, action
                     ? <div className="body-empty">{empty_text}</div>
                     : item_show_list.map((item, index) => {
                         const is_selected = offset + index === selection;
-                        const actions = actions_of(type_actions, item.the_type);
+                        const actions = actions_of(type_actions, item);
                         const action_index = action_indices[item.item_index] ?? 0;
-                        const action = current_action(type_actions, item.the_type, action_index);
+                        const action = current_action(type_actions, item, action_index);
                         return (
                             // 用窗口内的下标作 key：翻页时同一槽位的 DOM 保持复用
                             <Item

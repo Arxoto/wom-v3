@@ -1,10 +1,10 @@
-import type { ItemDisplay, ItemSearchPage } from "../../core";
+import type { PluginItemDisplay, PluginItemSearchPage } from "../../core";
 import type { Intent } from "./keys";
 
 /** 一份落定的结论：查询有了结果 */
 export interface Conclusion {
     /** 已加载的结果，翻页时往后追加 */
-    item_list: ItemDisplay[],
+    item_list: PluginItemDisplay[],
     /** 结果总数，用来判断还有没有下一页 */
     total: number,
 }
@@ -31,7 +31,7 @@ export const MAIN_STATE_INIT: MainState = {
     preview_open: false,
 }
 
-export const current_item = (item_list: ItemDisplay[] | null | undefined, selection: number) =>
+export const current_item = (item_list: PluginItemDisplay[] | null | undefined, selection: number) =>
     item_list?.[selection];
 
 /** 条目记住的动作下标；没记过就是 0，也就是动作表第一个 */
@@ -44,8 +44,8 @@ export const action_index_of = (state: MainState, item_index: number): number =>
 export type MainAction =
     | { kind: "typing", value: string }
     /** 结论落定：`page` 为 `null` 表示这一轮没有查询（输入为空） */
-    | { kind: "settled", page: ItemSearchPage | null }
-    | { kind: "page_appended", page: ItemSearchPage }
+    | { kind: "settled", page: PluginItemSearchPage | null }
+    | { kind: "page_appended", page: PluginItemSearchPage }
     | { kind: "intent", intent: Intent }
     /** 记下某个条目切到了哪个动作：往哪一边还挪得动由接线层按动作表算 */
     | { kind: "action_selected", item_index: number, action_index: number }

@@ -10,10 +10,8 @@
 //! 三个子模块互相可见、对外私有。本模块**不依赖** `builtin_plugins`（Q1/Q23）：
 //! 类型名与旧体系一字不差，但枚举是这里自己的，免得把内建命名变成公共契约。
 //!
-//! `allow(dead_code)` 是**接入前临时**的：这一轮不接线，所以整块代码都是死代码，
-//! 接入时删掉（Q17）。
-
-#![allow(dead_code)]
+//! 本模块**已经接入应用**（接入前那份临时的 `allow(dead_code)` 已删除）：注册表由
+//! `crate::plugin_host` 组装并托管，条目经 `plugin_*` 命令下发给前端。
 
 // 三个子模块只在本模块内部协作，对外私有（Q37）：外面只该看见 [`LauncherPlugin`]
 mod action;
@@ -86,7 +84,8 @@ impl Plugin for LauncherPlugin {
         handle: &ItemHandle,
         action_id: &ActionId,
     ) -> ActionOutcome {
-        // 框架只把落在这个插件名下的条目交给它，这一条断言是留给接入期的
+        // 框架只把落在这个插件名下的条目交给它（见 PluginRegistry::run_action 的按块查找），
+        // 这一条断言是那句话的运行时凭据
         debug_assert_eq!(&handle.plugin_id, &self.id());
 
         action::run(cx, item, action_id)

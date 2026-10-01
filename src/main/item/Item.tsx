@@ -1,13 +1,13 @@
 import { memo } from "react";
-import type { ItemActionId, ItemDisplay } from "../../core";
-import { ACTION_ICONS, ACTION_SWITCH_MARKS } from "./action_icons";
-import { ITEM_ICONS } from "./item_icons";
+import type { PluginItemDisplay } from "../../core";
+import { action_icon_of, ACTION_SWITCH_MARKS } from "./action_icons";
+import { item_icon_of } from "./item_icons";
 import "./Item.css";
 
 interface Props {
-    item: ItemDisplay,
+    item: PluginItemDisplay,
     /** 该行显示的动作（每个条目自己记着，选中不改变谁来画）；条目没有动作时传 null，动作栏整块不渲染 */
-    action_id: ItemActionId | null,
+    action_id: string | null,
     /** 该条目这一侧还有别的动作可切时，动作图标旁的三角才露出来；没动作可切的侧只留白 */
     can_switch_prev: boolean,
     can_switch_next: boolean,
@@ -24,7 +24,7 @@ interface Props {
 const Item = ({ item, action_id, can_switch_prev, can_switch_next, is_selected }: Props) => {
     return (
         <div className={is_selected ? "item-box is-selected" : "item-box"}>
-            {ITEM_ICONS[item.the_type]}
+            {item_icon_of(item.the_type)}
             <div className="item-text">
                 <div className="item-name">{item.name}</div>
                 <div className="item-desc">{item.desc}</div>
@@ -34,7 +34,7 @@ const Item = ({ item, action_id, can_switch_prev, can_switch_next, is_selected }
                     data-switch-prev={can_switch_prev}
                     data-switch-next={can_switch_next}>
                     {ACTION_SWITCH_MARKS.prev}
-                    {ACTION_ICONS[action_id]}
+                    {action_icon_of(action_id)}
                     {ACTION_SWITCH_MARKS.next}
                 </div>
                 : <></>}

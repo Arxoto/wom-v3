@@ -27,11 +27,12 @@ Rust 后端 `src-tauri/src/`：
 | `global_shortcut.rs` | 全局快捷键的注册与运行期状态 |
 | `shortcuts.rs` | 快捷键字符 |
 | `constants.rs` | 文件名、窗口 label 等常量 |
-| `builtin_plugins/` | 内建条目与检索：`base` / `common` / `persistence` / `search` / `stat` |
-| `plugin_framework/` | 插件框架：插件与条目注册、检索、动作派发；**尚未接入**（见 `docs/adr/0008`） |
-| `plugin_impl_launcher/` | launcher 插件：`persistence` / `action` / `init`；**尚未接入** |
+| `builtin_plugins/` | 内建条目与检索：`base` / `common` / `persistence` / `search` / `stat`；与插件体系并行存在 |
+| `plugin_framework/` | 插件框架：插件与条目注册、检索、投影、动作派发（见 `docs/adr/0008`） |
+| `plugin_impl_launcher/` | launcher 插件：`persistence` / `action` / `init` |
+| `plugin_host.rs` | 插件框架的宿主侧：`PluginContext` 的 Tauri 实现、注册表组装与重载 |
 
-前端 `src/`：`core.tsx` 是两个入口共用的部分（类型镜像、invoke 封装、css 变量），`index_main.tsx` / `index_config.tsx` 是入口，`AppMain.tsx` / `AppConfig.tsx` 是根组件，`main/` 装主窗口的布局与各区块。
+前端 `src/`：`core.tsx` 是两个入口共用的部分（类型镜像、invoke 封装、css 变量），`index_main.tsx` / `index_config.tsx` 是入口，`AppMain.tsx` / `AppConfig.tsx` 是根组件，`main/` 装主窗口的布局与各区块；主窗口读的是插件注册表那一套命令（`plugin_search` …），内建那一套的封装留在 `core.tsx` 里（见 `docs/adr/0009`）。
 
 文档与约定：`CONTEXT.md`（术语表）、`docs/adr/`（架构决定）、`docs/agents/`（issue tracker、triage 标签、domain 规则）。
 

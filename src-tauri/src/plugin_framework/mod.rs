@@ -15,10 +15,9 @@
 //! 指名它们——但本模块整体是私有的，所以它们对外不可达，等价于"只暴露两处入口"。
 //! 注册表的块结构、`local_id` 的分配逻辑、[`PluginError`] 以外的内部类型都不对外可见。
 //!
-//! `allow(dead_code)` 是**接入前临时**的：这一轮不接 Tauri 托管状态、不注册命令、不接线前端，
-//! 所以整块代码都是死代码，接入时删掉（Q17）。
-
-#![allow(dead_code)]
+//! 本模块**已经接入应用**（接入前那份临时的 `allow(dead_code)` 已删除）：宿主侧见
+//! `crate::plugin_host`（[`PluginContext`] 的实现与注册表的托管），命令层见
+//! `crate::commands` 里那几个 `plugin_*` 命令。
 
 use std::{
     collections::{BTreeMap, HashMap},
@@ -35,12 +34,6 @@ use tauri_plugin_log::log::{info, warn};
 /// 插件标识：稳定 ASCII 字符串
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PluginId(pub String);
-
-impl PluginId {
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
 
 impl Display for PluginId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -173,6 +166,11 @@ pub enum PluginError {
     /// 插件 init 失败
     Init(String),
     /// 插件 action 失败
+    ///
+    /// 这一轮没有构造点：跑动作只回 [`ActionOutcome`] 三态（Q13 明确此时不加错误文案字段），
+    /// 失败归因留在插件自己的日志里。变体先留着——Q18 的三层错误表要求 init 与 action 分开，
+    /// 等动作真的要把失败原因交回框架时（例如前端插件）就在这里构造。
+    #[allow(dead_code)]
     Action(String),
 }
 
@@ -206,10 +204,16 @@ impl std::error::Error for PluginError {}
 
 /// Plugin Context：插件从宿主取能力的**窄**接口，也是插件不依赖 Tauri 的原因（Q15）
 ///
-/// 这一轮只给最小集合：应用数据目录解析（含 [`Self::resolve_base`] 这个扩展面）、写日志、
-/// 动作结果回传。剪贴板写入、打开路径/URL、事件下发都**不在**这里——那是 launcher 的动作
-/// 实现与前端插件真正落地时的事（Q15）。
-pub trait PluginContext {
+/// 第一轮只给了最小集合：应用数据目录解析（含 [`Self::resolve_base`] 这个扩展面）、写日志、
+/// 动作结果回传。接入时按接入清单第 4 条补上了剪贴板写入与打开能力——launcher 的三个动作
+/// 需要它们。事件下发仍然**不在**这里：那是前端插件真正落地时的事（Q15）。
+///
+/// 实现只能落在宿主那一侧（见 `crate::plugin_host`）：本模块不依赖 Tauri，
+/// 插件也不该知道底层是哪一个剪贴板或文件管理器。
+///
+/// 能力一律以 `Result<(), String>` 报错，错误串是 ASCII 的诊断文本；插件负责记日志与折算成
+/// [`ActionOutcome`]，框架不替它解释。
+pub trait PluginContext: Send + Sync {
     /// 应用数据目录，与现有内建设置文件同处（Q24）
     fn app_data_dir(&self) -> Result<PathBuf, String>;
 
@@ -221,6 +225,18 @@ pub trait PluginContext {
     ///
     /// 名字里的 "base" 是配置字段 `Scan::base` 的沿用，不是"基目录"的意思。
     fn resolve_base(&self, base: &str) -> Option<PathBuf>;
+
+    /// 把一段文本写进系统剪贴板
+    fn write_clipboard(&self, text: &str) -> Result<(), String>;
+
+    /// 用系统默认方式打开一个 URL
+    fn open_url(&self, url: &str) -> Result<(), String>;
+
+    /// 用系统默认方式打开一个路径
+    fn open_path(&self, path: &Path) -> Result<(), String>;
+
+    /// 在文件管理器里选中一个路径
+    fn reveal(&self, path: &Path) -> Result<(), String>;
 
     fn log_info(&self, msg: &str);
 
@@ -396,20 +412,30 @@ pub struct PluginItemDisplay {
 
 // region: 注册表
 
-/// 动作表：类型名 → 动作 id → label_key
+/// 动作表里的一条动作：动作 id + 前端据它查文案的 `label_key`
 ///
-/// 外层用 [`BTreeMap`] 是为了确定性输出：类型名按字典序，同一类型下插件按注册顺序、
-/// 动作按注册顺序。**没有遍历任何 `HashMap`**，哈希种子不影响这里。
-pub type ActionTableView = BTreeMap<String, BTreeMap<ActionId, String>>;
+/// 与 [`PluginAction`] 只差一个 `the_type`——它在表的外层键上，不必在每条动作里再写一遍。
+/// 元素的形状因此与现有内建动作表一致（`id` + `label_key`），前端手写的镜像沿用同一个形状。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PluginActionView {
+    pub id: ActionId,
+    pub label_key: String,
+}
 
-/// 查某个类型的动作表；类型没有动作时返回 [`None`]
+/// 动作表：类型名 → 该类型的动作（**顺序即优先级**，第一个是默认动作）
 ///
-/// 这是公开面的第二处（Q29）
-pub fn actions_of<'a>(
-    table: &'a ActionTableView,
-    the_type: &str,
-) -> Option<&'a BTreeMap<ActionId, String>> {
-    table.get(the_type)
+/// 外层用 [`BTreeMap`] 是为了确定性输出：类型名按字典序。**没有遍历任何 `HashMap`**，
+/// 哈希种子不影响这里。
+///
+/// 内层是 `Vec` 而不是按 id 排序的 `BTreeMap`：动作的顺序就是优先级、第一个是默认动作（§1.5），
+/// 按 id 排会把 launcher 的 `scan` 排成 `copy`、`open_path`、`reveal`，默认动作就错了。
+pub type ActionTableView = BTreeMap<String, Vec<PluginActionView>>;
+
+/// 查某个类型的动作；类型没有动作时返回 [`None`]
+///
+/// 这是公开面的第二处（Q29）：页面投影按条目的类型名查它——框架不解释类型名，只拿它查表。
+pub fn actions_of<'a>(table: &'a ActionTableView, the_type: &str) -> Option<&'a [PluginActionView]> {
+    table.get(the_type).map(Vec::as_slice)
 }
 
 /// 某个插件的注册块
@@ -438,24 +464,27 @@ struct RegistryInner {
 ///
 /// 结构是 `Vec<PluginBlock>`（注册顺序即数组顺序）配 `HashMap<PluginId, usize>` 反查下标（Q21/Q25）。
 /// `HashMap` **只**服务于"整块替换某插件的条目"与按 id 找块，任何迭代顺序都以 `Vec` 为准。
+///
+/// 本身可以 `manage` 进 Tauri（接入期补的）：条目与缓存都在一把私有 [`Mutex`] 后面，
+/// 所有取用方法都只取 `&self`，所以它是 `Send + Sync` 的；`register_plugin` 是唯一的 `&mut`，
+/// 只在托管之前（宿主组装注册表时）用。
 pub struct PluginRegistry {
-    /// 应用数据目录由框架从上下文取出来缓存一次（Q24）
-    app_data_dir: PathBuf,
     cx: Arc<dyn PluginContext>,
     inner: Mutex<RegistryInner>,
 }
 
 impl PluginRegistry {
     /// 构造注册表；`cx` 是插件从宿主取能力的唯一入口（Q15）
+    ///
+    /// 顺手探一次应用数据目录（Q24）：拿不到就没必要往下走——落在应用数据目录下的插件
+    /// 迟早都要用它落文件，早失败好过一个只有空条目的启动器。
     pub fn new(cx: Arc<dyn PluginContext>) -> Result<Self, PluginError> {
-        let app_data_dir = cx
-            .app_data_dir()
+        cx.app_data_dir()
             .map_err(|err| PluginError::Init(format!("resolve app data dir failed: {err}")))?;
 
         info!("plugin registry created");
 
         Ok(Self {
-            app_data_dir,
             cx,
             inner: Mutex::new(RegistryInner {
                 plugin_list: Vec::new(),
@@ -463,11 +492,6 @@ impl PluginRegistry {
                 item_search_result: ItemSearchResult::default(),
             }),
         })
-    }
-
-    /// 应用数据目录，插件持久化层用它定位自己的文件
-    pub fn app_data_dir(&self) -> &Path {
-        &self.app_data_dir
     }
 
     /// 注册一个插件并立刻 `init` 它
@@ -512,57 +536,29 @@ impl PluginRegistry {
         init_plugin(&mut inner, slot, self.cx.as_ref());
     }
 
-    /// 已注册插件的 id，顺序即注册顺序
-    pub fn plugin_ids(&self) -> Vec<PluginId> {
-        let inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
-
-        inner
-            .plugin_list
-            .iter()
-            .map(|block| block.plugin.id())
-            .collect()
-    }
-
-    /// 注册表持有的全量条目：`(插件 id, 该插件的条目)`，顺序以 `Vec` 为准
-    ///
-    /// 按注册顺序逐插件给出，每个插件内部已按 priority 稳定排定。
-    pub fn items(&self) -> Vec<(PluginId, Vec<PluginItem>)> {
-        let inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
-
-        inner
-            .plugin_list
-            .iter()
-            .map(|block| (block.plugin.id(), block.items.clone()))
-            .collect()
-    }
-
     /// 类型名 → 该类型的全部动作，形状与现有 `action::table()` 的输出一致
     ///
-    /// 类型名按字典序、同一类型下插件按注册顺序、动作按注册顺序。
+    /// 类型名按字典序；同一类型下插件按注册顺序、动作按注册顺序（见 [`action_table_of`]）。
     pub fn action_table(&self) -> ActionTableView {
         let inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
 
-        let mut table: ActionTableView = BTreeMap::new();
-
-        for block in &inner.plugin_list {
-            for action in block.plugin.actions() {
-                table
-                    .entry(action.the_type)
-                    .or_default()
-                    .insert(action.id, action.label_key);
-            }
-        }
-
-        table
+        action_table_of(&inner.plugin_list)
     }
 
     /// 用关键字检索：重新生成一份结果并给出第一页
-    pub fn search(&mut self, k: &str) -> ItemSearchPage {
+    ///
+    /// 同一个关键字不重新检索：令牌与结果都留在上一份上（复刻 `stat::search` 的缓存）。
+    /// 前端已经按关键字去重过一次，这里再挡一道，免得同一份结论被算两遍。
+    pub fn search(&self, k: &str) -> ItemSearchPage {
         let mut inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
 
-        // 令牌只由后端生成：每重新生成一份结果就在上一份的基础上 +1（溢出回绕）
-        let token = inner.item_search_result.token.wrapping_add(1);
-        inner.item_search_result = search_items(&inner.plugin_list, k, token);
+        if !inner.item_search_result.is_current_key(k) {
+            // 令牌只由后端生成：每重新生成一份结果就在上一份的基础上 +1（溢出回绕）
+            let token = inner.item_search_result.token.wrapping_add(1);
+            inner.item_search_result = search_items(&inner.plugin_list, k, token);
+        }
+
+        let token = inner.item_search_result.token;
 
         match page_of(&inner, 0, token) {
             Ok(page) => page,
@@ -689,7 +685,12 @@ fn page_of(inner: &RegistryInner, index: usize, token: u32) -> Result<ItemSearch
 }
 
 /// 把条目下标投影成前端要的形状
+///
+/// 动作表一页只建一次：条目按类型名查表拿动作，不必为了每条条目再向插件要一遍动作表
+/// （一页 100 条，旧写法每页要多要 100 次）。
 fn project(inner: &RegistryInner, item_indexes: &[usize]) -> Vec<PluginItemDisplay> {
+    let table = action_table_of(&inner.plugin_list);
+
     item_indexes
         .iter()
         .filter_map(|item_index| {
@@ -697,13 +698,11 @@ fn project(inner: &RegistryInner, item_indexes: &[usize]) -> Vec<PluginItemDispl
             let block = block_of(inner, &plugin_id)?;
             let item = block.items.get(local_id)?;
 
-            // 动作列表按条目类型查插件注册的动作表：框架不解释类型名，只拿它查表
-            let action_ids = block
-                .plugin
-                .actions()
-                .into_iter()
-                .filter(|action| action.the_type == item.the_type)
-                .map(|action| action.id)
+            // 动作列表按条目类型查动作表：框架不解释类型名，只拿它查表
+            let action_ids = actions_of(&table, &item.the_type)
+                .unwrap_or_default()
+                .iter()
+                .map(|action| action.id.clone())
                 .collect();
 
             Some(PluginItemDisplay {
@@ -713,6 +712,35 @@ fn project(inner: &RegistryInner, item_indexes: &[usize]) -> Vec<PluginItemDispl
             })
         })
         .collect()
+}
+
+/// 按注册顺序拼出动作表：插件注册顺序 > 动作注册顺序，类型名去重成外层键
+///
+/// 同一个类型名上的同一个动作只认可先注册的那一条（重复注册是插件自己的账，
+/// 这里只记一条 warn，不让它在前端变成两个一模一样的动作）。
+fn action_table_of(plugin_list: &[PluginBlock]) -> ActionTableView {
+    let mut table: ActionTableView = BTreeMap::new();
+
+    for block in plugin_list {
+        for action in block.plugin.actions() {
+            let views = table.entry(action.the_type.clone()).or_default();
+
+            if views.iter().any(|view| view.id == action.id) {
+                warn!(
+                    "action {} on type {} is already registered, skip the later one",
+                    action.id, action.the_type
+                );
+                continue;
+            }
+
+            views.push(PluginActionView {
+                id: action.id,
+                label_key: action.label_key,
+            });
+        }
+    }
+
+    table
 }
 
 /// 按 id 找块：`HashMap` 反查只在这里用

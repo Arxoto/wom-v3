@@ -83,7 +83,7 @@ const IconScan = () => {
 }
 
 /** Item 图标表：按 `ItemType` 查 */
-export const ITEM_ICONS: Record<ItemType, ReactNode> = {
+const ITEM_ICONS: Record<ItemType, ReactNode> = {
     snip: <IconSnip></IconSnip>,
     sys: <IconSys></IconSys>,
     note: <IconNote></IconNote>,
@@ -91,3 +91,13 @@ export const ITEM_ICONS: Record<ItemType, ReactNode> = {
     web: <IconWeb></IconWeb>,
     scan: <IconScan></IconScan>,
 };
+
+/**
+ * 按类型名取图标
+ *
+ * 类型名从插件那边过来时是**不透明字符串**（框架不解释它），前端只认识表里这几个：
+ * 认不出的就不画图标，而不是碰巧落到别的类型上。将来接更多插件时，
+ * 这一处就是"前端认识哪些类型"的边界。
+ */
+export const item_icon_of = (the_type: string): ReactNode | null =>
+    the_type in ITEM_ICONS ? ITEM_ICONS[the_type as ItemType] : null;

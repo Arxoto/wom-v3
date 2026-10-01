@@ -3,15 +3,15 @@ import { Dispatch, RefObject, useCallback, useEffect, useEffectEvent, useReducer
 import { info } from "@tauri-apps/plugin-log";
 
 import {
-    EMPTY_ITEM_TYPE_ACTIONS,
+    EMPTY_PLUGIN_ACTION_TABLE,
     dismiss_main_window,
     get_config,
-    get_item_type_actions,
+    get_plugin_actions,
     on_main_shown,
-    run_item_action,
-    search,
-    search_page,
-    type ItemTypeActions,
+    plugin_run_item_action,
+    plugin_search,
+    plugin_search_page,
+    type PluginActionTable,
     should_show_main_on_ready,
     show_main_window,
 } from "../../core";
@@ -77,7 +77,7 @@ export const useMainInteraction = () => {
     // 主界面显示几行 item
     const [item_n, set_item_n] = useState(FALLBACK_ITEM_N);
     // 动作表：挂载时拉一次，拉到之前是空表（没有条目显示动作图标）
-    const [type_actions, set_type_actions] = useState<ItemTypeActions>(EMPTY_ITEM_TYPE_ACTIONS);
+    const [type_actions, set_type_actions] = useState<PluginActionTable>(EMPTY_PLUGIN_ACTION_TABLE);
 
     const input_ref = useRef<HTMLInputElement>(null);
     // 上一次连续切换的时刻；初值 -Infinity 让首次切换立即响应
@@ -85,8 +85,8 @@ export const useMainInteraction = () => {
 
     // 检索会话不随每次渲染重建：时序状态都在它里面，重建就等于丢掉在飞的请求
     const [session] = useState(() => create_search_session({
-        search: search,
-        search_page: search_page,
+        search: plugin_search,
+        search_page: plugin_search_page,
         on_conclusion: page => dispatch({ kind: "settled", page }),
         on_page_appended: page => dispatch({ kind: "page_appended", page }),
     }));
@@ -107,7 +107,7 @@ export const useMainInteraction = () => {
         if (!item) return null;
 
         const action_index = action_index_of(state, item.item_index) + delta;
-        if (action_index < 0 || action_index >= actions_of(type_actions, item.the_type).length) return null;
+        if (action_index < 0 || action_index >= actions_of(type_actions, item).length) return null;
 
         return { item_index: item.item_index, action_index };
     };
@@ -145,12 +145,12 @@ export const useMainInteraction = () => {
     const run_current_action = () => {
         const item = current_item(state.conclusion?.item_list, state.selection);
         if (!item) return;
-        const action = current_action(type_actions, item.the_type, action_index_of(state, item.item_index));
+        const action = current_action(type_actions, item, action_index_of(state, item.item_index));
         if (!action) return;
 
         void info(`run action item_index=${item.item_index} action=${action.id}`);
         dispatch({ kind: "intent", intent: "run_action" });
-        void run_item_action(item.item_index, action.id);
+        void plugin_run_item_action(item.item_index, action.id);
     };
 
     /**
@@ -256,7 +256,7 @@ export const useMainInteraction = () => {
     // 获取配置
     useEffect(() => {
         void get_config().then(config => set_item_n(config.main_item_n));
-        void get_item_type_actions().then(set_type_actions);
+        void get_plugin_actions().then(set_type_actions);
     }, []);
 
     // 卸载时丢掉还没到点的防抖
