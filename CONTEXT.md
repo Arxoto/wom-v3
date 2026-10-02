@@ -41,8 +41,12 @@ The directory shipped outside the binary that holds Plugin Packages; it is what 
 _Avoid_: plugins dir, plugin path, plugin root
 
 **Plugin Package** (插件包):
-One plugin in the Plugin Folder: a directory holding a `manifest.yml` and the JS entry it names. The manifest's `id` is its identity, not the directory name.
+One plugin in the Plugin Folder: a directory holding a `manifest.json` that declares its `type` (`js` or `html`), a JS entry or an `html` page. The manifest's `id` is its identity, not the directory name.
 _Avoid_: plugin, plugin script, plugin module
+
+**Frontend Plugin** (前端插件):
+A Plugin Package whose manifest declares `type: html` and an `html` page instead of a JS entry: it ships no plugin code, and acting on its Plugin Item opens that page directly in a window.
+_Avoid_: html plugin, page plugin, static plugin
 
 **Plugin Search** (插件搜索):
 The act of asking a Plugin Package for Plugin Search Results; it is the plugin's own search, run when its Plugin Item is acted on, and the framework never performs it.

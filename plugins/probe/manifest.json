@@ -1,0 +1,11 @@
+{
+    "id": "probe",
+    "type": "js",
+    "name": "Probe Plugin",
+    "desc": "Probe package for the JS plugin host",
+    "keywords": ["probe", "wom-probe"],
+    "icon": "icon.svg",
+    "entry": "index.js",
+    "actions": ["greet", "log"],
+    "types": ["probe_result"]
+}

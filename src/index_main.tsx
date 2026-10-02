@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./AppMain";
 import register_launcher from "./plugins/launcher/launcher.tsx";
 import register_js_host from "./plugins/js_host/register.tsx";
+import register_html_host from "./plugins/html_host/register.tsx";
 import { registry } from "./plugins/registry.tsx";
 import { install_plugin_host } from "./plugins/js_host/host.ts";
 
@@ -15,6 +16,7 @@ import "./index_main.css"
 register_launcher(registry);
 // 插件条目是宿主自己画的一类行，宿主的那一条注册也在这里
 register_js_host(registry);
+register_html_host(registry);
 
 // JS 插件宿主：从这里开始应 Rust 的两次请求。插件代码跑在各自的 Worker 里，不注入宿主文档
 install_plugin_host();

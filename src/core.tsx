@@ -268,12 +268,18 @@ export const plugin_open_html_window = async (plugin_id: string, path: string, t
     await invoke_backend('plugin_open_html_window', { pluginId: plugin_id, path, title, width, height });
 }
 
+/** 包的形态（对应 Rust 侧 plugin_package::manifest::PackageType） */
+export type PluginPackageType = "js" | "html";
+
 /** 一个已发现的 Plugin Package（对应 Rust 侧 plugin_host::PackageInfo） */
 export interface PluginPackageInfo {
     id: string,
     name: string,
+    the_type: PluginPackageType,
     entry: string,
     entry_exists: boolean,
+    html: string,
+    html_exists: boolean,
 }
 
 // #endregion

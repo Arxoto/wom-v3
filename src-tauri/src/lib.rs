@@ -26,6 +26,8 @@ mod plugin_package;
 
 mod plugin_proxy_js;
 
+mod plugin_proxy_html;
+
 mod plugin_host;
 
 mod app_stat {

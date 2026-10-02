@@ -1,0 +1,8 @@
+{
+    "id": "html_probe",
+    "type": "html",
+    "name": "Html Probe",
+    "desc": "Frontend plugin probe that opens index.html",
+    "keywords": ["htmlprobe", "wom-html"],
+    "html": "index.html"
+}

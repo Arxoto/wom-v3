@@ -12,7 +12,7 @@
 //!
 //! - 本文件：注册表组装与重载；
 //! - [`context`]：`PluginContext` 的 Tauri 实现；
-//! - [`js`]：JS 插件的宿主侧——扫描同步、运行期账本与搜索回程；
+//! - [`js`]：插件包的宿主侧——扫描同步、运行期账本与搜索回程；
 //! - [`window`]：插件自己那个 HTML 窗口。
 
 mod context;
@@ -46,7 +46,7 @@ pub fn create_registry(app: &AppHandle) -> Result<PluginRegistry, PluginError> {
 
     registry.register_plugin(Box::new(LauncherPlugin::new()));
 
-    js::sync_js_packages(app, &registry);
+    js::sync_packages(app, &registry);
 
     Ok(registry)
 }

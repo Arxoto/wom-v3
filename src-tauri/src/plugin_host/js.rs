@@ -1,6 +1,8 @@
-//! JS 插件宿主的运行期状态（[`JsHost`]）：`Plugin Package` 的扫描结果、
-//! 结果行的缓存，以及一次 `Plugin Search` 的回程通道。它是宿主自己的账本，
-//! 插件看不见，框架也不需要知道。
+//! 插件包的宿主侧状态（[`JsHost`]）：`Plugin Package` 的扫描结果、JS 插件结果行的缓存，
+//! 以及一次 `Plugin Search` 的回程通道。它是宿主自己的账本，插件看不见，框架也不需要知道。
+//!
+//! 扫描同时认两种包：清单 `type` 是 `html` 的是前端插件（[`HtmlPlugin`]，条目直接开页面），
+//! 是 `js` 的是 JS 插件（[`JsPlugin`]，条目开搜索页）。
 
 use std::{
     collections::HashMap,
@@ -18,7 +20,8 @@ use crate::{
         ActionId, ItemHandle, ItemSearchPage, PluginId, PluginItem, PluginItemDisplay,
         PluginRegistry,
     },
-    plugin_package::{self, PluginPackage},
+    plugin_package::{self, manifest::PackageType, PluginPackage},
+    plugin_proxy_html::HtmlPlugin,
     plugin_proxy_js::{JsPlugin, RowCache, SearchRequest, SearchRow, RESULT_LOCAL_ID_BASE},
 };
 
@@ -51,14 +54,20 @@ fn plugins_dir(app: &AppHandle) -> Result<PathBuf, String> {
 pub struct PackageInfo {
     pub id: String,
     pub name: String,
+    /// 清单声明的包形态（`"js"` / `"html"`）
+    pub the_type: PackageType,
     /// JS 入口的绝对路径：开发态与打包态落在哪，看这一条
     pub entry: String,
     /// 入口文件在不在：清单把 `entry` 指向不存在的文件时是 `false`，
     /// 但包照样被扫到（坏的是它自己的入口，不是框架）
     pub entry_exists: bool,
+    /// HTML 页面的绝对路径；空串表示这个包没有 `html`
+    pub html: String,
+    /// HTML 页面在不在：写了 `html` 但文件不存在时是 `false`
+    pub html_exists: bool,
 }
 
-/// JS 插件宿主的运行期状态
+/// 插件包的宿主侧运行期状态
 ///
 /// 三张表一起用、一起换，所以合并到同一把 [`Mutex`]（与 [`PluginRegistry`] 同理）：
 /// 不需要维护锁顺序，也不存在死锁。
@@ -218,9 +227,10 @@ impl Default for JsHost {
 
 /// 扫一遍 `Plugin Folder` 并把结果同步进框架与宿主状态
 ///
-/// 已存在的 `id` 换一份代理（清单可能改过），新出现的 `id` 直接注册；消失的包**保留**
-/// 它的条目——这一轮不做移除（spec §2.5 / §7 开放问题）。
-pub(super) fn sync_js_packages(app: &AppHandle, registry: &PluginRegistry) -> Vec<PackageInfo> {
+/// 按清单的 `type` 分成两种包：`html` 是前端插件，注册 [`HtmlPlugin`]；`js` 注册 [`JsPlugin`]。
+/// 已存在的 `id` 换一份代理（清单可能改过），新出现的 `id` 直接注册；
+/// 消失的包**保留**它的条目——这一轮不做移除（spec §2.5 / §7 开放问题）。
+pub(super) fn sync_packages(app: &AppHandle, registry: &PluginRegistry) -> Vec<PackageInfo> {
     let folder = match plugins_dir(app) {
         Ok(folder) => folder,
         Err(err) => {
@@ -238,11 +248,15 @@ pub(super) fn sync_js_packages(app: &AppHandle, registry: &PluginRegistry) -> Ve
 
         dirs_by_id.insert(info.id.clone(), package.dir.clone());
 
-        // 结果行缓存由宿主建、与代理共用：宿主在回程里写入，代理在派发里读
-        let rows: RowCache = Arc::new(Mutex::new(Vec::new()));
-        rows_by_id.insert(info.id.clone(), Arc::clone(&rows));
+        if package.is_html() {
+            registry.register_or_reload_plugin(Box::new(HtmlPlugin::new(app.clone(), package)));
+        } else {
+            // 结果行缓存由宿主建、与代理共用：宿主在回程里写入，代理在派发里读
+            let rows: RowCache = Arc::new(Mutex::new(Vec::new()));
+            rows_by_id.insert(info.id.clone(), Arc::clone(&rows));
 
-        registry.register_or_reload_plugin(Box::new(JsPlugin::new(app.clone(), package, rows)));
+            registry.register_or_reload_plugin(Box::new(JsPlugin::new(app.clone(), package, rows)));
+        }
 
         infos.push(info);
     }
@@ -256,12 +270,19 @@ pub(super) fn sync_js_packages(app: &AppHandle, registry: &PluginRegistry) -> Ve
 /// 一个包的对外信息
 fn package_info(package: &PluginPackage) -> PackageInfo {
     let entry = package.entry_path();
+    let html = package.html_path();
 
     PackageInfo {
         id: package.manifest.id.clone(),
         name: package.manifest.name.clone(),
+        the_type: package.manifest.the_type,
         entry: entry.to_string_lossy().into_owned(),
         entry_exists: entry.is_file(),
+        html: html
+            .as_deref()
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        html_exists: html.as_deref().is_some_and(std::path::Path::is_file),
     }
 }
 
@@ -276,7 +297,7 @@ pub fn list_packages(app: &AppHandle) -> Vec<PackageInfo> {
 pub fn reload_packages(app: &AppHandle) -> Vec<PackageInfo> {
     let registry = app.state::<PluginRegistry>();
 
-    sync_js_packages(app, &registry)
+    sync_packages(app, &registry)
 }
 
 /// 触发一次 `Plugin Search`：请求 → 回程 → 投影（spec §3.3）

@@ -1,6 +1,6 @@
 //! `Plugin Folder` 的扫描：目录 → [`PluginPackage`] 列表
 //!
-//! 目录名**不是**身份，`manifest.yml` 的 `id` 才是；目录名只用于定位文件（spec §1.2）。
+//! 目录名**不是**身份，`manifest.json` 的 `id` 才是；目录名只用于定位文件（spec §1.2）。
 //! 坏包**跳过并记 warn**：目录读不了、清单打不开、清单坏掉、`id` 重复，都只影响那一个包，
 //! 应用照常启动——一个坏插件不该让启动器起不来（成功判据第 5 条）。
 //!
@@ -16,7 +16,7 @@ use std::{
 
 use tauri_plugin_log::log::warn;
 
-use manifest::PackageManifest;
+use manifest::{PackageManifest, PackageType};
 
 /// 一个落在磁盘上的 `Plugin Package`：一个目录 + 它清单里声明的内容
 #[derive(Debug, Clone)]
@@ -28,9 +28,23 @@ pub struct PluginPackage {
 }
 
 impl PluginPackage {
+    /// 这个包的形态是不是前端插件（清单 `type` 是 `html`）
+    pub fn is_html(&self) -> bool {
+        self.manifest.the_type == PackageType::Html
+    }
+
     /// JS 入口的绝对路径：`entry` 是包内相对路径
     pub fn entry_path(&self) -> PathBuf {
         self.dir.join(&self.manifest.entry)
+    }
+
+    /// HTML 页面的绝对路径：清单没写 `html` 时是 [`None`]
+    pub fn html_path(&self) -> Option<PathBuf> {
+        if self.manifest.html.is_empty() {
+            return None;
+        }
+
+        Some(self.dir.join(&self.manifest.html))
     }
 
     /// 条目图标的绝对路径：清单没写 `icon` 时是 [`None`]
@@ -70,7 +84,7 @@ pub fn resolve_in_package(dir: &Path, relative: &str) -> Result<PathBuf, String>
 
 /// 读一个包目录
 ///
-/// 没有 `manifest.yml`、文件读不了、清单坏掉，都是这个包的错误——
+/// 没有 `manifest.json`、文件读不了、清单坏掉，都是这个包的错误——
 /// 返回的字符串是给日志用的 ASCII 诊断文本。
 pub fn read_package(dir: &Path) -> Result<PluginPackage, String> {
     let path = dir.join(manifest::MANIFEST_FILE_NAME);
