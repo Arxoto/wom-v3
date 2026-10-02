@@ -1,6 +1,6 @@
 # 07 — 探针插件包与端到端验证
 
-Status: ready-for-human
+Status: resolved
 Category: enhancement
 
 ## 目标
@@ -120,3 +120,26 @@ invoke plugin_open_plugin_search start
   重启验证被扫到（spec §八 第 3 条，Q3 的原始诉求）。
 - 坏包的三种坏法里，"清单坏 / 缺 id / id 重复"已由启动日志证明；"入口不存在 / 脚本抛错"
   只做到"条目照常可搜 + 搜索页空"这一步，**日志里没有留下那两次装载的 warn**（没截到）。
+
+### 打包态（安装目录）实测：本次补完
+
+用 `pnpm tauri build --bundles nsis` 出包并静默安装到 `%LOCALAPPDATA%\wom`，补上此前缺的两条：
+
+1. **打包态落点**：`plugin folder: path=\\?\C:\Users\Jesus\AppData\Local\wom\plugins exists=true`，
+   安装目录里有随包分发的 `plugins\probe\`（`manifest.yml` / `index.js` / `icon.svg`）。
+2. **打包后加包**（Q3 的核心诉求）：装完之后往安装目录的 `plugins\` 放一个 `second` 包，重启应用 →
+   `js plugin ready: second` 加 `plugin registered: second`。**不重编译、不重打包**，目录一放就能被扫到。
+
+坏包隔离也在打包态复验了一遍（清单坏 / 缺 id / id 重复各一条 warn，其余插件照常注册），
+只剩"入口不存在 / 脚本抛错"这两种**装载期**坏法仍要点一次界面才能看到 warn。
+
+### 人工点检收尾：已完成
+
+上面那两条界面项已由人工点检走完：主检索命中插件条目 → 结果页 → 结果行图标与文案 → 结果行动作；
+`entry` 不存在 / `index.js` 抛错两种装载期坏法各点一次，都是空页。至此 spec §八 的 1–5 条
+全部跑过一遍。
+
+点检过程中发现并修掉一个 bug：**从 `Plugin Search Page` 返回主列表时，列表从头开始显示**——
+Selection 是对的，但可见窗口回到了第一行，不是进入前那一屏。原因是 `Body` 的滚动偏移按"层"记账
+（`src/main/Body.tsx`），换层时被清零，返回主列表时没有把离开前的偏移还回来。已改成两层各存一份
+滚动位置，换层不再互相覆盖。

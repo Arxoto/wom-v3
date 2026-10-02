@@ -42,6 +42,13 @@ interface Props {
     search_open: boolean,
 }
 
+type Layer = "main" | "search";
+
+interface LayerScroll {
+    selection: number,
+    offset: number,
+}
+
 /**
  * 列表主体：左侧条目列表，右侧预览
  *
@@ -59,17 +66,19 @@ const Body = ({ item_list, selection, item_n, show_preview, action_indices, empt
     /**
      * 窗口的滚动位置。Selection 一起存着，只在它真的变了之后才看窗口要不要挪。
      *
-     * `which` 是"这一份列表是哪一层"（主列表 / 某个插件的搜索页）：换层时偏移量从头再来，
-     * 否则从主列表第 5 行进空的结果页时，偏移量还停在第 5 行，屏幕上就什么都没有。
+     * `which` 是"这一份列表是哪一层"（主列表 / 某个插件的搜索页）：两层各记一份，
+     * 换层时另一层原样留着——从结果页回到主列表，看到的是离开前那一屏。
      */
-    const which = search_open ? "search" : "main";
-    const [scroll, set_scroll] = useState({ which, selection, offset: 0 });
+    const which: Layer = search_open ? "search" : "main";
+    const [scrolls, set_scrolls] = useState<Record<Layer, LayerScroll>>({
+        main: { selection, offset: 0 },
+        search: { selection: 0, offset: 0 },
+    });
 
-    let offset = scroll.offset;
-    if (scroll.which !== which) {
-        offset = 0;
-        set_scroll({ which, selection, offset });
-    } else if (scroll.selection !== selection) {
+    const layer = scrolls[which];
+    let offset = layer.offset;
+
+    if (layer.selection !== selection) {
         // 高亮上下各留的余量（行数），近似黄金分割
         const margin = Math.floor(item_n * 0.4);
         // 高亮现在落在屏幕第几行
@@ -79,7 +88,7 @@ const Body = ({ item_list, selection, item_n, show_preview, action_indices, empt
         else if (row_index > item_n - margin) offset = selection + margin - item_n;
         // 两端夹住
         offset = Math.max(0, Math.min(offset, item_list.length - item_n));
-        set_scroll({ which, selection, offset });
+        set_scrolls({ ...scrolls, [which]: { selection, offset } });
     }
 
     // 露在可见区里的那几行：窗口的第一行就是 offset，末尾不足一屏时自然短一截

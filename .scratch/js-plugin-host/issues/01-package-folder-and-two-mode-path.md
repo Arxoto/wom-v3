@@ -1,6 +1,6 @@
 # 01 — 打通传递路径：`Plugin Folder` 的打包与两态定位
 
-Status: ready-for-human
+Status: resolved
 Category: enhancement
 
 ## 目标
@@ -161,4 +161,39 @@ Caused by: 拒绝访问。 (os error 5)
   见 issue 07 的 Answer。
 - 上一轮提到的 `src-tauri/tauri.conf.json`（`bundle.resources` + `assetProtocol`）与
   `src-tauri/Cargo.toml`（显式 `protocol-asset`）两处改动保持不变。
+
+### 打包态实测（NSIS 安装包）
+
+用 `pnpm tauri build --bundles nsis` 出包，静默安装到当前用户目录后逐条验完（MSI 那条在本机
+跑不了，原因见下）：
+
+- **落点**：`resolve_resource("plugins")` →
+  `\\?\C:\Users\Jesus\AppData\Local\wom\plugins`，`exists=true`。也就是安装目录里 exe 旁边的
+  `plugins\`，与开发态的 `target\debug\plugins` 是同一种"可执行文件旁边"的布局。
+- **打包后加包**：安装完之后往 `%LOCALAPPDATA%\wom\plugins\` 里放一个 `second` 包，重启：
+  `js plugin ready: second` 加 `plugin registered: second`。不重编译、不重打包，目录一放就能被扫到。
+- **坏包隔离**（同一份启动日志）：
+
+  ```text
+  [WARN] skip plugin package ...\plugins\bad_manifest: line 3 is not a `key: value` line
+  [WARN] skip plugin package ...\plugins\no_id: missing required key `id`
+  [WARN] duplicate plugin id, skip package: probe (...\plugins\probe)
+  ```
+
+  `probe` / `second` 与 launcher 照常注册，启动不受影响。
+- **asset protocol 的 scope 没有在安装目录里单独复验**：开发态已经用"探针脚本真的执行了"证明命中；
+  打包态的资源布局与开发态同形，scope 声明的也是相对 `$RESOURCE` 的同一串 glob，所以按同一结论
+  处理，但没有在安装目录里再跑一遍 `<script src>` 装载（那要点一次界面，见 issue 07）。
+
+### 补记：WiX/MSI 在本机跑不了（环境问题）
+
+`pnpm tauri build`（默认 `targets: all`）在 `light.exe` 这一步失败：
+
+```text
+light.exe : error LGHT0217 : Error executing ICE action 'ICE01'
+  "The Windows Installer Service could not be accessed."
+```
+
+ICE 校验要访问 Windows Installer 服务，本机环境取不到。与项目无关，也不是打包配置的问题；
+`--bundles nsis` 一次成功，所以改用 NSIS 的安装包做上面这套实测。
 
