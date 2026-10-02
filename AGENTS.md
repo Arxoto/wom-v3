@@ -30,8 +30,9 @@ Rust 后端 `src-tauri/src/`：
 | `builtin_plugins/` | 内建条目与检索：`base` / `common` / `persistence` / `search` / `stat`；与插件体系并行存在 |
 | `plugin_framework/` | 插件框架：插件与条目注册、检索、投影、动作派发（见 `docs/adr/0008`） |
 | `plugin_impl_launcher/` | launcher 插件：`persistence` / `action` / `init` |
-| `plugin_impl_js/` | JS 插件宿主：`manifest`（清单解析）/ `package`（`Plugin Folder` 扫描）/ 代理 `Plugin`（见 `docs/adr/0011`） |
-| `plugin_host.rs` | 插件框架的宿主侧：`PluginContext` 的 Tauri 实现、注册表组装与重载、JS 插件的扫描与搜索回程 |
+| `plugin_package/` | `Plugin Package` 格式：`manifest`（清单解析）与 `Plugin Folder` 扫描（见 `docs/adr/0011`） |
+| `plugin_proxy_js.rs` | JS 插件在框架里的 Rust 侧代理：与插件共用 `PluginId` 的 `Plugin` 替身（见 `docs/adr/0011`） |
+| `plugin_host.rs` | 插件框架的宿主侧：注册表组装与重载 / `context`（`PluginContext` 的 Tauri 实现）/ `js`（扫描同步、运行期账本与搜索回程） |
 
 前端 `src/`：`core.tsx` 是两个入口共用的部分（类型镜像、invoke 封装、css 变量），`index_main.tsx` / `index_config.tsx` 是入口，`AppMain.tsx` / `AppConfig.tsx` 是根组件，`main/` 装主窗口的布局与各区块，`plugins/` 装前端插件注册表。
 

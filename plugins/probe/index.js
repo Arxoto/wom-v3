@@ -5,14 +5,15 @@
 //   2. 自己的搜索函数：按关键字返回几行，其中一行**故意没有动作**；
 //   3. 结果行动作的处理函数：留一行日志，证明动作真的跑到了插件里。
 //
-// 装载由宿主注入 <script src> 完成（见 src/plugins/host.ts），所以这里直接调宿主挂好的
-// window.__WOM_PLUGIN__。宿主接口不在就抛错——那也是要验的一种坏法（脚本自己抛错）。
+// 装载由宿主的 Worker 用 importScripts 完成（见 src/plugins/plugin_worker.ts），插件跑在 Worker 里，
+// 所以这里直接调宿主挂在 Worker 全局上的 self.__WOM_PLUGIN__。
+// 宿主接口不在就抛错——那也是要验的一种坏法（脚本自己抛错）。
 
 (() => {
-    const host = window.__WOM_PLUGIN__;
-    if (!host) throw new Error("probe: window.__WOM_PLUGIN__ is missing");
+    const host = self.__WOM_PLUGIN__;
+    if (!host) throw new Error("probe: self.__WOM_PLUGIN__ is missing");
 
-    // 图标只能是一段字符串：插件跑在 webview 里，但手上没有 React（见 registry.tsx 的 PluginIcon）。
+    // 图标只能是一段字符串：插件跑在 Worker 里，手上没有 React（见 registry.tsx 的 PluginIcon）。
     // 用 data URI 是为了不碰文件系统：插件给不了宿主任意路径，只能给自己画一张。
     // 描边颜色写死是因为 <img> 里拿不到 currentColor。
     const icon = (body) => "data:image/svg+xml;utf8," + encodeURIComponent(

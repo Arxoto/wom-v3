@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { PluginItemDisplay, PluginSearchRow } from "../core";
+import type { PluginItemDisplay } from "../core";
 
 /**
  * 前端插件注册表
@@ -14,8 +14,8 @@ import type { PluginItemDisplay, PluginSearchRow } from "../core";
  * 内置插件的默认导出就是一次注册调用（见 `launcher.tsx`），JS 插件将来调同一个
  * `register`。两条路径分开的话，JS 插件能用的能力会永远只是内置能力的子集。
  *
- * JS 插件拿到这个单例的挂载点就是 `host.ts`：宿主往 `window.__WOM_PLUGIN__` 挂一个窄接口，
- * 里面的 `register` 转调这里的 `register`（见 docs/adr/0011）。**挂的是接口，不是注册表本身**。
+ * JS 插件拿到这个单例的挂载点就是 `host.ts`：插件在 Worker 里跑，宿主把 Worker 交上来的
+ * 注册数据转调这里的 `register`（见 docs/adr/0011）。**挂的是接口，不是注册表本身**。
  * 本文件是纯数据，没有 React 组件；`.tsx` 只是因为注册进来的图标可以是 JSX 元素。
  */
 
@@ -23,7 +23,7 @@ import type { PluginItemDisplay, PluginSearchRow } from "../core";
  * 一张图标
  *
  * 内置插件（launcher）交上来的是 JSX 元素，JS 插件交上来的只能是一段字符串——
- * 它在 webview 里跑，但手上没有 React（见 `host.ts` 的 `PluginRegistration`）。
+ * 它在 Worker 里跑，但手上没有 React（见 `plugin_worker.ts`）。
  * 字符串按图片地址处理（data URI 也算），由 `PluginIcon` 画成 `<img>`。
  */
 export type PluginIcon = ReactNode | string;
@@ -55,23 +55,6 @@ export interface PluginView {
     labels: Record<string, string>,
 }
 
-/** 插件自己的搜索函数：给关键字，还它要画的那几行（形状由 `normalize` 兜住） */
-export type PluginSearchFn = (keyword: string) => unknown;
-
-/** 结果行动作的处理函数：要让插件干什么由它自己决定，宿主只看它有没有抛错 */
-export type PluginRunFn = (row: PluginSearchRow | undefined, action_id: string) => void;
-
-/**
- * 一次注册的全部内容：界面的那几张表 + 插件自己的两个函数
- *
- * `search` / `run` 是 JS 插件才有的（内置插件在 Rust 侧做这些事），
- * 它们不进 `PluginView`：界面的表里只该有画一行所需的东西。
- */
-export interface PluginRegistration extends PluginView {
-    search?: PluginSearchFn,
-    run?: PluginRunFn,
-}
-
 /**
  * 插件注册表的对外形状
  *
@@ -79,13 +62,9 @@ export interface PluginRegistration extends PluginView {
  */
 export interface PluginRegistry {
     /** 注册一个插件；同一个 `id` 重复注册不再生效（挂载期重复调用是安全的） */
-    register(plugin: PluginRegistration): void;
+    register(plugin: PluginView): void;
     /** 这个 `id` 注册过没有：装载器判断「已注册」用的就是它 */
     has(plugin_id: string): boolean;
-    /** 取插件自己的搜索函数；内置插件没有这个 */
-    search_of(plugin_id: string): PluginSearchFn | undefined;
-    /** 取结果行动作的处理函数；内置插件没有这个 */
-    run_of(plugin_id: string): PluginRunFn | undefined;
     /** 该条目支持的动作；顺序取自条目自带的 `action_ids`（见 spec §1.5） */
     actions_of(item: PluginItemDisplay): PluginActionView[];
     /** 条目当前动作：按下标取，下标越界时夹到最后一个；没有动作时为 `null` */
@@ -114,31 +93,16 @@ class Registry implements PluginRegistry {
     private registered_ids = new Set<string>();
     /** 所有插件交上来的文案表；一个键在同一张表里只该有一条中文 */
     private labels: Record<string, string> = {};
-    /** 插件自己的函数：只有 JS 插件有，界面不读它 */
-    private runtime = new Map<string, { search?: PluginSearchFn, run?: PluginRunFn }>();
 
-    register(plugin: PluginRegistration): void {
+    register(plugin: PluginView): void {
         if (this.registered_ids.has(plugin.id)) return;
         this.registered_ids.add(plugin.id);
-        // 只留画行要用的三样：`search` / `run` 是宿主的账，不进界面读的那张表
-        this.plugins.push({ id: plugin.id, types: plugin.types, labels: plugin.labels });
+        this.plugins.push(plugin);
         Object.assign(this.labels, plugin.labels);
-
-        if (plugin.search || plugin.run) {
-            this.runtime.set(plugin.id, { search: plugin.search, run: plugin.run });
-        }
     }
 
     has(plugin_id: string): boolean {
         return this.registered_ids.has(plugin_id);
-    }
-
-    search_of(plugin_id: string): PluginSearchFn | undefined {
-        return this.runtime.get(plugin_id)?.search;
-    }
-
-    run_of(plugin_id: string): PluginRunFn | undefined {
-        return this.runtime.get(plugin_id)?.run;
     }
 
     actions_of_type(the_type: string): PluginActionView[] {

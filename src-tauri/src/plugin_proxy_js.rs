@@ -4,8 +4,8 @@
 //!
 //! - **Rust 这一半**（本模块）：占住框架里的一个插件块。`id` / `actions` / `init` 全部只读
 //!   清单，所以**条目能不能被搜到、动作表长什么样，都不依赖插件的 JS 能否成功执行**；
-//! - **webview 那一半**（`src/plugins/host.ts`）：装载 `index.js`、交出类型与动作的图标和文案、
-//!   跑插件自己的搜索与动作。
+//! - **webview 那一半**（`src/plugins/host.ts` + `src/plugins/plugin_worker.ts`）：为这个包起一个
+//!   Worker，在里面装载 `index.js`、交出类型与动作的图标和文案、跑插件自己的搜索与动作。
 //!
 //! 两半共用同一个 `PluginId`——清单的 `id`。没有这个代理，插件注册的条目一旦被触发，
 //! 框架会走到一个不存在的插件上（spec §2.1）。
@@ -16,12 +16,9 @@
 //!
 //! 分工：
 //!
-//! - [`manifest`]：清单的一行长什么样、怎么校验；
-//! - [`package`]：`Plugin Folder` 怎么扫成一个包的列表；
+//! - [`crate::plugin_package::manifest`]：清单的一行长什么样、怎么校验；
+//! - [`crate::plugin_package`]：`Plugin Folder` 怎么扫成一个包的列表；
 //! - 本文件：代理 [`JsPlugin`] 本身。
-
-pub mod manifest;
-pub mod package;
 
 use std::{
     path::PathBuf,
@@ -37,14 +34,14 @@ use crate::{
         ActionId, ActionOutcome, ItemHandle, ItemRegistrar, Plugin, PluginAction, PluginContext,
         PluginError, PluginId, PluginItem,
     },
-    plugin_impl_js::{manifest::PackageManifest, package::PluginPackage},
+    plugin_package::{self, manifest::PackageManifest, PluginPackage},
 };
 
 /// 插件条目（Plugin Item）的类型名
 ///
 /// 它是**宿主自己定的**一个类型名，不是清单里的：清单的 `types` 是结果行的类型。
 /// 框架对类型名永远不解释，所以宿主当然可以有一条自己的类型——前端注册表里
-/// （`src/plugins/host_view.tsx`）给它配图标与文案。
+/// （`src/plugins/js_host.tsx`）给它配图标与文案。
 pub const JS_PLUGIN_ITEM_TYPE: &str = "js_plugin";
 
 /// 插件条目上唯一的动作：打开这个包的 `Plugin Search Page`
@@ -86,7 +83,7 @@ pub struct SearchRow {
 
 /// 发往 webview 的搜索请求
 ///
-/// 带上入口的绝对路径：前端拿它 `convertFileSrc` 之后注入 `<script src>`，
+/// 带上入口的绝对路径：前端拿它 `convertFileSrc`，交给插件 Worker 用 `importScripts` 装载，
 /// 于是取文件与执行都是 webview 自己的行为（ADR-0011）。
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchRequest {
@@ -199,7 +196,7 @@ impl Plugin for JsPlugin {
         registrar: &mut dyn ItemRegistrar,
     ) -> Result<(), PluginError> {
         // 重扫走这条：清单重读一遍，改过的名字 / 关键字 / 动作跟着生效（spec §2.5）
-        let package = package::read_package(&self.dir)
+        let package = plugin_package::read_package(&self.dir)
             .map_err(|err| PluginError::Init(format!("read js plugin manifest failed: {err}")))?;
 
         let plugin_id = PluginId(package.manifest.id.clone());

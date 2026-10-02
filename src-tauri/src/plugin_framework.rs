@@ -303,7 +303,7 @@ pub trait Plugin: Send + Sync {
     ///
     /// 注册推上来的条目框架手上都有，所以默认实现是 [`None`]。`Plugin Search Result`
     /// 是每次查询现算的、不注册进框架（Q10），派发它的动作时框架手上没有那一行，
-    /// 于是回头问插件（实现见 `plugin_impl_js::JsPlugin`）。
+    /// 于是回头问插件（实现见 `plugin_proxy_js::JsPlugin`）。
     ///
     /// 只有 [`PluginRegistry::run_action`] 会问它，而且只在自己那一份里找不到时才问。
     fn resolve_item(&self, _handle: &ItemHandle) -> Option<PluginItem> {

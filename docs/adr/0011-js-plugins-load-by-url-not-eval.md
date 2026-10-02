@@ -35,3 +35,28 @@ uTools 的 `plugin.json` 里的 `features[].cmds` 是同一个形状。
 插件跑在宿主自己的文档与全局里：能摸 DOM、改 `window`、覆盖宿主界面。真正的隔离要么走 Worker
 （插件没有 DOM，图标与文案必须全变纯数据，与 ADR-0010 的 `ReactNode` 注册形状冲突），
 要么走独立进程，都不是本轮的范围。本轮唯一要装的插件是我们自己写的探针。
+
+## 后续：插件代码改跑在 Worker 里
+
+装载方式从"注入 `<script src>` 到宿主文档"改成"起一个经典 Worker + `importScripts(asset URL)`"。
+上面几条不变：宿主依旧不碰插件源码、清单依旧承担索引、Rust 代理依旧承担派发。变的是执行的地方
+——插件从此跑在自己的全局里，摸不到宿主 DOM、改不到宿主的 `window`，插件之间也不共享全局；
+`terminate()` 也让"重载插件代码"第一次有了着力点（重扫要不要接上去是下一步的事）。
+
+挂载点也跟着进了 Worker：窄接口从 `window.__WOM_PLUGIN__` 改成 **`self.__WOM_PLUGIN__`**
+（Worker 里没有 `window`，也不留兼容别名——插件本来就该按 Worker 的全局写）。
+
+装进 Worker 的三条约束，依次是：
+
+1. `new Worker(assetUrl)` 撞同源规则（asset URL 与页面不同源），所以 Worker 脚本必须是前端自己的
+   同源文件，插件代码由 Worker 里的 `importScripts` 去取——经典脚本那条 no-cors 路，跨源能拿；
+2. Worker 必须是**经典** Worker：`{ type: "module" }` 里没有 `importScripts`，而 `import()`
+   对 asset URL 会撞 CORS；
+3. 经典 Worker 的脚本里一个 import/export 都不能有：TypeScript 会给"只有类型引用"的模块补
+   `export {}`，Vite dev 下实测会让经典 Worker 直接语法报错。宿主与 Worker 共用的消息类型因此
+   声明成全局的（`src/plugins/plugin_worker_protocol.d.ts`）。
+
+**上面"代价"一节里那句"与 ADR-0010 的 `ReactNode` 注册形状冲突"是误判**：`ReactNode` 只出现在
+宿主自己写的注册里（`launcher.tsx` / `js_host.tsx`），插件这一侧交上来的图标一直是字符串、
+结果行一直是纯对象。Worker 真正要付的是：插件没有 DOM、每个插件多一个 Worker 与一份消息协议、
+`register` 从同步调用变成消息往返；以及同进程不同线程，仍谈不上安全边界（独立进程那条仍是下一轮）。

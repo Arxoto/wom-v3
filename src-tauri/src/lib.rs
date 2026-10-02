@@ -24,8 +24,10 @@ mod plugin_framework;
 
 mod plugin_impl_launcher;
 
-// JS 插件宿主：`Plugin Package` 在框架里的代理与它的宿主侧接线
-mod plugin_impl_js;
+// JS 插件：`Plugin Package` 的格式与扫描，加上它在框架里的代理
+mod plugin_package;
+
+mod plugin_proxy_js;
 
 mod plugin_host;
 

@@ -257,7 +257,7 @@ pub async fn plugin_open_plugin_search(
 pub fn plugin_report_search_results(
     app: tauri::AppHandle,
     plugin_id: String,
-    items: Vec<crate::plugin_impl_js::SearchRow>,
+    items: Vec<crate::plugin_proxy_js::SearchRow>,
 ) -> Result<(), String> {
     crate::plugin_host::report_search_results(&app, &plugin_id, items)
 }

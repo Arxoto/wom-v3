@@ -7,6 +7,8 @@
 //! 扫描在应用 `setup` 里同步跑完：条目与动作表因此**不依赖插件的代码能否成功执行**，
 //! 这是"坏插件不影响主窗口"的最强形式（spec §1.3 末）。
 
+pub mod manifest;
+
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -14,7 +16,7 @@ use std::{
 
 use tauri_plugin_log::log::warn;
 
-use crate::plugin_impl_js::manifest::{self, PackageManifest};
+use manifest::PackageManifest;
 
 /// 一个落在磁盘上的 `Plugin Package`：一个目录 + 它清单里声明的内容
 #[derive(Debug, Clone)]

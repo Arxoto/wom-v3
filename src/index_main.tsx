@@ -16,8 +16,8 @@ register_launcher(registry);
 // 插件条目是宿主自己画的一类行，宿主的那一条注册也在这里
 register_js_host(registry);
 
-// JS 插件宿主的挂载点：插件脚本一装载就会调 window.__WOM_PLUGIN__.register，
-// 所以这个接口必须比任何一次装载都早（见 src/plugins/host.ts）
+// JS 插件宿主：从这里开始应 Rust 的两次请求。插件代码跑在各自的 Worker 里，不注入宿主文档
+// （见 src/plugins/host.ts / plugin_worker.ts）
 install_plugin_host();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

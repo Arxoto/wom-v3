@@ -169,35 +169,46 @@ uTools 的 `plugin.json` 里的 `features[].cmds` 是同一个形状。
 
 ## 三、运行期：装载、搜索与派发
 
-### 3.1 装载方式：不 eval
+### 3.1 装载方式：不 eval，插件代码跑在 Worker 里
 
-**宿主不对插件源码求值**（Q7/Q15 的最终裁定）。装载走 asset protocol：
+**宿主不对插件源码求值**（Q7/Q15 的最终裁定）。装载走 asset protocol，执行放在一个
+**经典 Worker** 里，与宿主文档隔开：
 
 1. 宿主用 `resolve_resource("plugins")` + `manifest.yml` 的 `entry` 拼出绝对路径；
-2. 用 `convertFileSrc` 转成 `asset://` URL；
-3. **注入 `<script src>`**，取文件与执行都是 webview 自己的行为。
+2. 用 `convertFileSrc` 转成 asset URL，随搜索请求发给前端；
+3. 前端起一个同源的经典 Worker，Worker 里用 `importScripts(asset URL)` 取插件代码。
+
+经典 Worker 是这一条的关键：`importScripts` 取脚本走的是经典脚本那条 no-cors 路，跨源的
+asset URL 能直接拿；`new Worker(assetUrl)` 会撞同源规则，`{ type: "module" }` + `import()`
+会撞 CORS。代价是 Worker 文件本身不能有 import/export——TypeScript 会给只有类型引用的模块
+补一句 `export {}`，经典 Worker 遇到它直接语法报错，所以宿主与 Worker 共用的消息类型声明成
+全局的（见 `src/plugins/plugin_worker_protocol.d.ts`）。
 
 需要 `app.security.assetProtocol.enable = true` 且 scope 覆盖 `$RESOURCE/plugins/**/*`。
 scope 是**构建期 glob，不是快照**，所以打包后新加进 `$RESOURCE/plugins/` 的文件照样命中。
 
 **为什么不用 eval**（这是领域惯例，不是洁癖）：uTools、Raycast、Alfred、Flow Launcher、Wox
 五家**没有一家**在宿主界面里对插件源码求值——它们要么给插件一份自己的文档（uTools/Raycast），
-要么把插件放到另一个进程（Alfred/Flow/Wox）。用 `<script src>` 至少保住了"宿主不碰源码"这一条。
-代价见 §3.5。
+要么把插件放到另一个进程（Alfred/Flow/Wox）。`importScripts` 至少保住了"宿主不碰源码"这一条，
+Worker 又把插件与宿主文档隔开。代价见 §3.5。
 
 ### 3.2 宿主交给插件的窄接口
 
-按 Q8：**往 webview 全局挂一个窄接口对象，不挂 registry 本身**。
+按 Q8：**往 Worker 的全局挂一个窄接口对象，不挂 registry 本身**。
 
 ```js
-window.__WOM_PLUGIN__ = {
+self.__WOM_PLUGIN__ = {
   register(spec),   // { id, types: [...], labels: {...} } → 转调 registry.register
   log(text),
   fail(text),
 }
 ```
 
-命名带 `__WOM_PLUGIN__` 前缀，避免与将来的自定义前端页面撞车。
+命名带 `__WOM_PLUGIN__` 前缀，避免与插件自己的东西撞车。`register` 收到的 `search` / `run`
+是两个函数，**留在 Worker 里**（函数过不了结构化克隆）；过线的只有类型 / 图标 / 文案这些纯数据，
+由宿主转调 `registry.register`。
+
+Worker 里没有 `window`，所以这里不留兼容别名：插件按 `self.__WOM_PLUGIN__` 写。
 
 > **这一条改写了 ADR-0010:19**（原文："JS 插件将来怎么拿到这个单例……仍然没有定，
 > 所以注册表不往 `window` 挂任何东西"）；改写记在 ADR-0011 里。
@@ -215,7 +226,7 @@ window.__WOM_PLUGIN__ = {
         │
         ▼
 Rust：这个插件装载了吗？
-        ├─ 没有 → 让前端装载（注入 <script src>），等插件报告「已注册」
+        ├─ 没有 → 让前端装载（起 Worker + importScripts），等插件报告「已注册」
         └─ 有   → 直接用
         │
         ▼
@@ -251,16 +262,22 @@ Rust 走既有的投影：按结果行类型名查动作表（清单给的）→
 > 注意这与 `Item Index` **并存**，不是替换：主列表仍然靠 `item_index` 翻页与缓存
 > （`search()` / `page()` 的 token 语义不变），`Item Handle` 只用于**动作派发**。
 
-### 3.5 已知代价：没有隔离
+### 3.5 隔离程度与代价
 
-`<script src>` 让插件跑在**宿主自己的文档与全局**里：插件能摸 DOM、改 `window`、
-覆盖宿主界面。**这不是本轮能解决的问题**，而是明确记录的一条代价：
+一个包一个 Worker：插件跑在**自己的全局**里，摸不到宿主 DOM、改不到宿主的 `window`，
+插件之间也不共享全局；`terminate()` 还顺手给了"重载插件代码"的能力。
 
-- 本轮唯一要装的插件是我们自己写的探针，风险现实值接近零；
-- 真正的隔离要么走 Worker（插件没有 DOM，条目与图标必须全变成纯数据，与 ADR-0010 的
-  `ReactNode` 注册形状冲突），要么走独立进程（Alfred/Flow/Wox 那条），**都是下一轮的事**；
-- `csp: null` 意味着当前没有任何页面侧可执行内容的限制；把 CSP 收紧到
-  `script-src asset:` 是**这一轮的顺带收益**（`<script src>` 对 CSP 友好，eval 不是）。
+代价与还没拿到的东西：
+
+- **插件没有 DOM**，所以图标与文案必须是纯数据。这一条本来就成立：插件交上来的图标一直是
+  字符串、结果行一直是纯对象，`search` / `run` 两个函数留在 Worker 内不过线。
+  （旧版把这一条写成"与 ADR-0010 的 `ReactNode` 注册形状冲突"，是误判：`ReactNode` 只出现在
+  宿主自己写的注册里——`launcher.tsx` 与 `js_host.tsx`，它们不进 Worker。）
+- **不再零成本**：每个插件多一个 Worker 与一份消息协议，`register` 从同步调用变成消息往返。
+- **同进程不同线程**：插件死循环不拖住界面，但仍与 webview 同进程，谈不上安全边界。
+  要安全边界得走独立进程（Alfred/Flow/Wox 那条）。
+- `csp: null` 意味着当前没有任何页面侧可执行内容的限制；把 CSP 收紧到 `script-src asset:`
+  （Worker 另需 `worker-src`）是顺带收益。
 
 ---
 
@@ -398,7 +415,7 @@ src/main/interaction/action_labels.ts
 | 选项 | 否掉的理由 |
 | --- | --- |
 | 宿主 `eval` 插件源码 | 领域里五家主流启动器无一家这么做；且是对 CSP 的隐性依赖（`csp: null` 掩盖着） |
-| Worker 隔离（`importScripts`） | 插件没有 DOM，图标与文案必须全变纯数据，与 ADR-0010 的 `ReactNode` 注册形状冲突；留给下一轮 |
+| 直接把 asset URL 交给 `new Worker()` / module Worker | 前者撞同源规则，后者 `import()` 会撞 CORS；经典 Worker + `importScripts` 才走得通（§3.1） |
 | 每个插件一个 iframe / 子 webview | 只买到"独立文档"，买不到"坏插件不拖死界面"（同进程同线程），两头不靠 |
 | 独立进程 + IPC（Alfred/Flow/Wox 那条） | 同样是下一轮的正经主干；本轮不付这个工程量 |
 | 新增 `PluginRegistry::register_items` 异步注册口 | 条目在 `setup` 里就能从清单同步拿到，没有"异步到账"这个需求 |
