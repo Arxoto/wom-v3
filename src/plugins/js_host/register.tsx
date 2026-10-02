@@ -1,5 +1,5 @@
-import type { PluginRegistry, PluginView } from "./registry.tsx";
-import { IconJsPlugin, IconOpenSearch } from "./js_host_icons";
+import type { PluginRegistry, PluginView } from "../registry.tsx";
+import { IconJsPlugin, IconOpenSearch } from "./icons";
 
 /**
  * 插件条目的类型名：与 Rust 侧 `plugin_impl_js::JS_PLUGIN_ITEM_TYPE` 一字不差

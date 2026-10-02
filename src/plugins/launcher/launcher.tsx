@@ -1,4 +1,4 @@
-import type { PluginRegistry, PluginView } from "./registry.tsx";
+import type { PluginRegistry, PluginView } from "../registry.tsx";
 import { IconCmd, IconScan, IconSys, IconWeb } from "./launcher_icons";
 import { IconCopy, IconOpenPath, IconOpenUrl, IconReveal } from "./launcher_action_icons";
 

@@ -2,8 +2,8 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { info, warn } from "@tauri-apps/plugin-log";
 
-import { plugin_report_search_results, type PluginSearchRow } from "../core";
-import { registry, type PluginView } from "./registry.tsx";
+import { plugin_report_search_results, type PluginSearchRow } from "../../core";
+import { registry, type PluginView } from "../registry.tsx";
 
 /**
  * JS 插件宿主的前端一半：给每个插件起一个 Worker、应 Rust 的两次请求
@@ -88,7 +88,7 @@ class PluginRuntime {
      */
     static async create(plugin_id: string, entry: string): Promise<PluginRuntime | null> {
         // 经典 Worker：`importScripts` 取 asset URL 不受 CORS 限制，见 `plugin_worker.ts`
-        const worker = new Worker(new URL("./plugin_worker.ts", import.meta.url), { type: "classic" });
+        const worker = new Worker(new URL("./worker/worker.ts", import.meta.url), { type: "classic" });
         const runtime = new PluginRuntime(plugin_id, worker);
 
         const loaded = await runtime.load(convertFileSrc(entry));

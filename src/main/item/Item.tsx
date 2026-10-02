@@ -1,6 +1,6 @@
 import { memo } from "react";
 import type { PluginItemDisplay } from "../../core";
-import { ACTION_SWITCH_MARKS } from "../../plugins/launcher_action_icons";
+import { ACTION_SWITCH_MARKS } from "../../plugins/launcher/launcher_action_icons";
 import PluginIcon, { item_icon } from "../../plugins/plugin_icon";
 import { registry } from "../../plugins/registry.tsx";
 import "./Item.css";

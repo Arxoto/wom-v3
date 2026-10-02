@@ -10,7 +10,7 @@
  * import 语句，不会把这份声明变成模块，形状也就只有一份。
  */
 declare namespace PluginWire {
-    type Row = import("../core").PluginSearchRow;
+    type Row = import("../../core").PluginSearchRow;
 
     /** 插件自己交上来的搜索函数：给关键字，还它要画的那几行 */
     type SearchFn = (keyword: string) => unknown;

@@ -13,7 +13,7 @@ import {
     should_show_main_on_ready,
     show_main_window,
 } from "../../core";
-import { JS_PLUGIN_ITEM_TYPE } from "../../plugins/js_host.tsx";
+import { JS_PLUGIN_ITEM_TYPE } from "../../plugins/js_host/register.tsx";
 import { registry } from "../../plugins/registry.tsx";
 import { is_action_intent, is_search_intent, is_select_intent, resolve_key, type Intent } from "./keys";
 import {

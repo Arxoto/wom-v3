@@ -1,10 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./AppMain";
-import register_launcher from "./plugins/launcher.tsx";
-import register_js_host from "./plugins/js_host.tsx";
+import register_launcher from "./plugins/launcher/launcher.tsx";
+import register_js_host from "./plugins/js_host/register.tsx";
 import { registry } from "./plugins/registry.tsx";
-import { install_plugin_host } from "./plugins/host.ts";
+import { install_plugin_host } from "./plugins/js_host/host.ts";
 
 import "./core.css"
 import "./index_main.css"
