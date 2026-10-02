@@ -5,9 +5,8 @@
 //! 本模块 → `plugin_framework` / `plugin_impl_launcher` / `plugin_package` / `plugin_proxy_js`，
 //! 反过来这些模块都不认识它。
 //!
-//! 组装（[`create_registry`]）在应用 `setup` 里、建窗口之前完成，与内建条目的
-//! `builtin_plugins::load_stat` 并列；托盘菜单的插件重载（[`reload_launcher`]）与命令层的
-//! `State<PluginRegistry>` 都从这里出发。
+//! 组装（[`create_registry`]）在应用 `setup` 里、建窗口之前完成；托盘菜单的插件重载
+//! （[`reload_launcher`]）与命令层的 `State<PluginRegistry>` 都从这里出发。
 //!
 //! 分工：
 //!
@@ -50,9 +49,6 @@ pub fn create_registry(app: &AppHandle) -> Result<PluginRegistry, PluginError> {
 }
 
 /// 重新 `init` launcher 插件：manifest 改过之后走这一条，不必重启应用
-///
-/// 与内建设置的重载（`builtin_plugins::reload_setting`）一起挂在托盘菜单上：
-/// 两套体系并行期间，那一个菜单项要把两边都重新读一遍。
 pub fn reload_launcher(app: &AppHandle) {
     let plugin_id = LauncherPlugin::new().id();
 

@@ -13,12 +13,8 @@ _Avoid_: settings, ConfigData, ConfigSettings, ConfigFile, Editable Config
 ### Search and items
 
 **Item**:
-A single piece of content that search can find and that carries a name, a description, keywords, and an action; it is the smallest unit of both searching and acting. Builtin Items and Plugin Items are the two implementations in flight; the builtin one is on its way out (see the Plugin Framework).
+A single piece of content that search can find and that carries a name, a description, keywords, and an action; it is the smallest unit of both searching and acting.
 _Avoid_: entry, record, result
-
-**Builtin Item**:
-An Item implemented by the builtin plugins, led by a fixed set of item types; its actions are a constant table keyed by that type.
-_Avoid_: legacy Item, old Item
 
 **Plugin Item**:
 An Item a plugin registers with the framework. It is plain data—a priority, keywords, a name, a description, and a type name the framework never interprets—and it carries the ordered Plugin Actions it offers.
@@ -71,7 +67,7 @@ One line of the launcher plugin's manifest, as read and written by its persisten
 _Avoid_: manifest line, source record
 
 **Item Display**:
-The projection of an Item rendered in the list, holding its type, name, and description, and carrying its Item Index so an Item Action can be addressed without the list row.
+The projection of an Item rendered in the list, holding its type, name, and description, and carrying its Item Handle so an Item Action can be addressed without the list row.
 _Avoid_: ItemView, display model, item DTO
 
 ### Main window interaction
@@ -93,7 +89,7 @@ The Item Action an Item is left at, remembered per Item; it starts as the Item's
 _Avoid_: selected action, primary action, 当前动作
 
 **Item Index**:
-The position of an Item in the set loaded from the settings file; it rides along with the Item Display and addresses that Item when running an Item Action.
+The position of an Item in the set the framework holds; it rides along with the Item Display as paging bookkeeping, and is not how an Item Action is addressed.
 _Avoid_: id, item_id, key
 
 **List Position**:

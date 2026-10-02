@@ -1,7 +1,7 @@
 //! `scan` 类型的展开：路径解析 + [`WalkDir`] 遍历 + 过滤
 //!
-//! 行为照抄现状（`scans_helper.rs`），只换两处：根路径变量经 [`PluginContext`] 解析
-//! （框架层不依赖 Tauri，插件也不该），以及 `key_words` 的合并规则（见 `init.rs`）。
+//! 根路径变量经 [`PluginContext`] 解析（框架层不依赖 Tauri，插件也不该），
+//! `key_words` 的合并规则见 `init.rs`。
 
 use std::{
     fmt::{Display, Formatter},
@@ -28,7 +28,7 @@ pub struct ScannedEntry {
 /// 扫描一个 `scan` 条目
 ///
 /// `follow_links(false)`、`max_depth` 直接交给 walkdir、第 0 层是配置的 `path` 本身
-/// 且不受过滤条件约束——三条都照抄现状。
+/// 且不受过滤条件约束。
 pub fn scan(cx: &dyn PluginContext, config: &LauncherScanConfig) -> Result<Vec<ScannedEntry>, String> {
     let root = resolve_root(cx, config)?;
 

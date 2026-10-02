@@ -16,10 +16,7 @@ mod global_shortcut;
 
 mod commands;
 
-mod builtin_plugins;
-
 // 插件体系：框架层（framework）、第一个插件（launcher）与宿主侧接线（host）。
-// 两套体系并行存在是有意的，见 docs/adr/0008
 mod plugin_framework;
 
 mod plugin_impl_launcher;
@@ -53,7 +50,7 @@ mod tray {
     };
     use tauri_plugin_log::log::{debug, info, warn};
 
-    use crate::{app_stat, builtin_plugins, configs, global_shortcut, plugin_host, window_utils};
+    use crate::{app_stat, configs, global_shortcut, plugin_host, window_utils};
 
     pub fn create_tray(app: &App) -> Result<()> {
         let show_main_desc = "Show Main Window";
@@ -123,9 +120,6 @@ mod tray {
                 }
                 "re_plugin" => {
                     info!("try reload plugin setting");
-                    // 两套体系并行期间，这一个菜单项把两边都重新读一遍：
-                    // 内建条目的设置文件，与 launcher 插件自己的 manifest
-                    builtin_plugins::reload_setting(app);
                     plugin_host::reload_launcher(app);
                     rebuild_main(app);
                 }
@@ -202,17 +196,12 @@ pub fn run() {
             commands::fetch_config,
             commands::fetch_effect_info,
             commands::should_show_main_auto,
-            commands::fetch_scan_base_options,
-            commands::fetch_item_type_actions,
-            commands::run_item_action,
             commands::save_config,
             commands::register_global_shortcut,
             commands::rebuild_main_window,
-            commands::search,
-            commands::search_page,
             commands::dismiss_main_window,
             commands::show_main_window,
-            // 插件体系那一套（与上面内建那一套并行）
+            // 插件体系那一套
             commands::plugin_search,
             commands::plugin_search_page,
             commands::plugin_run_item_action,
@@ -225,9 +214,6 @@ pub fn run() {
             // 隐藏 Dock 图标， App 级配置，即使是打开配置窗口也不会出现在 Dock 栏
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-
-            // 内建条目的运行期状态：命令以 `State<BuiltinStat>` 取用，必须在创建窗口前托管
-            builtin_plugins::load_stat(app.handle())?;
 
             // 插件注册表：组装（注册 launcher 并读它的 manifest）也在建窗口前完成，
             // 检索命令以 `State<PluginRegistry>` 取用

@@ -17,5 +17,3 @@ pub const EVENT_PLUGIN_SEARCH_REQUEST: &str = "plugin_search_request";
 pub const EVENT_PLUGIN_ACTION_REQUEST: &str = "plugin_action_request";
 
 pub const CONFIG_FILE_NAME: &str = "config.json";
-
-pub const SETTING_FILE_NAME: &str = "builtin_plugins.txt";

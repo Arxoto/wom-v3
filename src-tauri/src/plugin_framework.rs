@@ -3,7 +3,7 @@
 //! 框架**不知道任何内容类型**：条目的类型名（[`PluginItem::the_type`]）只是一个不透明字符串，
 //! 框架从不解释、匹配或列举它，只透传。框架只负责注册、检索、投影与把动作派回插件。
 //!
-//! 本模块不依赖 `launcher`、不依赖 `builtin_plugins`、**不直接依赖 Tauri**：
+//! 本模块不依赖 `launcher`、**不直接依赖 Tauri**：
 //! 插件要用的宿主能力一律走 [`PluginContext`]。
 //!
 //! 公开面只有两处（见 `.scratch/plugin-system/spec.md` §1.8）：
@@ -95,8 +95,8 @@ pub struct ItemHandle {
 /// 句柄不在数据里，由框架的条目下标给出，插件不做二次存储（Q6/Q30）。
 /// 不留插件私有数据位（Q10）。
 ///
-/// 以 `the_type` 为 serde 内部 tag、字段与 tag 平铺，下发形状与现有
-/// `builtin_plugins::common::Item` 完全一致，前端手写的镜像类型不需要改动（Q34）。
+/// 以 `the_type` 为 serde 内部 tag、字段与 tag 平铺，前端手写的镜像类型（`src/core.tsx`）
+/// 与它对应（Q34）。
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "the_type")]
 pub struct PluginItem {
@@ -165,7 +165,7 @@ impl PluginAction {
 /// 一个动作跑完的结果
 ///
 /// [`Self::NoOp`] 与 [`Self::Failed`] 必须分开（Q13）：前者是"什么都没发生"，
-/// 调用方据此决定要不要隐藏窗口（复刻 `action.rs:219` 的行为）。这一轮不加错误文案字段。
+/// 调用方据此决定要不要隐藏窗口。这一轮不加错误文案字段。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActionOutcome {
     /// 真的执行了
@@ -237,7 +237,7 @@ impl std::error::Error for PluginError {}
 /// 能力一律以 `Result<(), String>` 报错，错误串是 ASCII 的诊断文本；插件负责记日志与折算成
 /// [`ActionOutcome`]，框架不替它解释。
 pub trait PluginContext: Send + Sync {
-    /// 应用数据目录，与现有内建设置文件同处（Q24）
+    /// 应用数据目录（Q24）
     fn app_data_dir(&self) -> Result<PathBuf, String>;
 
     /// 解析一个扫描根路径变量
@@ -327,12 +327,12 @@ pub trait Plugin: Send + Sync {
 
 // region: 检索
 
-/// 一页的条目数，与现有 `builtin_plugins::search::PAGE_SIZE` 一致
+/// 一页的条目数
 pub const PAGE_SIZE: usize = 100;
 
 /// 匹配模式，声明顺序即为优先级（越靠前优先级越高）
 ///
-/// 原样沿用现有四种模式：精确 > 前缀 > 包含 > 子序列（Q8）
+/// 四种匹配模式：精确 > 前缀 > 包含 > 子序列（Q8）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MatchMode {
     Eq,
@@ -369,7 +369,7 @@ fn is_sub_sequence(keyword: &str, k_input: &str) -> bool {
 
 /// 检索结果：只保存条目下标，渲染用的条目在翻页时再取
 ///
-/// 与现有 `ItemSearchResult` 同义（`search.rs:14`）：四种匹配模式按优先级分组，
+/// 四种匹配模式按优先级分组，
 /// 四个分割索引即分组边界，前端据它们给结果分区。
 #[derive(Debug, Default)]
 pub struct ItemSearchResult {
@@ -397,7 +397,7 @@ impl ItemSearchResult {
 
 /// 一页检索结果（前端）
 ///
-/// 形状与现有 `ItemSearchPage` 一致（`search.rs:39`），只是条目换成了 Plugin Item 的投影
+/// 条目是 Plugin Item 的投影
 #[derive(Debug, Serialize)]
 pub struct ItemSearchPage {
     pub token: u32,
@@ -488,7 +488,7 @@ struct PluginBlock {
 /// 注册表受保护的内容
 ///
 /// 插件块、下标反查、缓存结果总是一起用、一起换，所以合并到同一把 [`Mutex`]：
-/// 不需要维护锁顺序，也不存在死锁（与 `builtin_plugins::stat::BuiltinStat` 同理）。
+/// 不需要维护锁顺序，也不存在死锁。
 struct RegistryInner {
     /// 注册顺序即数组顺序
     plugin_list: Vec<PluginBlock>,
@@ -630,7 +630,7 @@ impl PluginRegistry {
     /// 按 [`ItemHandle`] 跑一个动作，返回它是否**真的执行了**
     ///
     /// 认不出的插件、落不到的行、没挂在条目类型上的动作，都当无操作并记 warn：
-    /// 不 panic、不做版本校验（复刻 `action.rs:195` 的语义）。
+    /// 不 panic、不做版本校验。
     ///
     /// 寻址用 handle 而不是下标（Q23）：主列表与 `Plugin Search Page` 两层列表因此
     /// 走的是同一条派发路，框架不必知道自己在哪一层。
@@ -730,7 +730,7 @@ fn init_plugin(inner: &mut RegistryInner, slot: usize, cx: &dyn PluginContext) {
         return;
     }
 
-    // priority 在**注册时**稳定排序一次（复刻 `load.rs:91`），检索时只做分组
+    // priority 在**注册时**稳定排序一次，检索时只做分组
     inner.plugin_list[slot]
         .items
         .sort_by_key(|item| item.priority);

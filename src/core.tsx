@@ -97,25 +97,6 @@ export interface EffectInfo {
     alpha: number,
 }
 
-/**
- * 扫描根路径变量（对应 Rust 侧 persistence::scan_base::ScanBase）
- *
- * 值就是设置文件里写的变量名，各平台落到哪个目录由 tauri 决定。
- * 手写的设置文件可以用这张表以外的变量，配置页的下拉只提供这些。
- */
-export type ScanBase =
-    | "$HOME" | "$DESKTOP" | "$DOWNLOAD" | "$DOCUMENT" | "$PICTURE" | "$AUDIO" | "$VIDEO"
-    | "$CONFIG" | "$DATA" | "$LOCALDATA" | "$RESOURCE"
-    | "$APPCONFIG" | "$APPDATA" | "$APPLOCALDATA";
-
-/**
- * 扫描根路径的下拉选项（对应 Rust 侧 ScanBaseOption）
- */
-export interface ScanBaseOption {
-    value: ScanBase,
-    label: string,
-}
-
 const invoke_backend = async (cmd: string, args?: Record<string, unknown>): Promise<unknown> => {
     const start = performance.now();
     void info(`invoke ${cmd} start`);
@@ -238,7 +219,7 @@ export const plugin_search = async (k: string) => {
     return (await invoke_backend('plugin_search', { k })) as PluginItemSearchPage;
 }
 
-/** 取插件检索结果的一页；`index` 与 `token` 的语义同内建那一页：令牌从后端拿，原样回传 */
+/** 取插件检索结果的一页；`index` 是页起始下标，`token` 从后端拿、原样回传 */
 export const plugin_search_page = async (index: number, token: number) => {
     return (await invoke_backend('plugin_search_page', { index, token })) as PluginItemSearchPage;
 }

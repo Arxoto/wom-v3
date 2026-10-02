@@ -9,3 +9,5 @@
 "旧行为有没有被破坏"。并行存在期间仓库里会有两套 Item 与两套检索，这是**有意**的，
 不是没清理干净——`plugin_impl_launcher` 因此连 `builtin_plugins` 的一个类型都不复用
 （包括那个六变体的 `ItemType`，哪怕 launcher 只需要其中四个）。
+
+> 后续：内建体系已整体删除，并行期结束，见 [ADR-0012](./0012-delete-builtin-plugins.md)。

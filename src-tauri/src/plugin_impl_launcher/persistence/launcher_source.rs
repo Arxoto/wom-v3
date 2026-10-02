@@ -25,9 +25,7 @@ use crate::plugin_impl_launcher::persistence::parse_scan::LauncherScanConfig;
 
 /// 行内的字段分隔符
 ///
-/// 与现有内建设置文件的分隔符**一字不差**，但在这里重新写一份而不是引用
-/// `builtin_plugins::parse_core` 的那个常量：新模块不许依赖旧体系（spec 第一节）。
-/// 文件语法是既有用户的资产，两边必须一直一致（Q27）。
+/// 字段分隔符是既有用户的资产，不改（Q27）。
 pub const SPLIT_LINE: &str = "<->";
 
 /// 未配置 priority 时的默认值
@@ -104,9 +102,7 @@ impl std::error::Error for LauncherParseError {}
 
 // region: 类型名
 //
-// 类型名与内建的一字不差（"sys" / "cmd" / "web" / "scan"），但**不复用**
-// `builtin_plugins::base::ItemType`（Q23）：复用等于把内建命名变成公共契约，
-// 也会让新模块反向依赖旧体系。launcher 只支持这四种。
+// 类型名："sys" / "cmd" / "web" / "scan"。launcher 只支持这四种。
 
 pub const ITEM_SYS: &str = "sys";
 pub const ITEM_CMD: &str = "cmd";
@@ -123,7 +119,7 @@ pub enum LauncherItemType {
 }
 
 impl LauncherItemType {
-    /// 类型的字符串形式，与内建类型同名
+    /// 类型的字符串形式
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Sys => ITEM_SYS,
@@ -159,7 +155,7 @@ impl FromStr for LauncherItemType {
 impl FromStr for LauncherItemSource {
     type Err = LauncherParseError;
 
-    /// 以行为单位解析：字段以 `<->` 分割，与现有 `parse_core` 同一套切法
+    /// 以行为单位解析：字段以 `<->` 分割
     fn from_str(line: &str) -> Result<Self, Self::Err> {
         if line.trim().is_empty() {
             return Err(LauncherParseError::EmptyLine);
@@ -227,7 +223,7 @@ impl Display for LauncherItemSource {
     /// 写回一行：字段顺序与字段数与 [`FromStr`] 对称
     ///
     /// 分隔符两侧各留一个空格（`sys <-> 1 <-> ...`）：解析时字段会 trim，
-    /// 所以两种写法都读得进来，但写出去的那一行要跟现有 manifest 长得一样。
+    /// 所以两种写法都读得进来，但写出去的那一行要跟既有 manifest 长得一样。
     ///
     /// 现在没有调用方（文件不落盘），但它是往返测试的前提，
     /// 也是将来配置页写回 manifest 必须有的东西。
@@ -322,7 +318,7 @@ fn parse_priority(raw: &str) -> Result<i32, LauncherParseError> {
 
 /// 解析逐层 priority：以 `,` 分割，空项沿用前一个下标的值，首个缺省为 [`DEFAULT_PRIORITY`]
 ///
-/// 照抄现状（`1,2,,5` 这类写法是既有数据的资产，Q27）
+/// `1,2,,5` 这类写法是既有数据的资产（Q27）
 pub fn parse_priority_chain(raw: &str) -> Result<Vec<i32>, LauncherParseError> {
     let mut chain: Vec<i32> = Vec::new();
 
@@ -344,7 +340,7 @@ pub fn parse_priority_chain(raw: &str) -> Result<Vec<i32>, LauncherParseError> {
 
 /// 字段数必须与类型要求的一致
 ///
-/// 多一个字段也算不符：`sys` 那第 5 个字段是 Q46 故意不认的（它曾经被内建实现当成 desc 收下），
+/// 多一个字段也算不符：`sys` 那第 5 个字段是 Q46 故意不认的（旧实现曾把它当成 desc），
 /// 悄悄忽略它就等于把两个字段数混成一个。
 fn check_value_count(
     values: &[String],

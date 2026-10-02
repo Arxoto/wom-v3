@@ -15,7 +15,7 @@
 //! 尝试了但失败是 [`ActionOutcome::Failed`]——两者分开，调用方才知道该不该隐藏窗口。
 //!
 //! `label_key` 的命名规范是**四段式**：`action.<插件>.<类型>.<动作>`（Q35），
-//! 于是现有键迁移为 `action.launcher.scan.open_path` 这类形状。框架不强制这个规范，
+//! 键形如 `action.launcher.scan.open_path`。框架不强制这个规范，
 //! 只当不透明字符串透传——规范是 launcher 自己遵守的约定。
 
 use std::path::Path;

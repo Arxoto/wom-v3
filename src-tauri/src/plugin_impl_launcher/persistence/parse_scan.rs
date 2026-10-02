@@ -1,7 +1,6 @@
 //! `scan` 类型的扫描配置
 //!
-//! 它就是 manifest 里 `desc` 那一行 JSON 的形状（照抄现状，这一轮不改文件语法）：
-//! 字段、默认值与现有 `parse_impl_scan.rs` 的 `ScanConfigJson` 一致。
+//! 它就是 manifest 里 `desc` 那一行 JSON 的形状，这一轮不改文件语法。
 
 use std::path::Path;
 

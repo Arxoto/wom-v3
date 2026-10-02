@@ -16,7 +16,7 @@ pub fn manifest_path(app_data_dir: &Path) -> PathBuf {
     app_data_dir.join(LAUNCHER_MANIFEST_FILE_NAME)
 }
 
-/// manifest 不存在时创建父目录与一个空文件（Q45，复刻 `load.rs:51`）
+/// manifest 不存在时创建父目录与一个空文件（Q45）
 ///
 /// "不存在"与"内容为空"不合并成一种状态：前者要落盘一个空文件，后者不该再写一次。
 /// 两者对加载的结果相同，但前者让配置页有一个可写的落点。
