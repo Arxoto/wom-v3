@@ -3,6 +3,7 @@
 /**
  * @typedef {object} PluginHostApi
  * @property {(spec: unknown) => void} register
+ * @property {(spec: unknown) => void} open_window
  * @property {(text: unknown) => void} log
  * @property {(text: unknown) => void} fail
  */
@@ -52,6 +53,17 @@ const host_api = {
 
         registered = true;
         post({ kind: "register", spec: data });
+    },
+    open_window: spec => {
+        const source = typeof spec === "object" && spec !== null ? /** @type {Record<string, unknown>} */ (spec) : {};
+
+        post({
+            kind: "open_window",
+            path: typeof source.path === "string" ? source.path : "",
+            title: typeof source.title === "string" ? source.title : "",
+            width: typeof source.width === "number" ? source.width : 0,
+            height: typeof source.height === "number" ? source.height : 0,
+        });
     },
     log: text => post({ kind: "log", text: String(text) }),
     fail: text => post({ kind: "fail", text: String(text) }),

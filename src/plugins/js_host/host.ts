@@ -2,7 +2,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { info, warn } from "@tauri-apps/plugin-log";
 
-import { plugin_report_search_results, type PluginSearchRow } from "../../core";
+import { plugin_open_html_window, plugin_report_search_results, type PluginSearchRow } from "../../core";
 import { registry, type PluginView } from "../registry.tsx";
 
 const EVENT_SEARCH_REQUEST = "plugin_search_request";
@@ -125,6 +125,9 @@ class PluginRuntime {
                     void warn(`[plugin] invalid register spec, dropped: ${this.plugin_id}`);
                 }
                 return;
+            case "open_window":
+                void on_open_window(this.plugin_id, message);
+                return;
             case "log":
                 void info(`[plugin] ${message.text}`);
                 return;
@@ -153,6 +156,14 @@ class PluginRuntime {
 }
 
 const loaded = new Map<string, Promise<PluginRuntime | null>>();
+
+const on_open_window = async (plugin_id: string, message: Extract<PluginWire.WorkerToHost, { kind: "open_window" }>) => {
+    try {
+        await plugin_open_html_window(plugin_id, message.path, message.title, message.width, message.height);
+    } catch (err) {
+        void warn(`[plugin] open window failed: ${plugin_id} ${String(err)}`);
+    }
+};
 
 const is_registration = (spec: unknown): spec is PluginView => {
     if (typeof spec !== "object" || spec === null) return false;

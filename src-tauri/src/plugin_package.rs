@@ -11,7 +11,7 @@ pub mod manifest;
 
 use std::{
     collections::HashSet,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use tauri_plugin_log::log::warn;
@@ -43,6 +43,29 @@ impl PluginPackage {
 
         Some(self.dir.join(&self.manifest.icon))
     }
+}
+
+/// 把一个**包内相对路径**解析成绝对路径
+///
+/// 路径来自插件的代码，是**不可信输入**：只认普通路径段与 `.`，绝对路径、`..` 与
+/// 驱动器前缀一律拒绝，于是插件只能碰到自己包目录里的文件。
+pub fn resolve_in_package(dir: &Path, relative: &str) -> Result<PathBuf, String> {
+    let relative_path = Path::new(relative);
+    if relative_path.as_os_str().is_empty() {
+        return Err("empty package-relative path".to_string());
+    }
+
+    let mut path = dir.to_path_buf();
+    for component in relative_path.components() {
+        match component {
+            Component::Normal(part) => path.push(part),
+            // `./a.html` 是正常写法，值本身没有意义
+            Component::CurDir => {}
+            _ => return Err(format!("not a package-relative path: {relative}")),
+        }
+    }
+
+    Ok(path)
 }
 
 /// 读一个包目录

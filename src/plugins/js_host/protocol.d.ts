@@ -14,6 +14,7 @@ declare namespace PluginWire {
         | { kind: "register", spec: unknown }
         | { kind: "loaded", request_id: number, ok: boolean, reason: string }
         | { kind: "rows", request_id: number, rows: Row[] }
+        | { kind: "open_window", path: string, title: string, width: number, height: number }
         | { kind: "log", text: string }
         | { kind: "fail", text: string };
 }

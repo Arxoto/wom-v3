@@ -209,6 +209,7 @@ pub fn run() {
             commands::plugin::plugin_reload_packages,
             commands::plugin::plugin_open_plugin_search,
             commands::plugin::plugin_report_search_results,
+            commands::plugin::plugin_open_html_window,
         ])
         .setup(|app| {
             // 隐藏 Dock 图标， App 级配置，即使是打开配置窗口也不会出现在 Dock 栏

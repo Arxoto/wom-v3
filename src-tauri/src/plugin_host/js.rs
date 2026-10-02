@@ -69,6 +69,8 @@ pub struct JsHost {
 struct JsHostInner {
     /// 已发现的包，按 `id` 字典序（扫描给的就是这个顺序）
     packages: Vec<PackageInfo>,
+    /// 包 → 包目录：插件要按"包内相对路径"寻址时从这里出发
+    dirs: HashMap<String, PathBuf>,
     /// 包 → 结果行缓存：与代理共用同一份，结果行的动作派发按它寻址
     rows: HashMap<String, RowCache>,
     /// 在飞的搜索：插件 id → 回程通道。同一个插件同时只允许一次搜索
@@ -80,6 +82,7 @@ impl JsHost {
         Self {
             inner: Mutex::new(JsHostInner {
                 packages: Vec::new(),
+                dirs: HashMap::new(),
                 rows: HashMap::new(),
                 pending: HashMap::new(),
             }),
@@ -87,10 +90,16 @@ impl JsHost {
     }
 
     /// 换掉整份扫描结果；在飞的搜索不动（它不属于某一次扫描）
-    fn set_packages(&self, packages: Vec<PackageInfo>, rows: HashMap<String, RowCache>) {
+    fn set_packages(
+        &self,
+        packages: Vec<PackageInfo>,
+        dirs: HashMap<String, PathBuf>,
+        rows: HashMap<String, RowCache>,
+    ) {
         let mut inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
 
         inner.packages = packages;
+        inner.dirs = dirs;
         inner.rows = rows;
     }
 
@@ -113,6 +122,34 @@ impl JsHost {
             .find(|package| package.id == plugin_id)
             .map(|package| package.entry.clone())
             .ok_or_else(|| format!("plugin package not found: {plugin_id}"))
+    }
+
+    /// 一个包的名字：窗口没给标题时的缺省值
+    pub fn name_of(&self, plugin_id: &str) -> String {
+        self.inner
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .packages
+            .iter()
+            .find(|package| package.id == plugin_id)
+            .map(|package| package.name.clone())
+            .unwrap_or_else(|| plugin_id.to_string())
+    }
+
+    /// 把一个包内相对路径解析成绝对路径（见 [`crate::plugin_package::resolve_in_package`]）
+    ///
+    /// 相对路径是插件给的不可信输入，所以解析只能落在包目录里；包不存在直接报错。
+    pub fn resolve_file(&self, plugin_id: &str, relative: &str) -> Result<PathBuf, String> {
+        let dir = self
+            .inner
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .dirs
+            .get(plugin_id)
+            .cloned()
+            .ok_or_else(|| format!("plugin package not found: {plugin_id}"))?;
+
+        plugin_package::resolve_in_package(&dir, relative)
     }
 
     /// 登记一次搜索并拿到回程的接收端
@@ -193,10 +230,13 @@ pub(super) fn sync_js_packages(app: &AppHandle, registry: &PluginRegistry) -> Ve
     };
 
     let mut infos: Vec<PackageInfo> = Vec::new();
+    let mut dirs_by_id: HashMap<String, PathBuf> = HashMap::new();
     let mut rows_by_id: HashMap<String, RowCache> = HashMap::new();
 
     for package in plugin_package::scan(&folder) {
         let info = package_info(&package);
+
+        dirs_by_id.insert(info.id.clone(), package.dir.clone());
 
         // 结果行缓存由宿主建、与代理共用：宿主在回程里写入，代理在派发里读
         let rows: RowCache = Arc::new(Mutex::new(Vec::new()));
@@ -208,7 +248,7 @@ pub(super) fn sync_js_packages(app: &AppHandle, registry: &PluginRegistry) -> Ve
     }
 
     app.state::<JsHost>()
-        .set_packages(infos.clone(), rows_by_id);
+        .set_packages(infos.clone(), dirs_by_id, rows_by_id);
 
     infos
 }

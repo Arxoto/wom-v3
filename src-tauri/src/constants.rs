@@ -1,6 +1,9 @@
 pub const LABEL_CONFIG: &str = "config";
 pub const LABEL_MAIN: &str = "main";
 
+/// JS 插件打开的 HTML 窗口的标签前缀，后面接 `PluginId`
+pub const PLUGIN_WINDOW_LABEL_PREFIX: &str = "plugin-";
+
 /// 主窗口被显示时发给前端的事件
 pub const EVENT_MAIN_SHOWN: &str = "main_shown";
 

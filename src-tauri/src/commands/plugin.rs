@@ -98,3 +98,20 @@ pub fn plugin_report_search_results(
 ) -> Result<(), String> {
     crate::plugin_host::report_search_results(&app, &plugin_id, items)
 }
+
+/// 打开（或聚焦）插件自己的一个 HTML 窗口
+///
+/// `path` 是**包内相对路径**，插件只能寻址自己包目录里的文件；窗口这一轮用系统原生边框
+/// （实现见 [`crate::plugin_host::open_html_window`]）。同一个包只有一个窗口：再打开一次是
+/// 换页 + 聚焦。
+#[tauri::command]
+pub fn plugin_open_html_window(
+    app: tauri::AppHandle,
+    plugin_id: String,
+    path: String,
+    title: String,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    crate::plugin_host::open_html_window(&app, &plugin_id, &path, &title, width, height)
+}

@@ -12,14 +12,17 @@
 //!
 //! - 本文件：注册表组装与重载；
 //! - [`context`]：`PluginContext` 的 Tauri 实现；
-//! - [`js`]：JS 插件的宿主侧——扫描同步、运行期账本与搜索回程。
+//! - [`js`]：JS 插件的宿主侧——扫描同步、运行期账本与搜索回程；
+//! - [`window`]：插件自己那个 HTML 窗口。
 
 mod context;
 mod js;
+mod window;
 
 pub use js::{
     list_packages, open_plugin_search, reload_packages, report_search_results, JsHost, PackageInfo,
 };
+pub use window::open_html_window;
 
 use std::sync::Arc;
 

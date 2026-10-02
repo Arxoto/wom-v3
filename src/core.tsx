@@ -258,6 +258,16 @@ export const plugin_list_packages = async () => {
     return (await invoke_backend('plugin_list_packages')) as PluginPackageInfo[];
 }
 
+/**
+ * 打开（或聚焦）插件自己的一个 HTML 窗口
+ *
+ * `path` 是**包内相对路径**，插件只能寻址自己包目录里的文件；`title` 为空时用清单里的包名，
+ * `width` / `height` 非正数时用后端缺省值。同一个包只有一个窗口：再打开一次是换页 + 聚焦。
+ */
+export const plugin_open_html_window = async (plugin_id: string, path: string, title: string, width: number, height: number) => {
+    await invoke_backend('plugin_open_html_window', { pluginId: plugin_id, path, title, width, height });
+}
+
 /** 一个已发现的 Plugin Package（对应 Rust 侧 plugin_host::PackageInfo） */
 export interface PluginPackageInfo {
     id: string,
