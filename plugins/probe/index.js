@@ -5,7 +5,7 @@
 //   2. 自己的搜索函数：按关键字返回几行，其中一行**故意没有动作**；
 //   3. 结果行动作的处理函数：留一行日志，证明动作真的跑到了插件里。
 //
-// 装载由宿主的 Worker 用 importScripts 完成（见 src/plugins/plugin_worker.ts），插件跑在 Worker 里，
+// 装载由宿主的 Worker 用 importScripts 完成，插件跑在 Worker 里，
 // 所以这里直接调宿主挂在 Worker 全局上的 self.__WOM_PLUGIN__。
 // 宿主接口不在就抛错——那也是要验的一种坏法（脚本自己抛错）。
 

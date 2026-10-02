@@ -168,7 +168,7 @@ export const useMainInteraction = () => {
      *
      * 关键字取主输入里命中的那一段（第一个空格之前）：框架看不出哪部分是插件的、
      * 哪部分是参数，所以只把命中的关键字给它（spec §7 开放问题 2）。
-     * 装载与搜索都在 Rust → webview 的那一次往返里完成（见 `plugins/host.ts`）。
+     * 装载与搜索都在 Rust → webview 的那一次往返里完成。
      */
     const open_plugin_search = async () => {
         const item = current_item(active_items(state), active_selection(state));

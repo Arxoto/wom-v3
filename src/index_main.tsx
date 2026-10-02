@@ -17,7 +17,6 @@ register_launcher(registry);
 register_js_host(registry);
 
 // JS 插件宿主：从这里开始应 Rust 的两次请求。插件代码跑在各自的 Worker 里，不注入宿主文档
-// （见 src/plugins/host.ts / plugin_worker.ts）
 install_plugin_host();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

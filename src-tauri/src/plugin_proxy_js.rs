@@ -4,7 +4,7 @@
 //!
 //! - **Rust 这一半**（本模块）：占住框架里的一个插件块。`id` / `actions` / `init` 全部只读
 //!   清单，所以**条目能不能被搜到、动作表长什么样，都不依赖插件的 JS 能否成功执行**；
-//! - **webview 那一半**（`src/plugins/host.ts` + `src/plugins/plugin_worker.ts`）：为这个包起一个
+//! - **webview 那一半**：为这个包起一个
 //!   Worker，在里面装载 `index.js`、交出类型与动作的图标和文案、跑插件自己的搜索与动作。
 //!
 //! 两半共用同一个 `PluginId`——清单的 `id`。没有这个代理，插件注册的条目一旦被触发，
@@ -40,8 +40,7 @@ use crate::{
 /// 插件条目（Plugin Item）的类型名
 ///
 /// 它是**宿主自己定的**一个类型名，不是清单里的：清单的 `types` 是结果行的类型。
-/// 框架对类型名永远不解释，所以宿主当然可以有一条自己的类型——前端注册表里
-/// （`src/plugins/js_host.tsx`）给它配图标与文案。
+/// 框架对类型名永远不解释，所以宿主当然可以有一条自己的类型——前端注册表里给它配图标与文案。
 pub const JS_PLUGIN_ITEM_TYPE: &str = "js_plugin";
 
 /// 插件条目上唯一的动作：打开这个包的 `Plugin Search Page`
@@ -107,7 +106,7 @@ pub struct ActionRequest {
 /// 结果行的动作文案键：四段式 `action.<插件 id>.<行类型>.<动作 id>`（spec §1.3 末）
 ///
 /// 清单能给出"有哪些类型、哪些动作"，但给不出中文——中文只住在前端（AGENTS.md）。
-/// 前端按同一套键从插件**装载时**交上来的文案表里取中文（见 `src/plugins/host.ts`）。
+/// 前端按同一套键从插件**装载时**交上来的文案表里取中文。
 pub fn result_label_key(plugin_id: &str, the_type: &str, action_id: &str) -> String {
     format!("action.{plugin_id}.{the_type}.{action_id}")
 }

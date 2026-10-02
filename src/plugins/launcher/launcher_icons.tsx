@@ -1,19 +1,5 @@
 import type { ReactNode } from "react";
 
-/**
- * launcher 插件的条目图标
- *
- * 每个类型配一张纯线条图标，形状要一眼能认出类型。整张图标只用描边，线宽统一 1.2。
- * 图标是行内的一部分，所以尺寸与颜色都由 Item.css 决定（跟着 --item-h 缩放、currentColor 跟随整行状态）。
- *
- * 图标由 launcher 自己提供、注册进前端注册表（见 `launcher.tsx`）：类型名是插件定义的，
- * 「这个类型长什么样」自然也是插件的事。
- *
- * snip / note 两张图标在接入这一轮**删掉了**：那两个类型还没有插件，留着就是没有调用方的
- * 死图标；等它们各自成为插件（spec §2.1 理由 1）时，从 git 历史里取回来即可。
- */
-
-/* 系统命令：齿轮，外圈八个齿、内圈一个孔 */
 export const IconSys = (): ReactNode => {
     return (
         <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
@@ -25,7 +11,6 @@ export const IconSys = (): ReactNode => {
     );
 }
 
-/* 命令：终端窗口，框内是提示符 >_ */
 export const IconCmd = (): ReactNode => {
     return (
         <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
@@ -37,7 +22,6 @@ export const IconCmd = (): ReactNode => {
     );
 }
 
-/* 网页：地球，一条纬线加两条经线（椭圆的两侧就是两条经线） */
 export const IconWeb = (): ReactNode => {
     return (
         <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
@@ -49,7 +33,6 @@ export const IconWeb = (): ReactNode => {
     );
 }
 
-/* 扫描：一列结果（三条线）后面跟一把放大镜 */
 export const IconScan = (): ReactNode => {
     return (
         <svg className="item-icon" viewBox="0 0 16 16" aria-hidden="true"
