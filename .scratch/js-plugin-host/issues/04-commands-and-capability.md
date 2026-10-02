@@ -45,3 +45,9 @@ Tauri v2 的 capability 放行的是**插件命令**（`core:*` / `opener:*` / `
 应用自己的命令（`search`、`run_item_action`、`plugin_search` …）根本不走 ACL。
 现有这份文件里也没有任何一条应用命令，而它们一直可用，所以新命令同样不需要条目。
 加一条不存在的权限标识反而会让构建失败。
+
+## Comments
+
+后续重构（插件包重扫）：`plugin_list_packages` 与 `plugin_reload_packages` 两条命令已删除
+（前者没有前端调用方，后者重扫只由托盘项直接调 `plugin_host::reload_packages`）；
+`PackageInfo` 这个下发 DTO 随之消失。spec §五 的命令表已同步。

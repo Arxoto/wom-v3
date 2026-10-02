@@ -162,8 +162,8 @@ uTools 的 `plugin.json` 里的 `features[].cmds` 是同一个形状。
 ### 2.5 重扫
 
 宿主提供一个"重扫 `Plugin Folder`"的动作：重新列目录、重读清单、对已存在的
-`PluginId` 整块替换条目（`reload_plugin` 的现成语义），对新出现的包注册，对消失的包**保留
-还是移除**——**这一轮不做移除**（见 §7 开放问题）。
+`PluginId` 整块替换条目（`reload_plugin` 的现成语义），对新出现的包注册，对消失的包
+连同它的条目一起移除（`remove_plugin`）。
 
 ---
 
@@ -252,7 +252,7 @@ Rust 走既有的投影：按结果行类型名查动作表（清单给的）→
 
 - `Item Handle` 已经是这个仓库为"不依赖条目在整集里的位置就能寻址"而造的身份
   （`CONTEXT.md`：*so an item can be acted on without knowing its position in the loaded set*）；
-- 结果页的每一行随之下发它自己的 handle（`plugin_id` + 插件内 id）；
+- 结果页的每一行随之下发它自己的 handle（`plugin_id` + 结果行下标）；
 - 动作派发改用 handle，于是**两层列表对寻址完全透明**——管你在第几层，handle 都能找到行。
 
 **这要求把 `Item Handle` 下发到前端**（现在它是框架内部类型，不下发）。
@@ -320,10 +320,11 @@ Rust 走既有的投影：按结果行类型名查动作表（清单给的）→
 
 | 命令 | 作用 |
 | --- | --- |
-| `plugin_list_packages` | 列出已发现的 `Plugin Package`（`id` / `name` / `entry`），供验证与重扫后核对 |
 | `plugin_open_plugin_search` | 触发一次 `Plugin Search`，返回 `Plugin Search Page` 的数据 |
 | `plugin_report_search_results` | 插件执行完搜索后把结果行回传（§3.3 的回程） |
-| `plugin_reload_packages` | 重扫 `Plugin Folder`（§2.5，挂在临时托盘项上） |
+
+> 后续修订：核对用的 `plugin_list_packages` 与 `plugin_reload_packages` 两条命令已删除
+> （没有前端调用方）；重扫由托盘项直接调 `plugin_host::reload_packages`。
 
 **`capabilities/default.json` 要动**：现有权限只覆盖窗口 `main`（`core:default`、
 `core:window:allow-start-dragging`、`opener:default`、`log:default`、`notification:default`）。
@@ -355,8 +356,8 @@ Rust 走既有的投影：按结果行类型名查动作表（清单给的）→
    明确不带原因（Q6）。等界面有了位置再谈。
 2. **`Plugin Search` 要不要接受关键字以外的输入**（比如用户在主搜索框里输入的后半段）。
    现在只能传"命中的关键字"，因为框架看不出哪部分是插件的、哪部分是参数。
-3. **重扫时消失的包怎么处理**：保留它的条目（本轮的做法）还是移除？移除要处理
-   "用户正停在那一行上"。
+3. ~~**重扫时消失的包怎么处理**：保留它的条目（本轮的做法）还是移除？~~ **已定案：移除**
+   （`remove_plugin`）；"用户正停在那一行上"由陈旧句柄当无操作处理。
 4. **结果行的类型名是否要求跨插件唯一**：清单里 `types` 是插件自报的，两个插件报同一个
    类型名会共用同一份动作表。现在没有校验。
 5. **结果页的选中位置是否保留**（Q24 选了不保留）——若以后发现常驻有用再议。

@@ -59,7 +59,7 @@ impl Plugin for LauncherPlugin {
     ) -> Result<(), PluginError> {
         let app_data_dir = cx
             .app_data_dir()
-            .map_err(|err| PluginError::Init(format!("resolve app data dir failed: {err}")))?;
+            .map_err(|err| PluginError::new(format!("resolve app data dir failed: {err}")))?;
 
         cx.log_info(&format!(
             "{} load manifest start",
@@ -74,7 +74,7 @@ impl Plugin for LauncherPlugin {
             items.len()
         ));
 
-        registrar.register(&self.id(), items);
+        registrar.register(items);
 
         Ok(())
     }

@@ -31,9 +31,11 @@ Rust 后端 `src-tauri/src/`：
 | `plugin_framework/` | 插件框架：插件与条目注册、检索、投影、动作派发（见 `docs/adr/0008`） |
 | `plugin_impl_launcher/` | launcher 插件：`persistence` / `action` / `init` |
 | `plugin_package/` | `Plugin Package` 格式：`manifest`（`manifest.json` 的 serde 解析与校验，见 `docs/adr/0014`）与 `Plugin Folder` 扫描（见 `docs/adr/0011`） |
+| `plugin_proxy_package.rs` | 两种包代理共用的公共一半：目录、清单缓存与"清单 → 一条条目"的换算 |
 | `plugin_proxy_js.rs` | JS 插件在框架里的 Rust 侧代理：与插件共用 `PluginId` 的 `Plugin` 替身（见 `docs/adr/0011`） |
 | `plugin_proxy_html.rs` | 前端插件在框架里的 Rust 侧代理：清单 `type` 是 `html` 的包，条目的动作直接开页面（见 `docs/adr/0013`） |
-| `plugin_host.rs` | 插件框架的宿主侧：注册表组装与重载 / `context`（`PluginContext` 的 Tauri 实现）/ `js`（扫描同步、运行期账本与搜索回程，按清单的 `type` 分流两种包） |
+| `plugin_window.rs` | 插件包的一个页面 → 一个窗口：asset URL 与"一个包一个窗口"的复用点（见 `docs/adr/0011` / `0013`） |
+| `plugin_host.rs` | 插件框架的宿主侧：注册表组装与重载 / `context`（`PluginContext` 的 Tauri 实现）/ `packages`（扫描同步与运行期账本，按清单的 `type` 分流两种包）/ `search`（一次 `Plugin Search` 的回程）/ `window`（命令 `plugin_open_html_window` 的实现） |
 
 前端 `src/`：`core.tsx` 是两个入口共用的部分（类型镜像、invoke 封装、css 变量），`index_main.tsx` / `index_config.tsx` 是入口，`AppMain.tsx` / `AppConfig.tsx` 是根组件，`main/` 装主窗口的布局与各区块，`plugins/` 装前端插件注册表。
 

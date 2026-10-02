@@ -16,7 +16,7 @@ use crate::{
 pub async fn plugin_search(
     plugin_registry: State<'_, PluginRegistry>,
     k: &str,
-) -> Result<plugin_framework::ItemSearchPage, ()> {
+) -> Result<plugin_framework::ItemSearchPage, String> {
     Ok(plugin_registry.search(k))
 }
 
@@ -56,22 +56,6 @@ pub fn plugin_run_item_action(
     }
 
     Ok(())
-}
-
-/// 列出已发现的 `Plugin Package`（实现见 [`crate::plugin_host::list_packages`]）
-///
-/// `id` / `name` / 入口绝对路径与"入口在不在"，用来核对扫描与重扫的结果。
-#[tauri::command]
-pub fn plugin_list_packages(app: tauri::AppHandle) -> Vec<crate::plugin_host::PackageInfo> {
-    crate::plugin_host::list_packages(&app)
-}
-
-/// 重扫 `Plugin Folder`（实现见 [`crate::plugin_host::reload_packages`]）
-///
-/// 打包之后往安装目录里加一个包，走这一条就能被扫到，不必重新编译（Q3）。
-#[tauri::command]
-pub fn plugin_reload_packages(app: tauri::AppHandle) -> Vec<crate::plugin_host::PackageInfo> {
-    crate::plugin_host::reload_packages(&app)
 }
 
 /// 触发一次 `Plugin Search` 并拿到 `Plugin Search Page` 的数据

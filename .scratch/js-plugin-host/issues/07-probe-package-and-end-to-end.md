@@ -143,3 +143,8 @@ invoke plugin_open_plugin_search start
 Selection 是对的，但可见窗口回到了第一行，不是进入前那一屏。原因是 `Body` 的滚动偏移按"层"记账
 （`src/main/Body.tsx`），换层时被清零，返回主列表时没有把离开前的偏移还回来。已改成两层各存一份
 滚动位置，换层不再互相覆盖。
+
+## Comments
+
+后续重构（插件包重扫）：`plugin_list_packages` 命令已删除，验证入口只剩托盘项与日志；
+端到端点检结论不受影响。

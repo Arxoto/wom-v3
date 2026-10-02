@@ -23,5 +23,5 @@
 mod protocol;
 mod proxy;
 
-pub use protocol::{RowCache, SearchRequest, SearchRow, RESULT_LOCAL_ID_BASE};
+pub use protocol::{RowCache, SearchRequest, SearchRow};
 pub use proxy::JsPlugin;

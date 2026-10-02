@@ -8,7 +8,7 @@ use tauri_plugin_log::log::{info, warn};
 
 use super::{
     error::PluginError,
-    identity::{ActionId, ItemHandle, PluginId},
+    identity::{ActionId, ItemAddress, ItemHandle, PluginId},
     item::{ActionOutcome, PluginAction, PluginItem},
     plugin::{ItemRegistrar, Plugin, PluginContext},
     search::{ItemSearchPage, ItemSearchResult, MatchMode, PluginItemDisplay, PAGE_SIZE},
@@ -50,6 +50,8 @@ pub fn actions_of<'a>(
 struct PluginBlock {
     plugin: Arc<dyn Plugin>,
     items: Vec<PluginItem>,
+    /// 这个插件当前的动作表，`init` / 换实现后刷新一次；派发与投影只读它
+    actions: Vec<PluginAction>,
 }
 
 /// 注册表受保护的内容
@@ -64,6 +66,8 @@ struct RegistryInner {
     plugin_index: HashMap<PluginId, usize>,
     /// 缓存的检索结果
     item_search_result: ItemSearchResult,
+    /// 按注册顺序拼出的合并动作表，只在插件块变化时重建一次
+    action_table: ActionTableView,
 }
 
 /// 插件注册表
@@ -88,7 +92,7 @@ impl PluginRegistry {
     /// 迟早都要用它落文件，早失败好过一个只有空条目的启动器。
     pub fn new(cx: Arc<dyn PluginContext>) -> Result<Self, PluginError> {
         cx.app_data_dir()
-            .map_err(|err| PluginError::Init(format!("resolve app data dir failed: {err}")))?;
+            .map_err(|err| PluginError::new(format!("resolve app data dir failed: {err}")))?;
 
         info!("plugin registry created");
 
@@ -98,33 +102,19 @@ impl PluginRegistry {
                 plugin_list: Vec::new(),
                 plugin_index: HashMap::new(),
                 item_search_result: ItemSearchResult::default(),
+                action_table: ActionTableView::new(),
             }),
         })
     }
 
     /// 注册一个插件并立刻 `init` 它
     ///
-    /// 插件级隔离（Q14）：`init` 失败只记 warn 并**跳过该插件**（它这一轮推的条目一并回滚），
+    /// 插件级隔离（Q14）：`init` 失败只记 warn，它这一轮推的条目整块丢弃（一条都不进），
     /// 其余插件照常注册、应用启动不受影响，一个坏插件不该让启动器起不来。
     ///
     /// 注册顺序即数组顺序：后注册的插件排在后面，这也是一条排序维度（Q26）。
     pub fn register_plugin(&mut self, plugin: Box<dyn Plugin>) {
-        let plugin: Arc<dyn Plugin> = Arc::from(plugin);
-        let plugin_id = plugin.id();
-
-        let mut inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
-
-        // 装配期的重复注册是错的：同一个 id 出现两次，多半是代码写错了
-        if inner.plugin_index.contains_key(&plugin_id) {
-            warn!("plugin already registered, skip: {plugin_id}");
-            return;
-        }
-
-        let slot = place_plugin(&mut inner, plugin);
-
-        init_plugin(&mut inner, slot, self.cx.as_ref());
-
-        info!("plugin registered: {plugin_id}");
+        self.register(plugin, false);
     }
 
     /// 注册一个插件；`id` 已经存在时**换掉实现**并重新 `init`（运行期重扫走这条）
@@ -134,15 +124,33 @@ impl PluginRegistry {
     ///
     /// 取 `&self`：注册表 `manage` 进 Tauri 之后拿到的是 `State`，重扫没有 `&mut` 可用。
     pub fn register_or_reload_plugin(&self, plugin: Box<dyn Plugin>) {
+        self.register(plugin, true);
+    }
+
+    /// 注册一个插件的共同实现：`replace` 决定 `id` 已存在时换掉还是拒绝
+    fn register(&self, plugin: Box<dyn Plugin>, replace: bool) {
         let plugin: Arc<dyn Plugin> = Arc::from(plugin);
         let plugin_id = plugin.id();
 
         let mut inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+
+        // 装配期的重复注册是错的：同一个 id 出现两次，多半是代码写错了
+        if !replace && inner.plugin_index.contains_key(&plugin_id) {
+            warn!("plugin already registered, skip: {plugin_id}");
+            return;
+        }
+
         let replaced = inner.plugin_index.contains_key(&plugin_id);
 
-        let slot = place_plugin(&mut inner, plugin);
+        let (slot, previous) = place_plugin(&mut inner, plugin);
 
-        init_plugin(&mut inner, slot, self.cx.as_ref());
+        // 换实现后 init 失败就退回旧实现：条目、动作表与插件对象一起回滚
+        if !init_plugin(&mut inner, slot, self.cx.as_ref()) {
+            if let Some(previous) = previous {
+                inner.plugin_list[slot].plugin = previous;
+            }
+        }
+        refresh_actions(&mut inner);
 
         if replaced {
             info!("plugin replaced: {plugin_id}");
@@ -161,6 +169,38 @@ impl PluginRegistry {
         };
 
         init_plugin(&mut inner, slot, self.cx.as_ref());
+        refresh_actions(&mut inner);
+    }
+
+    /// 摘掉一个插件：它的条目、动作表一起消失，返回它原来在不在
+    ///
+    /// 包从 `Plugin Folder` 里消失时走这一条。块被移除之后，其余块的下标全部前移，
+    /// 所以反查表重建、缓存的检索结果整体作废（里面的下标已经指不准了）。
+    pub fn remove_plugin(&self, plugin_id: &PluginId) -> bool {
+        let mut inner = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+
+        let Some(slot) = inner.plugin_index.remove(plugin_id) else {
+            return false;
+        };
+
+        inner.plugin_list.remove(slot);
+
+        inner.plugin_index = inner
+            .plugin_list
+            .iter()
+            .enumerate()
+            .map(|(index, block)| (block.plugin.id(), index))
+            .collect();
+
+        // 令牌沿用：前端手里那份旧结果仍然是"过期的那一份"
+        let token = inner.item_search_result.token;
+        inner.item_search_result = ItemSearchResult {
+            token,
+            ..ItemSearchResult::default()
+        };
+        refresh_actions(&mut inner);
+
+        true
     }
 
     /// 用关键字检索：重新生成一份结果并给出第一页
@@ -210,16 +250,21 @@ impl PluginRegistry {
         };
 
         // 自己手上没有就问插件：`Plugin Search Result` 不在注册表里（Q10）
+        let registered = match &handle.address {
+            ItemAddress::Registered { index } => block.items.get(*index),
+            ItemAddress::Row { .. } => None,
+        };
+
         let resolved;
-        let item = match block.items.get(handle.local_id) {
+        let item = match registered {
             Some(item) => item,
             None => {
                 resolved = block.plugin.resolve_item(handle);
 
                 let Some(item) = resolved.as_ref() else {
                     warn!(
-                        "run action on a missing item: plugin {}, local {}",
-                        handle.plugin_id, handle.local_id
+                        "run action on a missing item: plugin {}, address {:?}",
+                        handle.plugin_id, handle.address
                     );
                     return ActionOutcome::NoOp;
                 };
@@ -228,7 +273,7 @@ impl PluginRegistry {
             }
         };
 
-        if !has_action(&block.plugin.actions(), &item.the_type, action_id) {
+        if !has_action(&block.actions, &item.the_type, action_id) {
             warn!(
                 "action {} is not registered for type {} by plugin {}",
                 action_id, item.the_type, handle.plugin_id
@@ -246,60 +291,71 @@ impl PluginRegistry {
 ///
 /// 注册与替换共用这一段；调用方负责先决定"重复注册该怎么办"。
 /// 先落位、再 `init`：`init` 里推的条目要按注册顺序落进这个块。
-fn place_plugin(inner: &mut RegistryInner, plugin: Arc<dyn Plugin>) -> usize {
+fn place_plugin(
+    inner: &mut RegistryInner,
+    plugin: Arc<dyn Plugin>,
+) -> (usize, Option<Arc<dyn Plugin>>) {
     let plugin_id = plugin.id();
 
     match inner.plugin_index.get(&plugin_id).copied() {
         Some(slot) => {
-            inner.plugin_list[slot].plugin = plugin;
-            slot
+            let previous = std::mem::replace(&mut inner.plugin_list[slot].plugin, plugin);
+            (slot, Some(previous))
         }
         None => {
             let slot = inner.plugin_list.len();
             inner.plugin_list.push(PluginBlock {
                 plugin,
                 items: Vec::new(),
+                actions: Vec::new(),
             });
             inner.plugin_index.insert(plugin_id, slot);
-            slot
+            (slot, None)
         }
     }
 }
 
-/// `init` 一个块里的插件，成功后整块替换它的条目；失败则回滚并跳过该插件
+/// `init` 一个块里的插件：条目先收进临时缓冲，成功后整块替换，失败则原样保留旧条目
 ///
 /// 注册与重载走同一条路：重载就是重新 `init`（Q11）。
-fn init_plugin(inner: &mut RegistryInner, slot: usize, cx: &dyn PluginContext) {
+///
+/// 返回值表示这一轮 `init` 是否成功。失败时**不做半截替换**：调用方据返回值决定
+/// 要不要把插件对象也退回旧实现，插件手上要么是上一轮的条目，要么是这一轮完整的条目。
+fn init_plugin(inner: &mut RegistryInner, slot: usize, cx: &dyn PluginContext) -> bool {
     let plugin_id = inner.plugin_list[slot].plugin.id();
     let plugin = Arc::clone(&inner.plugin_list[slot].plugin);
 
-    // 先清空：`init` 里推的条目就是这个插件这一轮的全部条目
-    inner.plugin_list[slot].items.clear();
-
-    // 已经定稿的条目数：一个块处理到这里就定稿，失败时把没定稿的丢掉
-    let mut done_len = 0;
+    // 临时缓冲：`init` 里推的条目就是这个插件这一轮的全部条目
+    let mut items = Vec::new();
     let init_result = {
-        let mut registrar = RegistryRegistrar {
-            plugin_list: &mut inner.plugin_list,
-            slot,
-            plugin_id: &plugin_id,
-            done_len: &mut done_len,
-        };
+        let mut registrar = VecRegistrar { items: &mut items };
 
         plugin.init(cx, &mut registrar)
     };
 
     if let Err(err) = init_result {
-        // 插件级隔离：只回滚它自己这一块（Q14）
-        inner.plugin_list[slot].items.truncate(done_len);
-        warn!("plugin init failed, skip plugin {plugin_id}: {err}");
-        return;
+        // 插件级隔离：这一块原样保留上一轮的条目，其余插件照常（Q14）
+        warn!("plugin init failed, keep its previous items {plugin_id}: {err}");
+        return false;
     }
 
     // priority 在**注册时**稳定排序一次，检索时只做分组
-    inner.plugin_list[slot]
-        .items
-        .sort_by_key(|item| item.priority);
+    items.sort_by_key(|item| item.priority);
+    inner.plugin_list[slot].items = items;
+
+    true
+}
+
+/// 刷新每个插件的动作表与合并动作表
+///
+/// 插件块一变化（注册、换实现、重载）就走一次；检索投影与动作派发因此不必每次都向插件
+/// 要一遍动作表。
+fn refresh_actions(inner: &mut RegistryInner) {
+    for block in &mut inner.plugin_list {
+        block.actions = block.plugin.actions();
+    }
+
+    inner.action_table = action_table_of(&inner.plugin_list);
 }
 
 /// 一页的结果：把下标翻成渲染结构
@@ -338,17 +394,15 @@ fn page_of(inner: &RegistryInner, index: usize, token: u32) -> Result<ItemSearch
 /// 动作表一页只建一次：条目按类型名查表拿动作，不必为了每条条目再向插件要一遍动作表
 /// （一页 100 条，旧写法每页要多要 100 次）。
 fn project(inner: &RegistryInner, item_indexes: &[usize]) -> Vec<PluginItemDisplay> {
-    let table = action_table_of(&inner.plugin_list);
-
     item_indexes
         .iter()
         .filter_map(|item_index| {
-            let (plugin_id, local_id) = handle_at(inner, *item_index)?;
+            let (plugin_id, registered_index) = handle_at(inner, *item_index)?;
             let block = block_of(inner, &plugin_id)?;
-            let item = block.items.get(local_id)?;
+            let item = block.items.get(registered_index)?;
 
             // 动作列表按条目类型查动作表：框架不解释类型名，只拿它查表
-            let action_ids = actions_of(&table, &item.the_type)
+            let action_ids = actions_of(&inner.action_table, &item.the_type)
                 .unwrap_or_default()
                 .iter()
                 .map(|action| action.id.clone())
@@ -360,14 +414,16 @@ fn project(inner: &RegistryInner, item_indexes: &[usize]) -> Vec<PluginItemDispl
                 action_ids,
                 handle: ItemHandle {
                     plugin_id,
-                    local_id,
+                    address: ItemAddress::Registered {
+                        index: registered_index,
+                    },
                 },
             })
         })
         .collect()
 }
 
-/// 按注册顺序拼出动作表：插件注册顺序 > 动作注册顺序，类型名去重成外层键
+/// 按注册顺序拼出合并动作表：插件注册顺序 > 动作注册顺序，类型名去重成外层键
 ///
 /// 同一个类型名上的同一个动作只认可先注册的那一条（重复注册是插件自己的账，
 /// 这里只记一条 warn，不让它在前端变成两个一模一样的动作）。
@@ -375,7 +431,7 @@ fn action_table_of(plugin_list: &[PluginBlock]) -> ActionTableView {
     let mut table: ActionTableView = BTreeMap::new();
 
     for block in plugin_list {
-        for action in block.plugin.actions() {
+        for action in &block.actions {
             let views = table.entry(action.the_type.clone()).or_default();
 
             if views.iter().any(|view| view.id == action.id) {
@@ -387,8 +443,8 @@ fn action_table_of(plugin_list: &[PluginBlock]) -> ActionTableView {
             }
 
             views.push(PluginActionView {
-                id: action.id,
-                label_key: action.label_key,
+                id: action.id.clone(),
+                label_key: action.label_key.clone(),
             });
         }
     }
@@ -404,9 +460,9 @@ fn block_of<'a>(inner: &'a RegistryInner, plugin_id: &PluginId) -> Option<&'a Pl
         .and_then(|slot| inner.plugin_list.get(*slot))
 }
 
-/// 条目下标 → 身份：按注册顺序（插件顺序 > 条目顺序）累加各块的长度
+/// 条目下标 → (插件, 注册序号)：按注册顺序（插件顺序 > 条目顺序）累加各块的长度
 ///
-/// 于是 `local_id` 就是块内下标，与条目被推给框架时的注册序号一致（排序是稳定排序）。
+/// 于是注册序号就是块内下标，与条目被推给框架时的注册序号一致（排序是稳定排序）。
 fn handle_at(inner: &RegistryInner, item_index: usize) -> Option<(PluginId, usize)> {
     let mut offset = item_index;
 
@@ -484,28 +540,15 @@ fn has_action(actions: &[PluginAction], the_type: &str, action_id: &ActionId) ->
 
 /// 框架交给插件的 registrar：插件只管推条目，句柄与存储都在框架这边（Q30）
 ///
-/// 每条 `register` 调用推一批条目，块内顺序就是注册顺序，`local_id` 由框架按累加得出。
-struct RegistryRegistrar<'a> {
-    plugin_list: &'a mut Vec<PluginBlock>,
-    /// 正在 `init` 的块的下标，由框架给出——插件不自己分配（Q30）
-    slot: usize,
-    /// 正在 `init` 的插件 id：只认它推上来的条目
-    plugin_id: &'a PluginId,
-    /// 已经定稿的条目数，`init` 失败时据此回滚
-    done_len: &'a mut usize,
+/// 推上来的条目先落在 `init` 的临时缓冲里，`init` 成功后框架才整块替换——registrar
+/// 本身不认识注册表，也就没有"推了一半"的中间态。每条 `register` 调用推一批条目，
+/// 块内顺序就是注册顺序，注册序号由框架按累加得出。
+struct VecRegistrar<'a> {
+    items: &'a mut Vec<PluginItem>,
 }
 
-impl ItemRegistrar for RegistryRegistrar<'_> {
-    fn register(&mut self, plugin_id: &PluginId, items: Vec<PluginItem>) {
-        // 只认正在 init 的那个插件：别的插件名一律拒绝，免得条目串了块
-        if plugin_id != self.plugin_id {
-            warn!("registrar called with a foreign plugin id: {plugin_id}");
-            return;
-        }
-
-        if let Some(block) = self.plugin_list.get_mut(self.slot) {
-            block.items.extend(items);
-            *self.done_len += 1;
-        }
+impl ItemRegistrar for VecRegistrar<'_> {
+    fn register(&mut self, items: Vec<PluginItem>) {
+        self.items.extend(items);
     }
 }

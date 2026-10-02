@@ -22,13 +22,6 @@ pub const ACTION_OPEN_SEARCH: &str = "open_search";
 /// 是宿主给插件条目的。
 pub const OPEN_SEARCH_LABEL_KEY: &str = "action.js_host.js_plugin.open_search";
 
-/// 结果行的 `local_id` 从它开始：`0` 是插件条目自己（注册时推上去的那一条）
-///
-/// 句柄是"插件 + 插件内序号"，两套条目共用同一段序号会撞：框架在自己手上找不到时
-/// 才回头问插件（[`Plugin::resolve_item`]），所以结果行的序号必须落在注册条目之后。
-/// 一个包注册的条目只有一条，于是结果行的序号就是 `行号 + 1`。
-pub const RESULT_LOCAL_ID_BASE: usize = 1;
-
 /// 结果行（`Plugin Search Result`）的一条：插件自己报上来的纯数据（spec §3.3）
 ///
 /// 全部字段都给缺省值：这是**从 webview 来的不可信数据**，缺一个字段不该让整次搜索炸掉，
@@ -81,6 +74,6 @@ pub fn result_label_key(plugin_id: &str, the_type: &str, action_id: &str) -> Str
 /// 一个包最近一次搜索结果的行缓存
 ///
 /// `Plugin Search Result` 不注册进框架（Q10），所以框架手上没有它；结果行的动作要能派发，
-/// 就得有人在派发时按 `local_id` 找回那一行。这份缓存由宿主建、代理与宿主共用同一份：
+/// 就得有人在派发时按行下标找回那一行。这份缓存由宿主建、代理与宿主共用同一份：
 /// 宿主在回程里写入，代理在 [`Plugin::resolve_item`] 里读。
 pub type RowCache = Arc<Mutex<Vec<PluginItem>>>;

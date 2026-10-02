@@ -4,7 +4,7 @@
 
 ## 动作表以**前端注册表**为准
 
-上一轮是「挂载时调 `fetch_plugin_actions` 拉一次动作表」（ADR-0009 的接线）。现在条目有哪些动作、顺序与默认动作由前端注册表给出，Rust 只把条目自带的 `action_ids` 随检索结果一起下发；`fetch_plugin_actions` 命令、`PluginRegistry::action_table()` 与那两个只为下发而存在的类型（`PluginActionView` / `ActionTableView`）一并收掉——它们此后没有调用方。框架内部仍会拼一张动作表，但只为算条目自带的 `action_ids`。
+上一轮是「挂载时调 `fetch_plugin_actions` 拉一次动作表」（ADR-0009 的接线）。现在条目有哪些动作、顺序与默认动作由前端注册表给出，Rust 只把条目自带的 `action_ids` 随检索结果一起下发；`fetch_plugin_actions` 命令与 `PluginRegistry::action_table()` 一并收掉——它们此后没有调用方。框架内部仍会拼一张动作表（`ActionTableView` / `PluginActionView` 只是注册表私有的内部类型），但只为算条目自带的 `action_ids`，不为下发而暴露。
 
 这么定的理由是顺序与文案本来就成对出现：`label_key` 按「类型 + 动作」分套，而 Rust 侧的键是静态字面量（`plugin_impl_launcher/action.rs`），前端要显示它就必须自己持有「类型 → 有序动作 → 文案」这一整份。留一份 Rust 下发、再与注册表合并，只会换来一个「注册表认不出就跳过这个动作」的分支和一段挂载后的空窗（拉到之前行里不画动作图标）。
 

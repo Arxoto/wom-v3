@@ -38,15 +38,6 @@ impl PluginPackage {
         self.dir.join(&self.manifest.entry)
     }
 
-    /// HTML 页面的绝对路径：清单没写 `html` 时是 [`None`]
-    pub fn html_path(&self) -> Option<PathBuf> {
-        if self.manifest.html.is_empty() {
-            return None;
-        }
-
-        Some(self.dir.join(&self.manifest.html))
-    }
-
     /// 条目图标的绝对路径：清单没写 `icon` 时是 [`None`]
     ///
     /// 只拼路径，不检查文件在不在：图标缺一张不该让这个包作废，界面认不出就不画。

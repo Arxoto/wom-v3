@@ -99,3 +99,9 @@ spec §八 的端到端 1–4 条。
 
 `cargo build` / `cargo test`（35 通过）/ `pnpm build`（tsc + vite）都干净。
 端到端四条的**真跑**还没做，见 issue 07。
+
+## Comments
+
+后续重构（条目寻址）：`ItemHandle` 不再共用一段整数序号，而是带显式的 `ItemAddress`
+（`Registered { index }` / `Row { index }`）；`RESULT_LOCAL_ID_BASE` 偏移已删除。
+`CONTEXT.md` 的 `Item Handle` 与 spec §3.4 已同步。

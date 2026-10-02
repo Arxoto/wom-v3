@@ -27,13 +27,13 @@ use crate::{
 
 /// 把 manifest 的全部行转成框架条目
 ///
-/// 单行失败只跳过这一行；只有 manifest 整个打不开才算插件级失败（[`PluginError::Init`]）。
+/// 单行失败只跳过这一行；只有 manifest 整个打不开才算插件级失败（[`PluginError`]）。
 pub fn load_items(
     cx: &dyn PluginContext,
     app_data_dir: &Path,
 ) -> Result<Vec<PluginItem>, PluginError> {
     let sources = item_source_iter(app_data_dir)
-        .map_err(|err| PluginError::Init(format!("open launcher manifest failed: {err}")))?;
+        .map_err(|err| PluginError::new(format!("open launcher manifest failed: {err}")))?;
 
     let mut items: Vec<PluginItem> = Vec::new();
 

@@ -8,8 +8,6 @@ mod rebuild_main {
 
     use tauri::PhysicalPosition;
 
-    static REBUILD: Mutex<MainRebuildState> = Mutex::new(MainRebuildState::Idle);
-
     /// 待办的主窗口重建
     ///
     /// 窗口销毁是异步的，需要有个状态去保存
@@ -23,26 +21,44 @@ mod rebuild_main {
         KeepPosition(PhysicalPosition<i32>),
     }
 
-    /// 登记一次重建
-    pub fn plan(plan: MainRebuildState) {
-        let mut state = REBUILD.lock().unwrap_or_else(|err| err.into_inner());
-        *state = plan;
-    }
+    /// 主窗口重建状态：托管在应用里，与窗口同生共死
+    pub struct MainRebuild(Mutex<MainRebuildState>);
 
-    /// 取走缓存的位置，恢复默认状态
-    pub fn take_position() -> Option<PhysicalPosition<i32>> {
-        let mut state = REBUILD.lock().unwrap_or_else(|err| err.into_inner());
-        let state = std::mem::replace(&mut *state, MainRebuildState::Idle);
-        match state {
-            MainRebuildState::Idle | MainRebuildState::Centered => None,
-            MainRebuildState::KeepPosition(physical_position) => Some(physical_position),
+    impl MainRebuild {
+        pub fn new() -> Self {
+            Self(Mutex::new(MainRebuildState::Idle))
+        }
+
+        /// 登记一次重建
+        pub fn plan(&self, plan: MainRebuildState) {
+            let mut state = self.0.lock().unwrap_or_else(|err| err.into_inner());
+            *state = plan;
+        }
+
+        /// 取走缓存的位置，恢复默认状态
+        pub fn take_position(&self) -> Option<PhysicalPosition<i32>> {
+            let mut state = self.0.lock().unwrap_or_else(|err| err.into_inner());
+            let state = std::mem::replace(&mut *state, MainRebuildState::Idle);
+            match state {
+                MainRebuildState::Idle | MainRebuildState::Centered => None,
+                MainRebuildState::KeepPosition(physical_position) => Some(physical_position),
+            }
+        }
+
+        pub fn in_rebuilding(&self) -> bool {
+            let state = self.0.lock().unwrap_or_else(|err| err.into_inner());
+            !matches!(*state, MainRebuildState::Idle)
         }
     }
+}
 
-    pub fn in_rebuilding() -> bool {
-        let state = REBUILD.lock().unwrap_or_else(|err| err.into_inner());
-        !matches!(*state, MainRebuildState::Idle)
-    }
+/// 托管主窗口重建状态；由应用 `setup` 在第一次建窗之前调用
+pub fn init_state(app: &AppHandle) {
+    app.manage(rebuild_main::MainRebuild::new());
+}
+
+fn rebuild_state(app: &AppHandle) -> tauri::State<'_, rebuild_main::MainRebuild> {
+    app.state::<rebuild_main::MainRebuild>()
 }
 
 #[inline]
@@ -105,7 +121,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
     let conf = configs::get_data();
     let effect = conf.effect();
     let (width, height) = conf.window_size();
-    debug!("create window {:}", "index.html");
+    debug!("create window index.html");
 
     let the_builder = WebviewWindow::builder(
         app,
@@ -147,7 +163,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
     // 毛玻璃效果，见 https://github.com/tauri-apps/window-vibrancy
     window_effect::apply(&w, effect);
 
-    if let Some(position) = rebuild_main::take_position() {
+    if let Some(position) = rebuild_state(app).take_position() {
         w.set_position(position)?;
     }
 
@@ -155,7 +171,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
     let w_handle = w.clone();
     w.on_window_event(move |event| match event {
         tauri::WindowEvent::CloseRequested { api, .. } => {
-            if rebuild_main::in_rebuilding() {
+            if rebuild_state(&app_handle).in_rebuilding() {
                 // 重建时放行
                 return;
             }
@@ -163,7 +179,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
             let _ = w_handle.hide();
         }
         tauri::WindowEvent::Destroyed => {
-            if !rebuild_main::in_rebuilding() {
+            if !rebuild_state(&app_handle).in_rebuilding() {
                 return;
             }
 
@@ -196,12 +212,12 @@ pub fn reset_main_window(app: &AppHandle) -> Result<()> {
 /// 销毁并重建主窗口
 fn recreate_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     let Some(window) = get_main_window(app) else {
-        rebuild_main::plan(MainRebuildState::Centered);
+        rebuild_state(app).plan(MainRebuildState::Centered);
         create_main_window(app)?;
         return Ok(());
     };
 
-    let rebuild_state = if keep_position {
+    let plan = if keep_position {
         match window.outer_position() {
             Ok(position) => MainRebuildState::KeepPosition(position),
             Err(_) => MainRebuildState::Centered,
@@ -209,11 +225,11 @@ fn recreate_main_window(app: &AppHandle, keep_position: bool) -> Result<()> {
     } else {
         MainRebuildState::Centered
     };
-    debug!("plan rebuild {:?}", rebuild_state);
-    rebuild_main::plan(rebuild_state);
+    debug!("plan rebuild {:?}", plan);
+    rebuild_state(app).plan(plan);
 
     if let Err(err) = window.close() {
-        rebuild_main::plan(MainRebuildState::Idle);
+        rebuild_state(app).plan(MainRebuildState::Idle);
         return Err(err);
     }
     Ok(())

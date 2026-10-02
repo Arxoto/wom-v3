@@ -173,14 +173,23 @@ export interface PluginItemDisplay {
 }
 
 /**
+ * 条目地址（对应 Rust 侧 plugin_framework::ItemAddress）
+ *
+ * 注册条目是它在该插件块内的注册序号，插件搜索结果行则是它在最近一次搜索结果里的下标
+ * （结果行不注册进框架，见 spec §3.4）。
+ */
+export type ItemAddress =
+    | { kind: "registered", index: number }
+    | { kind: "row", index: number }
+
+/**
  * 条目身份（对应 Rust 侧 plugin_framework::ItemHandle）
  *
- * `plugin_id` + `local_id`：插件注册的条目是它在该插件里的注册序号，
- * 插件搜索结果行则是它在最近一次搜索结果里的下标（结果行不注册进框架，见 spec §3.4）。
+ * `plugin_id` + 一个 `ItemAddress`；两者都由后端生成，前端只原样回传。
  */
 export interface ItemHandle {
     plugin_id: string,
-    local_id: number,
+    address: ItemAddress,
 }
 
 /**
@@ -253,11 +262,6 @@ export const plugin_report_search_results = async (plugin_id: string, items: Plu
     await invoke_backend('plugin_report_search_results', { pluginId: plugin_id, items });
 }
 
-/** 列出已发现的 Plugin Package（`id` / `name` / 入口绝对路径与它存不存在） */
-export const plugin_list_packages = async () => {
-    return (await invoke_backend('plugin_list_packages')) as PluginPackageInfo[];
-}
-
 /**
  * 打开（或聚焦）插件自己的一个 HTML 窗口
  *
@@ -266,20 +270,6 @@ export const plugin_list_packages = async () => {
  */
 export const plugin_open_html_window = async (plugin_id: string, path: string, title: string, width: number, height: number) => {
     await invoke_backend('plugin_open_html_window', { pluginId: plugin_id, path, title, width, height });
-}
-
-/** 包的形态（对应 Rust 侧 plugin_package::manifest::PackageType） */
-export type PluginPackageType = "js" | "html";
-
-/** 一个已发现的 Plugin Package（对应 Rust 侧 plugin_host::PackageInfo） */
-export interface PluginPackageInfo {
-    id: string,
-    name: string,
-    the_type: PluginPackageType,
-    entry: string,
-    entry_exists: boolean,
-    html: string,
-    html_exists: boolean,
 }
 
 // #endregion

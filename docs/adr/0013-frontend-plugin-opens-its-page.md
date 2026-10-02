@@ -21,8 +21,9 @@ webview 侧起 Worker 装载插件代码，插件自己跑搜索、注册结果�
 
 ## 打开页面复用既有的那条路
 
-`HtmlPlugin::run_action` 直接调 `plugin_host::open_html_window`——JS 插件经
-`self.__WOM_PLUGIN__.open_window` 走的也是它。asset protocol、包内相对路径的约束
+`HtmlPlugin::run_action` 与命令 `plugin_open_html_window` 都落到 `plugin_window::open`——JS
+插件经 `self.__WOM_PLUGIN__.open_window` 走的也是它（前端插件按自己的包目录解析路径，
+不必经由宿主那本账）。asset protocol、包内相对路径的约束
 （`resolve_in_package`）、"一个包一个窗口、再开一次是换页 + 聚焦"全部原样复用，没有新命令、
 没有新的 capability。动作回 `ActionOutcome::Done`，主窗口照 `main_window_mode` 隐藏，与别的
 动作一致。

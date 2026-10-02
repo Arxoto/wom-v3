@@ -56,7 +56,7 @@ pub trait ItemRegistrar {
     ///
     /// 一个插件手上可能有多个类型的条目，分几次 `register` 推上来即可，
     /// 块内顺序即注册顺序。
-    fn register(&mut self, plugin_id: &PluginId, items: Vec<PluginItem>);
+    fn register(&mut self, items: Vec<PluginItem>);
 }
 
 /// 一个插件（Q2）

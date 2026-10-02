@@ -26,7 +26,8 @@
 - **Plugin Framework**：框架层。注册、检索、前端交互、动作派发。
 - **Plugin**：插件。自己负责提供条目与实现动作。
 - **Plugin Item**：插件注册进框架的条目。**不透明类型名 + 纯数据字段**。
-- **Item Handle**：条目身份，`(plugin_id, local_id)`。
+- **Item Handle**：条目身份，`(plugin_id, address)`；地址区分"注册条目（注册序号）"与
+  "结果行（行下标）"两段序号空间。
 - **Plugin Action**：插件注册的动作，`(类型, 动作 id, label_key)`。
 - **Plugin Context**：插件从宿主取能力的窄接口（唯一横切面）。
 - **Launcher**：内置插件 launcher，支持 Sys / Cmd / Web / Scan 四种类型。
@@ -64,7 +65,8 @@ trait Plugin {
 - 条目字段：`priority: i32`、`key_words: Vec<String>`、`name: String`、`desc: String`，
   外加一个**不透明**的 `the_type: String`（Q34）。
   框架对类型名的值永远不解释、不匹配、不列举，只透传。
-- 句柄由框架分配：`(plugin_id, local_id)`，`local_id` 是该插件内**从 0 递增的注册序号**（Q30）。
+- 句柄由框架分配：`(plugin_id, address)`，注册条目的地址是该插件内**从 0 递增的注册序号**
+  （结果行是另一段序号空间，见第二轮 spec §3.4）（Q30）。
 - 序列化仍是 `#[serde(tag = "the_type")]` 平铺（Q34），下发形状与现有 `common.rs:22` 完全一致，
   前端手写的镜像类型不需要任何改动。
 - **不留**插件私有数据位（Q10）。将来真需要 per-item 绑定时再新增字段。
@@ -137,7 +139,7 @@ trait Plugin {
 1. `PluginRegistry`：构造 + 注册插件 + 检索 + 翻页 + 跑动作。
 2. 动作表查询函数。
 
-不暴露：注册表的块结构、`local_id` 的分配逻辑、`PluginError` 变体以外的内部类型。
+不暴露：注册表的块结构、条目地址的分配逻辑、`PluginError` 以外的内部类型。
 
 ### 1.9 失败隔离与诊断
 
@@ -322,4 +324,4 @@ src-tauri/src/
 | `HashMap` 迭代顺序当排序（Q25） | 哈希种子让顺序每次启动都可能不同，与确定性排序冲突 |
 | 动作表带 revision（Q22） | 可预期范围内动作表是固定的，多余 |
 | 改 manifest 语法为平铺字段（Q27） | 会让现有用户配置立刻失效，而这次没有迁移收益 |
-| `local_id` 由插件分配（Q30） | 稳定性与唯一性就成了插件的账，而那是框架该背的 |
+| 条目地址由插件分配（Q30） | 稳定性与唯一性就成了插件的账，而那是框架该背的 |

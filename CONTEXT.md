@@ -21,7 +21,7 @@ An Item a plugin registers with the framework. It is plain data—a priority, ke
 _Avoid_: plugin entry, plugin record
 
 **Item Handle**:
-The identity of a Plugin Item: the plugin it came from plus the plugin-local registration number. It is what a Plugin Action is addressed by, so an item can be acted on without knowing its position in the loaded set.
+The identity of something a Plugin Action can be addressed to: the plugin it came from plus its place within that plugin—a Plugin Item's registration number or a Plugin Search Result's row index. It is what a Plugin Action is addressed by, so an item can be acted on without knowing its position in the loaded set.
 _Avoid_: id, item_id, key
 
 **Plugin Framework**:

@@ -22,6 +22,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 arc-swap = "1.9.2"
 walkdir = "2.5.0"
+# 插件搜索回程的超时（tokio::time::timeout）
+tokio = { version = "1", features = ["time"] }
 # macos-private-api：跟 tauri.conf.json 的 macOSPrivateApi 对应，透明窗口在 macOS 上需要
 # protocol-asset：JS 插件宿主用 asset protocol 装载插件代码（见 docs/adr/0011）。
 # tauri.conf.json 里已经开了 app.security.assetProtocol.enable，但那条只在 tauri CLI 构建时

@@ -22,7 +22,7 @@
 //!
 //! 其余类型（条目、动作、上下文、错误）在**类型层面**是 `pub` 的——插件的 trait 实现必须能
 //! 指名它们——但本模块整体是私有的，所以它们对外不可达，等价于"只暴露两处入口"。
-//! 注册表的块结构、`local_id` 的分配逻辑、[`PluginError`] 以外的内部类型都不对外可见。
+//! 注册表的块结构、条目地址的分配逻辑、[`PluginError`] 以外的内部类型都不对外可见。
 //!
 //! 本模块**已经接入应用**（接入前那份临时的 `allow(dead_code)` 已删除）：宿主侧见
 //! `crate::plugin_host`（[`PluginContext`] 的实现与注册表的托管），命令层见
@@ -36,7 +36,7 @@ mod registry;
 mod search;
 
 pub use error::PluginError;
-pub use identity::{ActionId, ItemHandle, PluginId};
+pub use identity::{ActionId, ItemAddress, ItemHandle, PluginId};
 pub use item::{ActionOutcome, PluginAction, PluginItem};
 pub use plugin::{ItemRegistrar, Plugin, PluginContext};
 pub use registry::PluginRegistry;

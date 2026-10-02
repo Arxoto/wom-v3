@@ -12,16 +12,17 @@
 //!
 //! - 本文件：注册表组装与重载；
 //! - [`context`]：`PluginContext` 的 Tauri 实现；
-//! - [`js`]：插件包的宿主侧——扫描同步、运行期账本与搜索回程；
-//! - [`window`]：插件自己那个 HTML 窗口。
+//! - [`packages`]：插件包的扫描与宿主侧账本（`Plugin Package` 的扫描结果与 JS 插件结果行）；
+//! - [`search`]：一次 `Plugin Search` 的回程；
+//! - [`window`]：插件自己那个 HTML 窗口的命令入口。
 
 mod context;
-mod js;
+mod packages;
+mod search;
 mod window;
 
-pub use js::{
-    list_packages, open_plugin_search, reload_packages, report_search_results, JsHost, PackageInfo,
-};
+pub use packages::{reload_packages, PackageHost};
+pub use search::{open_plugin_search, report_search_results};
 pub use window::open_html_window;
 
 use std::sync::Arc;
@@ -46,7 +47,7 @@ pub fn create_registry(app: &AppHandle) -> Result<PluginRegistry, PluginError> {
 
     registry.register_plugin(Box::new(LauncherPlugin::new()));
 
-    js::sync_packages(app, &registry);
+    packages::sync_packages(app, &registry);
 
     Ok(registry)
 }
