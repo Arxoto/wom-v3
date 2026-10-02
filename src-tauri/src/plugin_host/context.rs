@@ -25,7 +25,10 @@ impl HostPluginContext {
 
 impl PluginContext for HostPluginContext {
     fn app_data_dir(&self) -> Result<PathBuf, String> {
-        self.app.path().app_data_dir().map_err(|err| err.to_string())
+        self.app
+            .path()
+            .app_data_dir()
+            .map_err(|err| err.to_string())
     }
 
     fn resolve_base(&self, base: &str) -> Option<PathBuf> {

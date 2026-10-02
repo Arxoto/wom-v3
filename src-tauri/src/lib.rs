@@ -193,22 +193,22 @@ pub fn run() {
         .plugin(global_shortcut::global_shortcut_startup_register())
         // 注册命令
         .invoke_handler(tauri::generate_handler![
-            commands::fetch_config,
-            commands::fetch_effect_info,
-            commands::should_show_main_auto,
-            commands::save_config,
-            commands::register_global_shortcut,
-            commands::rebuild_main_window,
-            commands::dismiss_main_window,
-            commands::show_main_window,
+            commands::app::fetch_config,
+            commands::app::fetch_effect_info,
+            commands::app::should_show_main_auto,
+            commands::app::save_config,
+            commands::app::register_global_shortcut,
+            commands::app::rebuild_main_window,
+            commands::app::dismiss_main_window,
+            commands::app::show_main_window,
             // 插件体系那一套
-            commands::plugin_search,
-            commands::plugin_search_page,
-            commands::plugin_run_item_action,
-            commands::plugin_list_packages,
-            commands::plugin_reload_packages,
-            commands::plugin_open_plugin_search,
-            commands::plugin_report_search_results,
+            commands::plugin::plugin_search,
+            commands::plugin::plugin_search_page,
+            commands::plugin::plugin_run_item_action,
+            commands::plugin::plugin_list_packages,
+            commands::plugin::plugin_reload_packages,
+            commands::plugin::plugin_open_plugin_search,
+            commands::plugin::plugin_report_search_results,
         ])
         .setup(|app| {
             // 隐藏 Dock 图标， App 级配置，即使是打开配置窗口也不会出现在 Dock 栏

@@ -383,13 +383,14 @@ mod tests {
             LauncherItemSource::Cmd { .. }
         ));
         assert!(matches!(
-            LauncherItemSource::from_str("web <-> 1 <-> a b <-> web name <-> https://a.b")
-                .unwrap(),
+            LauncherItemSource::from_str("web <-> 1 <-> a b <-> web name <-> https://a.b").unwrap(),
             LauncherItemSource::Web { .. }
         ));
         assert!(matches!(
-            LauncherItemSource::from_str(r#"scan <-> 1 <-> a b <-> scan name <-> {"path":"C:\\tmp"}"#)
-                .unwrap(),
+            LauncherItemSource::from_str(
+                r#"scan <-> 1 <-> a b <-> scan name <-> {"path":"C:\\tmp"}"#
+            )
+            .unwrap(),
             LauncherItemSource::Scan { .. }
         ));
     }
@@ -546,7 +547,8 @@ mod tests {
         assert_eq!(written, line);
         assert_eq!(round_trip(&written), written);
 
-        let LauncherItemSource::Cmd { name, desc, .. } = LauncherItemSource::from_str(line).unwrap()
+        let LauncherItemSource::Cmd { name, desc, .. } =
+            LauncherItemSource::from_str(line).unwrap()
         else {
             panic!("should be cmd");
         };
@@ -560,10 +562,7 @@ mod tests {
         // 不是新实现的选择（Q27 明确不改文件语法）
         let source = LauncherItemSource::from_str("cmd <-> 1 <-> a <-> echo <-> echo <-> ok");
 
-        assert!(matches!(
-            source,
-            Err(LauncherParseError::ValueNotEnough(_))
-        ));
+        assert!(matches!(source, Err(LauncherParseError::ValueNotEnough(_))));
     }
 
     #[test]

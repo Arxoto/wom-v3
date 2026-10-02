@@ -207,7 +207,8 @@ pub(super) fn sync_js_packages(app: &AppHandle, registry: &PluginRegistry) -> Ve
         infos.push(info);
     }
 
-    app.state::<JsHost>().set_packages(infos.clone(), rows_by_id);
+    app.state::<JsHost>()
+        .set_packages(infos.clone(), rows_by_id);
 
     infos
 }
@@ -224,12 +225,12 @@ fn package_info(package: &PluginPackage) -> PackageInfo {
     }
 }
 
-/// 列出已发现的 `Plugin Package`（命令 [`crate::commands::plugin_list_packages`] 的实现）
+/// 列出已发现的 `Plugin Package`（命令 [`crate::commands::plugin::plugin_list_packages`] 的实现）
 pub fn list_packages(app: &AppHandle) -> Vec<PackageInfo> {
     app.state::<JsHost>().packages()
 }
 
-/// 重扫 `Plugin Folder`（命令 [`crate::commands::plugin_reload_packages`] 的实现）
+/// 重扫 `Plugin Folder`（命令 [`crate::commands::plugin::plugin_reload_packages`] 的实现）
 ///
 /// 挂在**临时**托盘项上，供打包后加插件这一步核对（spec §2.5 / issue 04）。
 pub fn reload_packages(app: &AppHandle) -> Vec<PackageInfo> {
@@ -281,7 +282,7 @@ pub async fn open_plugin_search(
 
 /// 回程：插件执行完搜索后把结果行交回来
 ///
-/// 命令 [`crate::commands::plugin_report_search_results`] 的实现，也是
+/// 命令 [`crate::commands::plugin::plugin_report_search_results`] 的实现，也是
 /// [`open_plugin_search`] 等待的那一头。
 pub fn report_search_results(
     app: &AppHandle,

@@ -59,7 +59,9 @@ pub enum ManifestError {
 impl Display for ManifestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BadLine(line_number) => write!(f, "line {line_number} is not a `key: value` line"),
+            Self::BadLine(line_number) => {
+                write!(f, "line {line_number} is not a `key: value` line")
+            }
             Self::MissingId => write!(f, "missing required key `id`"),
             Self::BadId(id) => write!(f, "`id` is not a stable ASCII id: {id}"),
             Self::MissingKeywords => write!(f, "missing required key `keywords`"),
@@ -130,7 +132,9 @@ pub fn parse(text: &str) -> Result<PackageManifest, ManifestError> {
     let entry = entry.filter(|entry| !entry.is_empty());
 
     Ok(PackageManifest {
-        name: name.filter(|name| !name.is_empty()).unwrap_or_else(|| id.clone()),
+        name: name
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| id.clone()),
         desc: desc.unwrap_or_default(),
         keywords,
         icon: icon.unwrap_or_default(),

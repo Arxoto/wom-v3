@@ -29,7 +29,10 @@ pub struct ScannedEntry {
 ///
 /// `follow_links(false)`、`max_depth` 直接交给 walkdir、第 0 层是配置的 `path` 本身
 /// 且不受过滤条件约束。
-pub fn scan(cx: &dyn PluginContext, config: &LauncherScanConfig) -> Result<Vec<ScannedEntry>, String> {
+pub fn scan(
+    cx: &dyn PluginContext,
+    config: &LauncherScanConfig,
+) -> Result<Vec<ScannedEntry>, String> {
     let root = resolve_root(cx, config)?;
 
     let target_types: Vec<FileType> = config
@@ -133,7 +136,11 @@ struct ScanOptions {
 }
 
 /// 遍历并过滤，产出 `(文件名, 路径, 层级)`
-fn scan_path<P: AsRef<Path>>(root: P, max_depth: usize, options: &ScanOptions) -> Vec<ScannedEntry> {
+fn scan_path<P: AsRef<Path>>(
+    root: P,
+    max_depth: usize,
+    options: &ScanOptions,
+) -> Vec<ScannedEntry> {
     let mut results = Vec::new();
 
     // max_depth 直接交给 walkdir：0 表示只取 root 本身（即原 file 类型）

@@ -61,7 +61,10 @@ impl Plugin for LauncherPlugin {
             .app_data_dir()
             .map_err(|err| PluginError::Init(format!("resolve app data dir failed: {err}")))?;
 
-        cx.log_info(&format!("{} load manifest start", action::LAUNCHER_PLUGIN_ID));
+        cx.log_info(&format!(
+            "{} load manifest start",
+            action::LAUNCHER_PLUGIN_ID
+        ));
 
         let items = init::load_items(cx, &app_data_dir)?;
 
