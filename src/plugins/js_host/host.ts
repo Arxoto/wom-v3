@@ -47,7 +47,7 @@ class PluginRuntime {
     }
 
     static async create(plugin_id: string, entry: string): Promise<PluginRuntime | null> {
-        const worker = new Worker(new URL("./worker/worker.ts", import.meta.url), { type: "classic" });
+        const worker = new Worker(new URL("./worker/worker.js", import.meta.url), { type: "classic" });
         const runtime = new PluginRuntime(plugin_id, worker);
 
         const loaded = await runtime.load(convertFileSrc(entry));

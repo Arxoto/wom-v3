@@ -1,43 +1,54 @@
-interface PluginHostApi {
-    register(spec: unknown): void;
-    log(text: unknown): void;
-    fail(text: unknown): void;
-}
+// @ts-check
 
-interface PluginWorkerScope {
-    importScripts(...urls: string[]): void;
-    postMessage(message: PluginWire.WorkerToHost): void;
-    addEventListener(type: "message", listener: (event: MessageEvent<PluginWire.HostToWorker>) => void): void;
-    __WOM_PLUGIN__: PluginHostApi;
-}
+/**
+ * @typedef {object} PluginHostApi
+ * @property {(spec: unknown) => void} register
+ * @property {(text: unknown) => void} log
+ * @property {(text: unknown) => void} fail
+ */
 
-const scope = self as unknown as PluginWorkerScope;
+/**
+ * @typedef {object} PluginWorkerScope
+ * @property {(...urls: string[]) => void} importScripts
+ * @property {(message: PluginWire.WorkerToHost) => void} postMessage
+ * @property {(type: "message", listener: (event: MessageEvent<PluginWire.HostToWorker>) => void) => void} addEventListener
+ * @property {PluginHostApi} __WOM_PLUGIN__
+ */
+
+const scope = /** @type {PluginWorkerScope} */ (/** @type {unknown} */ (self));
 
 const post_to_host = scope.postMessage.bind(scope);
 const import_plugin = typeof scope.importScripts === "function" ? scope.importScripts.bind(scope) : null;
 
 let registered = false;
-let search_of: PluginWire.SearchFn | undefined;
-let run_of: PluginWire.RunFn | undefined;
+/** @type {PluginWire.SearchFn | undefined} */
+let search_of;
+/** @type {PluginWire.RunFn | undefined} */
+let run_of;
 
-const post = (message: PluginWire.WorkerToHost) => post_to_host(message);
+/**
+ * @param {PluginWire.WorkerToHost} message
+ */
+const post = message => post_to_host(message);
 
-const host_api: PluginHostApi = {
+/** @type {PluginHostApi} */
+const host_api = {
     register: spec => {
         if (typeof spec !== "object" || spec === null) {
             post({ kind: "fail", text: "register spec is not an object" });
             return;
         }
 
-        const data: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(spec as Record<string, unknown>)) {
+        /** @type {Record<string, unknown>} */
+        const data = {};
+        for (const [key, value] of Object.entries(/** @type {Record<string, unknown>} */ (spec))) {
             if (key === "search" || key === "run") continue;
             data[key] = value;
         }
 
-        const candidate = spec as { search?: unknown, run?: unknown };
-        if (typeof candidate.search === "function") search_of = candidate.search as PluginWire.SearchFn;
-        if (typeof candidate.run === "function") run_of = candidate.run as PluginWire.RunFn;
+        const candidate = /** @type {{ search?: unknown, run?: unknown }} */ (spec);
+        if (typeof candidate.search === "function") search_of = /** @type {PluginWire.SearchFn} */ (candidate.search);
+        if (typeof candidate.run === "function") run_of = /** @type {PluginWire.RunFn} */ (candidate.run);
 
         registered = true;
         post({ kind: "register", spec: data });
@@ -48,7 +59,10 @@ const host_api: PluginHostApi = {
 
 scope.__WOM_PLUGIN__ = host_api;
 
-const load = (message: Extract<PluginWire.HostToWorker, { kind: "load" }>) => {
+/**
+ * @param {Extract<PluginWire.HostToWorker, { kind: "load" }>} message
+ */
+const load = message => {
     let ok = false;
     let reason = "";
 
@@ -67,7 +81,10 @@ const load = (message: Extract<PluginWire.HostToWorker, { kind: "load" }>) => {
     post({ kind: "loaded", request_id: message.request_id, ok, reason });
 };
 
-const search = async (message: Extract<PluginWire.HostToWorker, { kind: "search" }>) => {
+/**
+ * @param {Extract<PluginWire.HostToWorker, { kind: "search" }>} message
+ */
+const search = async message => {
     if (search_of === undefined) {
         post({ kind: "fail", text: "no search function registered" });
         post({ kind: "rows", request_id: message.request_id, rows: [] });
@@ -83,7 +100,10 @@ const search = async (message: Extract<PluginWire.HostToWorker, { kind: "search"
     }
 };
 
-const run = (message: Extract<PluginWire.HostToWorker, { kind: "run" }>) => {
+/**
+ * @param {Extract<PluginWire.HostToWorker, { kind: "run" }>} message
+ */
+const run = message => {
     if (run_of === undefined) {
         post({ kind: "fail", text: `no action handler registered: ${message.action_id}` });
         return;
@@ -96,13 +116,17 @@ const run = (message: Extract<PluginWire.HostToWorker, { kind: "run" }>) => {
     }
 };
 
-const normalize_rows = (raw: unknown): PluginWire.Row[] => {
+/**
+ * @param {unknown} raw
+ * @returns {PluginWire.Row[]}
+ */
+const normalize_rows = raw => {
     if (!Array.isArray(raw)) return [];
 
     return raw.map(row => {
-        const source = (typeof row === "object" && row !== null ? row : {}) as Record<string, unknown>;
+        const source = /** @type {Record<string, unknown>} */ (typeof row === "object" && row !== null ? row : {});
         const action_ids = Array.isArray(source.action_ids)
-            ? source.action_ids.filter((id): id is string => typeof id === "string")
+            ? source.action_ids.filter(/** @type {(id: unknown) => id is string} */ (id => typeof id === "string"))
             : [];
 
         return {

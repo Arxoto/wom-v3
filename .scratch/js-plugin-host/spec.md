@@ -182,7 +182,7 @@ uTools 的 `plugin.json` 里的 `features[].cmds` 是同一个形状。
 asset URL 能直接拿；`new Worker(assetUrl)` 会撞同源规则，`{ type: "module" }` + `import()`
 会撞 CORS。代价是 Worker 文件本身不能有 import/export——TypeScript 会给只有类型引用的模块
 补一句 `export {}`，经典 Worker 遇到它直接语法报错，所以宿主与 Worker 共用的消息类型声明成
-全局的（见 `src/plugins/plugin_worker_protocol.d.ts`）。
+全局的（见 `src/plugins/js_host/protocol.d.ts`）。
 
 需要 `app.security.assetProtocol.enable = true` 且 scope 覆盖 `$RESOURCE/plugins/**/*`。
 scope 是**构建期 glob，不是快照**，所以打包后新加进 `$RESOURCE/plugins/` 的文件照样命中。

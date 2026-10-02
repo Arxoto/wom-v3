@@ -54,7 +54,7 @@ uTools 的 `plugin.json` 里的 `features[].cmds` 是同一个形状。
    对 asset URL 会撞 CORS；
 3. 经典 Worker 的脚本里一个 import/export 都不能有：TypeScript 会给"只有类型引用"的模块补
    `export {}`，Vite dev 下实测会让经典 Worker 直接语法报错。宿主与 Worker 共用的消息类型因此
-   声明成全局的（`src/plugins/plugin_worker_protocol.d.ts`）。
+   声明成全局的（`src/plugins/js_host/protocol.d.ts`）。
 
 **上面"代价"一节里那句"与 ADR-0010 的 `ReactNode` 注册形状冲突"是误判**：`ReactNode` 只出现在
 宿主自己写的注册里（`launcher.tsx` / `js_host.tsx`），插件这一侧交上来的图标一直是字符串、
