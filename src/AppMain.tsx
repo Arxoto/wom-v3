@@ -74,25 +74,29 @@ export default App;
 
 /*
 todo list
-- 主动作（Primary Action）—— Enter
-- 动作指示器（Hint Bar）—— 底部常驻
-- 交互动作面板（Action Menu）—— 侧边挤占/覆盖
 - 列表项高亮时左侧一个 2-4px 的 Accent Color 条、可延迟动画，（右侧显示常用图标，悬停才显示）
   - 动画用 absolute 定位的元素去实现
-- 交互动作符号化语言
 - 高亮优化：选中时增加 .is-selected css 类效果，复杂实现使用 Data Attributes
   - HTML <div className="list-item" data-selected={isSelected} data-action-type={item.type} />
   - CSS .list-item[data-selected="true"][data-action-type="copy"] { }
 - 使用 React.memo 确保只有选中的行和刚刚失去选中的行发生变化
 - （可选）高频触发、复杂的位移或缩放动画，使用 css will-change: background-color; 避免滥用，一般 transform 和 opacity 是值得使用的
-- 列表数量多时，手动实现分页渲染， Rust 搜索（初级分页） + JS 分页
-- 输入时及时搜索，异步搜索，使用随机数（自增id）作为标识，获得结果时若标识一致才显示
 - 显示匹配分割线（国际化）：完全匹配、前缀匹配、关键词匹配、不完全匹配，匹配模式名称标签显示在右侧，不占空间、不改变布局（位移）
 - 翻页交互：一行一行下翻，并使用边距预览、可见区往下 60% 处触发滚动
   - 下滑操作有限流 100-120 ms
   - 注意 Accent Color 动画拉长回缩，在持续下滑的时候表现出弹力
   - 注意 React 的 key 不变防止销毁 DOM
   - 下翻时给予 list 一个向上的 transform&opacity transition
+- Cmd 可自带 AutoHotkey(Windows) / AppleScript(macOS) 脚本实现自动化
+  - 可选（较重）：集成 enigo ，注意必须 app_handle.run_on_main_thread 主线程执行
+- System 系统命令：关机、重启、睡眠、休眠、锁定、注销、关闭屏幕
+- Note MarkDownLite 自定义简化语法，窗口渲染
+  - 使用 React 组件属性 dangerouslySetInnerHTML 实现注入 html 语法
+  - 使用 React useEffect 对渲染的内容增加事件监听（如最下面的实现）
+  - 使用 Tauri convertFileSrc 将本地路径转换（或使用自定义协议，需要自己读取文件并根据后缀添加 Response 头）
+  - 文件变更通知
+  - 默认样式限制图片显示
+- Snippets 片段，仅允许复制
 */
 
 // =================================

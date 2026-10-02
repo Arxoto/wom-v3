@@ -18,22 +18,13 @@ pub type KeyWords = Vec<String>;
 pub enum ItemType {
     /// System 内置实现的系统命令
     Sys,
-    /// 命令 可复制、后台静默执行（待 Note 完成后可复用以实现输出展示），
-    /// 目前暂不规划实现自动化能力，但可以基于脚本间接实现：
-    /// - 更自动化一点 AutoHotkey(Windows) / AppleScript(macOS)
-    /// - 更集成一点的方案 enigo （仅控制输入无法识别聚焦的窗口），注意必须 app_handle.run_on_main_thread 主线程执行
+    /// 命令 可复制、后台静默执行（待 Note 完成后可复用以实现输出展示）
     Cmd,
     /// 网页 支持使用默认浏览器打开、复制连接
     Web,
     /// 基于路径扫描得到文件
     /// - 暂时简单实现，不做索引、文件变更通知等高级能力
     Scan,
-    /// 笔记 MarkDownLite 自定义简化语法，窗口渲染
-    /// - 使用 React 组件属性 dangerouslySetInnerHTML 实现注入 html 语法
-    /// - 使用 React useEffect 对渲染的内容增加事件监听（如最下面的实现）
-    /// - 使用 Tauri convertFileSrc 将本地路径转换（或使用自定义协议，需要自己读取文件并根据后缀添加 Response 头）
-    /// - 文件变更通知
-    /// - 默认样式限制图片显示
     Note,
     /// 片段 仅允许复制
     Snippets,
