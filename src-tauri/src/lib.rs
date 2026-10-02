@@ -62,7 +62,7 @@ mod tray {
         let re_plugin_desc = "Reload Plugin Settings";
         // issue 04 的临时验证入口：打包之后往 `Plugin Folder` 里加一个包，
         // 走这一条确认能被扫到。转正或删除由接口定稿时决定（spec §五 / Q25）。
-        let reload_packages_desc = "Reload Plugin Packages";
+        let re_packages_desc = "Reload Plugin Packages";
         let reload_desc = "Reload Global Config";
         let quit_desc = "Quit";
 
@@ -81,7 +81,7 @@ mod tray {
                     &MenuItem::with_id(app, "unregister", unregister_desc, true, None::<&str>)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItem::with_id(app, "re_plugin", re_plugin_desc, true, None::<&str>)?,
-                    &MenuItem::with_id(app, "reload_packages", reload_packages_desc, true, None::<&str>)?,
+                    &MenuItem::with_id(app, "re_packages", re_packages_desc, true, None::<&str>)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItem::with_id(app, "reload", reload_desc, true, None::<&str>)?,
                     &MenuItem::with_id(app, "quit", quit_desc, true, None::<&str>)?,
@@ -128,7 +128,7 @@ mod tray {
                     rebuild_main(app);
                 }
                 // issue 04 的临时验证入口，见上面的菜单项说明
-                "reload_packages" => {
+                "re_packages" => {
                     info!("try reload plugin packages");
                     let packages = plugin_host::reload_packages(app);
                     info!("plugin packages reloaded: {}", packages.len());
@@ -171,14 +171,10 @@ fn log_setting_init<R: Runtime>() -> TauriPlugin<R> {
             .build()
     } else {
         tauri_plugin_log::Builder::new()
-            .targets([
-                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
-                // issue 01 的临时诊断：打包态要采 info 级日志，交付前连同 Webview 目标一起还原
-                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-                // 前端记的日志也落进文件：打包态没有 stdout，诊断只能靠它
-                tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
-            ])
-            .level(tauri_plugin_log::log::LevelFilter::Debug)
+            .targets([tauri_plugin_log::Target::new(
+                tauri_plugin_log::TargetKind::LogDir { file_name: None },
+            )])
+            .level(tauri_plugin_log::log::LevelFilter::Warn)
             .max_file_size(1024 * 1024)
             .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
             .build()
