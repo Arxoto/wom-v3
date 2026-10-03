@@ -8,12 +8,13 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [react()],
 
-  // 多入口：主窗口 + 配置窗口（tauri.conf.json 的 frontendDist 直接指向 dist）
+  // 多入口：主窗口 + 配置窗口 + 插件窗口的承载页（tauri.conf.json 的 frontendDist 直接指向 dist）
   build: {
     rollupOptions: {
       input: {
         index: "index.html",
         index_config: "index_config.html",
+        index_iframe: "index_iframe.html",
       },
     },
   },

@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::{
     configs,
@@ -98,4 +98,13 @@ pub fn plugin_open_html_window(
     height: f64,
 ) -> Result<(), String> {
     crate::plugin_host::open_html_window(&app, &plugin_id, &path, &title, width, height)
+}
+
+/// 取当前插件窗口要显示的页面绝对路径（承载页 `index_iframe.html` 用）
+#[tauri::command]
+pub fn plugin_window_page(window: tauri::WebviewWindow) -> Result<String, String> {
+    window
+        .state::<crate::plugin_window::PluginWindowPages>()
+        .get(window.label())
+        .ok_or_else(|| format!("no plugin page for window: {}", window.label()))
 }

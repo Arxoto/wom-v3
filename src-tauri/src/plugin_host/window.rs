@@ -1,7 +1,7 @@
 //! JS 插件打开的 HTML 窗口（命令 [`crate::commands::plugin::plugin_open_html_window`]）
 //!
-//! 窗口装的是插件自己包里的一个 HTML 文件，地址走 asset protocol：与插件代码的装载走同一条
-//! 路（见 `docs/adr/0011`），宿主不读文件内容。
+//! 窗口装的是应用自己的承载页，插件自己包里的 HTML 在它的 iframe 里打开：
+//! asset URL 由承载页用 `convertFileSrc` 拼（见 `docs/adr/0011`），宿主不读文件内容。
 //! 相对路径是插件给的**不可信输入**，只能落在它自己的包目录里（见
 //! [`crate::plugin_package::resolve_in_package`]）。
 //!

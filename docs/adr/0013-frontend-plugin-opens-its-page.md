@@ -23,10 +23,20 @@ webview 侧起 Worker 装载插件代码，插件自己跑搜索、注册结果�
 
 `HtmlPlugin::run_action` 与命令 `plugin_open_html_window` 都落到 `plugin_window::open`——JS
 插件经 `self.__WOM_PLUGIN__.open_window` 走的也是它（前端插件按自己的包目录解析路径，
-不必经由宿主那本账）。asset protocol、包内相对路径的约束
-（`resolve_in_package`）、"一个包一个窗口、再开一次是换页 + 聚焦"全部原样复用，没有新命令、
-没有新的 capability。动作回 `ActionOutcome::Done`，主窗口照 `main_window_mode` 隐藏，与别的
-动作一致。
+不必经由宿主那本账）。包内相对路径的约束（`resolve_in_package`）、"一个包一个窗口、再开一次
+是换页 + 聚焦"全部原样复用，没有新的 capability。动作回 `ActionOutcome::Done`，主窗口照
+`main_window_mode` 隐藏，与别的动作一致。
+
+## 窗口装承载页，插件页面在 iframe 里打开
+
+到 asset URL 的那一步一度是 Rust 手写的（`plugin_window::asset_url` + `percent_encode`：自己挑
+平台前缀、自己按 `encodeURIComponent` 转义），与"宿主只给路径、前端转 asset URL"这条既有分工
+相悖——条目图标就是这么走的。现在窗口装的是应用自己的 `index_iframe.html`：宿主只把页面
+**绝对路径**记到 `PluginWindowPages`，新增命令 `plugin_window_page` 让承载页按自己的窗口标签
+取回它，再由前端 `convertFileSrc` 拼 iframe 的 `src`。Rust 侧不再有任何 URL 拼装与转义。
+
+代价：多一个前端入口与一条命令；插件页面从此在 iframe 里而不是顶层（`window.close()` 这类
+顶层假设不再成立），顶层导航守卫也从"只认 asset"改成放行应用页与 `*.localhost`。
 
 ## 代价
 

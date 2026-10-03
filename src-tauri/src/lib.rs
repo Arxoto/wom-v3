@@ -93,6 +93,7 @@ pub fn run() {
             commands::plugin::plugin_open_plugin_search,
             commands::plugin::plugin_report_search_results,
             commands::plugin::plugin_open_html_window,
+            commands::plugin::plugin_window_page,
         ])
         .setup(|app| {
             // 隐藏 Dock 图标， App 级配置，即使是打开配置窗口也不会出现在 Dock 栏
@@ -101,6 +102,9 @@ pub fn run() {
 
             // 主窗口重建状态：第一次建窗之前托管
             window_utils::init_state(app.handle());
+
+            // 插件窗口的承载页账本
+            app.manage(plugin_window::PluginWindowPages::new());
 
             // 插件注册表：组装（注册 launcher 并读它的 manifest）也在建窗口前完成，
             // 检索命令以 `State<PluginRegistry>` 取用

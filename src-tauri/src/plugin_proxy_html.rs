@@ -4,8 +4,8 @@
 //! 在 `init` 里重读清单、只注册一条宿主定类型的条目。差别只在条目类型与动作：
 //! 触发它的唯一动作直接打开清单里那个页面，不走 webview 的搜索与动作回程。
 //!
-//! 打开页面复用 [`crate::plugin_window`] 那条路：asset protocol 与"一个包一个窗口"
-//! 与 JS 插件的 `open_window` 同一条，没有新命令、没有新的 capability。
+//! 打开页面复用 [`crate::plugin_window`] 那条路："一个包一个窗口"与 JS 插件的
+//! `open_window` 同一条，没有新的 capability。
 
 use tauri::AppHandle;
 
