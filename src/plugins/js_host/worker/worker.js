@@ -3,7 +3,8 @@
 /**
  * @typedef {object} PluginHostApi
  * @property {(spec: unknown) => void} register
- * @property {(spec: unknown) => void} open_window
+ * @property {(spec: unknown) => Promise<unknown>} open_window
+ * @property {(command: string, payload: unknown) => Promise<unknown>} request
  * @property {(text: unknown) => void} log
  * @property {(text: unknown) => void} fail
  */
@@ -26,11 +27,33 @@ let registered = false;
 let search_of;
 /** @type {PluginWire.RunFn | undefined} */
 let run_of;
+let next_request_id = 1;
+
+/**
+ * @typedef {object} PendingRequest
+ * @property {(value: unknown) => void} resolve
+ * @property {(reason: unknown) => void} reject
+ */
+
+/** @type {Map<number, PendingRequest>} */
+const pending_requests = new Map();
 
 /**
  * @param {PluginWire.WorkerToHost} message
  */
 const post = message => post_to_host(message);
+
+/**
+ * @param {string} command
+ * @param {unknown} payload
+ * @returns {Promise<unknown>}
+ */
+const request = (command, payload) => new Promise((resolve, reject) => {
+    const request_id = next_request_id++;
+
+    pending_requests.set(request_id, { resolve, reject });
+    post({ kind: "request", request_id, command, payload });
+});
 
 /** @type {PluginHostApi} */
 const host_api = {
@@ -54,17 +77,8 @@ const host_api = {
         registered = true;
         post({ kind: "register", spec: data });
     },
-    open_window: spec => {
-        const source = typeof spec === "object" && spec !== null ? /** @type {Record<string, unknown>} */ (spec) : {};
-
-        post({
-            kind: "open_window",
-            path: typeof source.path === "string" ? source.path : "",
-            title: typeof source.title === "string" ? source.title : "",
-            width: typeof source.width === "number" ? source.width : 0,
-            height: typeof source.height === "number" ? source.height : 0,
-        });
-    },
+    open_window: spec => request("open_window", spec),
+    request,
     log: text => post({ kind: "log", text: String(text) }),
     fail: text => post({ kind: "fail", text: String(text) }),
 };
@@ -163,5 +177,14 @@ scope.addEventListener("message", event => {
         case "run":
             run(message);
             return;
+        case "response": {
+            const pending = pending_requests.get(message.request_id);
+            if (pending === undefined) return;
+
+            pending_requests.delete(message.request_id);
+            if (message.ok) pending.resolve(message.value);
+            else pending.reject(new Error(message.reason));
+            return;
+        }
     }
 });

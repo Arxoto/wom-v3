@@ -125,8 +125,8 @@ class PluginRuntime {
                     void warn(`[plugin] invalid register spec, dropped: ${this.plugin_id}`);
                 }
                 return;
-            case "open_window":
-                void on_open_window(this.plugin_id, message);
+            case "request":
+                void this.on_request(message);
                 return;
             case "log":
                 void info(`[plugin] ${message.text}`);
@@ -144,6 +144,26 @@ class PluginRuntime {
         }
     }
 
+    private async on_request(message: Extract<PluginWire.WorkerToHost, { kind: "request" }>): Promise<void> {
+        let reply: HostReply;
+
+        try {
+            reply = await handle_request(this.plugin_id, message.command, message.payload);
+        } catch (err) {
+            reply = { ok: false, value: null, reason: String(err) };
+        }
+
+        const response: Extract<PluginWire.HostToWorker, { kind: "response" }> = {
+            kind: "response",
+            request_id: message.request_id,
+            ok: reply.ok,
+            value: reply.value,
+            reason: reply.reason,
+        };
+
+        this.worker.postMessage(response);
+    }
+
     private on_error(event: ErrorEvent): void {
         void warn(`[plugin] worker error: ${this.plugin_id} ${event.message}`);
 
@@ -157,11 +177,41 @@ class PluginRuntime {
 
 const loaded = new Map<string, Promise<PluginRuntime | null>>();
 
-const on_open_window = async (plugin_id: string, message: Extract<PluginWire.WorkerToHost, { kind: "open_window" }>) => {
+interface HostReply {
+    ok: boolean,
+    value: unknown,
+    reason: string,
+}
+
+const handle_request = async (plugin_id: string, command: unknown, payload: unknown): Promise<HostReply> => {
+    if (typeof command !== "string") {
+        return { ok: false, value: null, reason: "request command is not a string" };
+    }
+
+    switch (command) {
+        case "open_window":
+            return handle_open_window(plugin_id, payload);
+        default:
+            return { ok: false, value: null, reason: `unknown request: ${command}` };
+    }
+};
+
+const handle_open_window = async (plugin_id: string, payload: unknown): Promise<HostReply> => {
+    const source = typeof payload === "object" && payload !== null ? payload as Record<string, unknown> : {};
+
     try {
-        await plugin_open_html_window(plugin_id, message.path, message.title, message.width, message.height);
+        await plugin_open_html_window(
+            plugin_id,
+            typeof source.path === "string" ? source.path : "",
+            typeof source.title === "string" ? source.title : "",
+            typeof source.width === "number" ? source.width : 0,
+            typeof source.height === "number" ? source.height : 0,
+        );
+
+        return { ok: true, value: null, reason: "" };
     } catch (err) {
         void warn(`[plugin] open window failed: ${plugin_id} ${String(err)}`);
+        return { ok: false, value: null, reason: String(err) };
     }
 };
 
