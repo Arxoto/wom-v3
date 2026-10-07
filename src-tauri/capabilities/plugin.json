@@ -1,0 +1,22 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "plugin",
+  "description": "Capability for plugin windows",
+  "local": true,
+  "windows": [
+    "plugin-*"
+  ],
+  "permissions": [
+    "core:app:default",
+    "core:event:default",
+    "core:image:default",
+    "core:path:default",
+    "core:resources:default",
+    "core:webview:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "log:default",
+    "notification:default",
+    "opener:default"
+  ]
+}

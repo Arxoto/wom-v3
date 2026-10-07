@@ -1,0 +1,16 @@
+[[permission]]
+identifier = "main-window"
+description = "主窗口（主面板）能调用的应用命令：读配置与窗口效果、显示/隐藏/重建主窗口、以及插件体系那一套检索与动作。"
+commands.allow = [
+  "dismiss_main_window",
+  "fetch_config",
+  "fetch_effect_info",
+  "plugin_open_html_window",
+  "plugin_open_plugin_search",
+  "plugin_report_search_results",
+  "plugin_run_item_action",
+  "plugin_search",
+  "plugin_search_page",
+  "should_show_main_auto",
+  "show_main_window",
+]

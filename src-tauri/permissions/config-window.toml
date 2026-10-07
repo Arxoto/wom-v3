@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "config-window"
+description = "配置窗口能调用的应用命令：读配置与窗口效果、保存配置、重新注册全局快捷键、重建主窗口。"
+commands.allow = [
+  "fetch_config",
+  "fetch_effect_info",
+  "register_global_shortcut",
+  "rebuild_main_window",
+  "save_config",
+]
