@@ -15,6 +15,10 @@ JS 插件入口以 `<script src>`（asset protocol）注入 webview，**宿主�
 **插件能不能被搜索到不依赖它的代码能否成功执行**——清单坏了跳过那个包，代码坏了只是结果页为空。
 uTools 的 `plugin.json` 里的 `features[].cmds` 是同一个形状。
 
+> 后续：清单已经从 `manifest.yml` 换成 `manifest.json`，包的形态由必填的 `type` 显式声明
+> （`js` / `html`），见 [ADR-0014](./0014-manifest-json-and-explicit-package-type.md)。这一节的
+> 其余内容不变：清单承担索引，坏清单只跳过那个包。
+
 ## 一个 `Plugin Package` 在 Rust 侧有一个代理
 
 `PluginRegistry::run_action` 按 `ItemHandle` 找到插件块、调那个块里的 Rust `Plugin` 对象。
@@ -57,6 +61,7 @@ uTools 的 `plugin.json` 里的 `features[].cmds` 是同一个形状。
    声明成全局的（`src/plugins/js_host/protocol.d.ts`）。
 
 **上面"代价"一节里那句"与 ADR-0010 的 `ReactNode` 注册形状冲突"是误判**：`ReactNode` 只出现在
-宿主自己写的注册里（`launcher.tsx` / `js_host.tsx`），插件这一侧交上来的图标一直是字符串、
+宿主自己写的注册里（现在分别是 `src/plugins/launcher/launcher.tsx` 与
+`src/plugins/js_host/register.tsx`），插件这一侧交上来的图标一直是字符串、
 结果行一直是纯对象。Worker 真正要付的是：插件没有 DOM、每个插件多一个 Worker 与一份消息协议、
 `register` 从同步调用变成消息往返；以及同进程不同线程，仍谈不上安全边界（独立进程那条仍是下一轮）。

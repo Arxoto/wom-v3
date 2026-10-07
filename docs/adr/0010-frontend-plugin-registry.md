@@ -1,6 +1,6 @@
 # 前端插件注册表：动作表以它为准，内置与 JS 插件走同一条注册路径
 
-界面那一层原本把一个插件的三件事散在两处：类型名 → 图标在 `src/main/item/item_icons.tsx`、动作 id → 图标在 `src/main/item/action_icons.tsx`、`label_key` → 中文在 `src/main/interaction/action_labels.ts`，而「某类型有哪些动作、顺序如何」来自 Rust 下发的动作表。这一轮把前两件与第三件收进 `src/plugins/`：`registry.tsx`（注册表本体：注册、查找、动作解析）、`launcher.tsx`（launcher 插件的注册内容）、两个图标文件（`launcher_icons.tsx` / `launcher_action_icons.tsx`）。旧的三处随之删除。
+界面那一层原本把一个插件的三件事散在两处：类型名 → 图标在 `src/main/item/item_icons.tsx`、动作 id → 图标在 `src/main/item/action_icons.tsx`、`label_key` → 中文在 `src/main/interaction/action_labels.ts`，而「某类型有哪些动作、顺序如何」来自 Rust 下发的动作表。这一轮把前两件与第三件收进 `src/plugins/`：`registry.tsx`（注册表本体：注册、查找、动作解析）、`launcher/launcher.tsx`（launcher 插件的注册内容）、两个图标文件（`launcher/launcher_icons.tsx` / `launcher/launcher_action_icons.tsx`）。旧的三处随之删除。
 
 ## 动作表以**前端注册表**为准
 

@@ -5,7 +5,8 @@
 //! 触发它的唯一动作直接打开清单里那个页面，不走 webview 的搜索与动作回程。
 //!
 //! 打开页面复用 [`crate::plugin_window`] 那条路："一个包一个窗口"与 JS 插件的
-//! `open_window` 同一条，没有新的 capability。
+//! `open_window` 同一条；打开这个动作本身不需要额外放行，插件窗口自己那份 capability 见
+//! `docs/adr/0015`。
 
 use tauri::AppHandle;
 

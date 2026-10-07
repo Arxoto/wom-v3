@@ -9,7 +9,9 @@ ADR-0008 让内建体系（`builtin_plugins`）与插件体系并行存在，ADR
 
 这一轮把 `builtin_plugins` 整个删除（模块根加 14 个子文件），连带它的命令与注册、`BuiltinStat`
 运行时状态、只服务于它的 `SETTING_FILE_NAME` 常量，以及前端 `core.tsx` 里已无人使用的
-`ScanBase` / `ScanBaseOption` 镜像类型。托盘菜单的插件重载此后只重读 launcher 的 manifest。
+`ScanBase` / `ScanBaseOption` 镜像类型。托盘菜单的插件重载此后只重读 launcher 的 manifest
+（后来的 `re_packages` 那项是另一回事：它重扫整个 `Plugin Folder`，新包注册、消失的包移除，
+见 `plugin_host::reload_packages`）。
 **ADR-0008 / 0009 的"并行、稳定后再替换"到此结束，本 ADR 取代它们。**
 
 ## 没有任何已实现的行为随删除消失

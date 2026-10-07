@@ -63,7 +63,7 @@ _Avoid_: sub list, plugin list, second list
 ### Launcher plugin
 
 **Launcher**:
-The content types, persistence, and actions of the launcher plugin: system commands, commands, web pages, and scanned paths. It is the first plugin, and the only one so far.
+The content types, persistence, and actions of the launcher plugin: system commands, commands, web pages, and scanned paths. It is the first plugin, and the only built-in one.
 _Avoid_: default plugin, core plugin
 
 **Launcher Item Source**:

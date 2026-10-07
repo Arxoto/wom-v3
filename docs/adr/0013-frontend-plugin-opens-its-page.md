@@ -38,6 +38,13 @@ webview 侧起 Worker 装载插件代码，插件自己跑搜索、注册结果�
 代价：多一个前端入口与一条命令；插件页面从此在 iframe 里而不是顶层（`window.close()` 这类
 顶层假设不再成立），顶层导航守卫也从"只认 asset"改成放行应用页与 `*.localhost`。
 
+> 后续：这一节被推翻了（`763c63f`）：窗口改回**直接装插件页面**——`plugin_window::open` 借主窗口的
+> `convert_file_src` 把包内路径换算成 asset URL，用 `WebviewUrl::CustomProtocol` 直接装它，
+> 外框占位改由 `initialization_script` 注入；`index_iframe.html`、`PluginWindowPages` 与
+> `plugin_window_page` 命令一并删除，插件页面回到顶层。上面"打开页面复用既有的那条路"结尾的
+> "没有新的 capability"同时作废：插件窗口从 [ADR-0015](./0015-command-acl-and-plugin-window-api.md)
+> 起有自己的 capability（`capabilities/plugin.json`，窗口 `plugin-*`）。
+
 ## 代价
 
 - 前端插件是"一条条目 + 一个动作"的最小形态：它不能注册多条结果行，也没有 Plugin Search
