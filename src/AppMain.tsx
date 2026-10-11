@@ -97,6 +97,9 @@ todo list
   - 文件变更通知
   - 默认样式限制图片显示
 - Snippets 片段，仅允许复制
+- 图标展示
+  - 使用 https://github.com/iohannrabeson/file_icon_provider 提取系统图标
+  - 使用 https://github.com/crabnebula-dev/file-icons 获得风格化图标
 */
 
 // =================================
